@@ -1,3 +1,4 @@
+import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { View } from 'react-native';
 
@@ -12,14 +13,14 @@ type Props = {
 // web (react-native-web) directly against Expo's SDK 54 docs before this
 // library was chosen over the deprecated expo-av.
 //
-// aspectRatio is 9/16 (portrait), not 16/9: all three real guide videos
-// (module_curiosity, module_show_up, meetup-day-anxiety) are genuine
-// 1080x1920 vertical recordings, confirmed directly against each file's
-// own videoWidth/videoHeight. The previous 16/9 container pillarboxed a
-// portrait video down to a thin vertical sliver inside a wide black box,
-// the real cause behind two separate bug reports ("no video" / "video is
-// a black box with no visible play control") that turned out to be the
-// same underlying letterboxing bug, not two different defects.
+// aspectRatio is 9/16 (portrait), not 16/9: all real guide videos are
+// genuine 1080x1920 vertical recordings, confirmed directly against each
+// file's own videoWidth/videoHeight. The previous 16/9 container
+// pillarboxed a portrait video down to a thin vertical sliver inside a
+// wide black box, the real cause behind two separate bug reports ("no
+// video" / "video is a black box with no visible play control") that
+// turned out to be the same underlying letterboxing bug, not two
+// different defects.
 export function GuideVideoPlayer({ uri }: Props) {
   const player = useVideoPlayer(uri);
 
@@ -30,15 +31,25 @@ export function GuideVideoPlayer({ uri }: Props) {
   );
 }
 
-// A small, static preview for the Guides list (2026-08-24): no controls,
-// never played, relying on the browser/native video element's own
-// standard behavior of decoding and displaying the first frame once
-// loaded, even while paused (confirmed live, no explicit poster asset or
-// play() call needed). Deliberately not a shared instance with
-// GuideVideoPlayer, a list row's thumbnail and a detail screen's full
-// player have different sizing/control needs.
-export function GuideVideoThumbnail({ uri }: Props) {
+// A small, static preview for the Guides list (2026-08-24, seek behavior
+// added 2026-08-25): no controls, never played. Seeks to `seekSeconds`
+// once the player reaches 'readyToPlay' (seeking any earlier can silently
+// no-op), then leaves it paused there as the thumbnail. Every real guide
+// video's genuine opening frame (t=0) is dark/near-black, confirmed
+// directly by capturing real frames at several timestamps, not assumed;
+// 1 second in was checked the same way and reliably lands on a real,
+// visually distinctive frame with a complete (not mid-word) caption for
+// all three real videos, so it's used as a single shared default rather
+// than tuned per video. Still an explicit prop, not a hardcoded constant,
+// in case a future video's own 1-second mark turns out differently.
+export function GuideVideoThumbnail({ uri, seekSeconds = 1 }: Props & { seekSeconds?: number }) {
   const player = useVideoPlayer(uri);
+
+  useEventListener(player, 'statusChange', ({ status }) => {
+    if (status === 'readyToPlay' && player.currentTime === 0) {
+      player.currentTime = seekSeconds;
+    }
+  });
 
   return (
     <View className="h-14 w-14 overflow-hidden rounded-lg bg-black">

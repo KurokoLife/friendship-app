@@ -26,3 +26,18 @@ export function getModuleVideoUrl(moduleId: string): string | undefined {
 export function getMeetupAnxietyVideoUrl(): string | undefined {
   return publicGuideVideoUrl(MEETUP_ANXIETY_VIDEO_FILE);
 }
+
+// The Guides list's own browsable entry for the anxiety video
+// (guide_meetup_anxiety, see guide-only-entries.ts), a separate id/lookup
+// from getMeetupAnxietyVideoUrl above on purpose: that one backs
+// NextMeetupFeelingCard's contextual "Nervous" branch and is untouched by
+// this addition, even though both ultimately resolve to the same real
+// file in storage.
+const GUIDE_ONLY_VIDEO_FILES: Record<string, string> = {
+  guide_meetup_anxiety: MEETUP_ANXIETY_VIDEO_FILE,
+};
+
+export function getGuideOnlyEntryVideoUrl(id: string): string | undefined {
+  const file = GUIDE_ONLY_VIDEO_FILES[id];
+  return file ? publicGuideVideoUrl(file) : undefined;
+}
