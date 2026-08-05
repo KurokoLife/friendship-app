@@ -22,6 +22,14 @@ export type ModuleDef = {
   // One quiet line shown next to the title in the Guides list, e.g. "What
   // to say when a connection isn't working out." No "unlocks" framing.
   description: string;
+  // A longer, informal paragraph for the standalone Guide library screen
+  // (src/app/guide/[id].tsx, 2026-08-24), distinct from the one-line
+  // `description` above. Optional: only the 2 modules with a real video
+  // (module_curiosity, module_show_up) have one today, since that's the
+  // only screen that reads it. Condensed from this module's own
+  // `concept` array, not new facts, matching this project's own "don't
+  // invent content" discipline.
+  libraryDescription?: string;
   concept: string[];
   scenario: {
     prompt: string;
@@ -50,6 +58,8 @@ export const MODULES: ModuleDef[] = [
     order: 1,
     title: 'Begin With Curiosity',
     description: 'Why friendship starts with curiosity, not evaluation.',
+    libraryDescription:
+      "A profile is just a glimpse, not a whole person, so curiosity beats a snap judgment every time. A shared interest can open a door, and so can a real difference. You don't need instant chemistry to know something's worth continuing, one conversation is incomplete information on its own. An awkward moment doesn't mean it's not working either, the other person is probably just as unsure as you are.",
     concept: [
       'A profile is a glimpse, not a complete person. Friendship begins with curiosity rather than evaluation, a shared interest can open a door, and so can a difference.',
       'You do not need instant certainty or instant chemistry to know something is worth continuing. One interaction is incomplete information, and an awkward moment does not automatically mean you do not click, the other person may be feeling just as nervous or unsure as you are.',
@@ -84,6 +94,8 @@ export const MODULES: ModuleDef[] = [
     order: 2,
     title: 'How We Show Up',
     description: 'Messaging rhythm, honest closure, and naming awkwardness directly.',
+    libraryDescription:
+      "If a connection isn't right for you anymore, say so. A short, honest message is kinder than just disappearing, the other person deserves real clarity, not silence. That doesn't mean you owe anyone continued contact, though. If something feels unsafe, you can leave, block, or report, no explanation required.",
     // Concept and scenario replaced per Scene 7 of the video's own
     // script, matching honest endings rather than the earlier draft's
     // awkward-moment scenario, since the video content itself was built

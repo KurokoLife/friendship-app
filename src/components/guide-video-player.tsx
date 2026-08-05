@@ -29,3 +29,25 @@ export function GuideVideoPlayer({ uri }: Props) {
     </View>
   );
 }
+
+// A small, static preview for the Guides list (2026-08-24): no controls,
+// never played, relying on the browser/native video element's own
+// standard behavior of decoding and displaying the first frame once
+// loaded, even while paused (confirmed live, no explicit poster asset or
+// play() call needed). Deliberately not a shared instance with
+// GuideVideoPlayer, a list row's thumbnail and a detail screen's full
+// player have different sizing/control needs.
+export function GuideVideoThumbnail({ uri }: Props) {
+  const player = useVideoPlayer(uri);
+
+  return (
+    <View className="h-14 w-14 overflow-hidden rounded-lg bg-black">
+      <VideoView
+        player={player}
+        style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+        contentFit="cover"
+        nativeControls={false}
+      />
+    </View>
+  );
+}

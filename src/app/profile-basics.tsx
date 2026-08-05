@@ -146,7 +146,9 @@ export default function ProfileBasicsScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <SafeAreaView className="flex-1 justify-between px-6 py-10">
-        <View />
+        <Pressable onPress={() => router.replace('/email-verification')}>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+        </Pressable>
 
         <View className="gap-5">
           <View className="gap-3">

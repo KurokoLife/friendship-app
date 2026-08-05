@@ -5,6 +5,8 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GuideVideoThumbnail } from '@/components/guide-video-player';
+import { getModuleVideoUrl } from '@/lib/module-videos';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { MODULES } from '@/lib/modules-data';
 
@@ -58,7 +60,13 @@ export default function GuidesScreen() {
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
-        <ScrollView contentContainerClassName="gap-5 px-6 pb-6 pt-10">
+        <View className="px-6 pt-10">
+          <Pressable onPress={() => router.back()}>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerClassName="gap-5 px-6 pb-6 pt-5">
           <View className="gap-2">
             <Text className="text-title text-stone-900 dark:text-stone-50">Guides</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
@@ -69,11 +77,20 @@ export default function GuidesScreen() {
           <View className="gap-1">
             {MODULES.map((module) => {
               const isDone = Boolean(completed[module.id]);
+              // The 2 modules with a real video get their own standalone
+              // library view (guide/[id].tsx: video, title, a longer
+              // informal paragraph, no quiz/onboarding chrome), the other
+              // 9 keep routing to module/[id] exactly as before, untouched.
+              const videoUrl = getModuleVideoUrl(module.id);
               return (
                 <Pressable
                   key={module.id}
                   onPress={() =>
-                    router.push({ pathname: '/module/[id]', params: { id: module.id } })
+                    router.push(
+                      videoUrl
+                        ? { pathname: '/guide/[id]', params: { id: module.id } }
+                        : { pathname: '/module/[id]', params: { id: module.id } }
+                    )
                   }
                   className="flex-row items-start gap-3 rounded-xl px-2 py-3 active:opacity-60">
                   <View className="w-5 items-center pt-1">
@@ -81,6 +98,7 @@ export default function GuidesScreen() {
                       <Ionicons name="checkmark" size={16} color={ACCENT_COLOR} />
                     )}
                   </View>
+                  {videoUrl && <GuideVideoThumbnail uri={videoUrl} />}
                   <View className="flex-1 gap-0.5">
                     <View className="flex-row flex-wrap items-baseline gap-2">
                       <Text className="text-body text-stone-900 dark:text-stone-50">

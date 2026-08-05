@@ -40,6 +40,15 @@ export function SpotlightHost() {
   return (
     <Modal visible transparent animationType="fade">
       <View className="flex-1" style={{ pointerEvents: 'box-none' }}>
+        {/* Purely visual: no pointerEvents set here used to mean the
+            default 'auto', so these regions silently blocked taps to
+            whatever real UI sat underneath them (confirmed live, 2026-08-23
+            session: a coach mark on a freshly-visited tab could block
+            navigating to a different tab until that mark was explicitly
+            dismissed). 'none' keeps the dimming purely visual, matching
+            this app's own "gentle, once, dismissible hint" intent, not a
+            blocking modal tour, without changing anything about the
+            mark's own seen/dismissed tracking. */}
         {dimmingRegions.map((region, i) => (
           <View
             key={i}
@@ -50,6 +59,7 @@ export function SpotlightHost() {
               width: region.width,
               height: region.height,
               backgroundColor: 'rgba(0,0,0,0.55)',
+              pointerEvents: 'none',
             }}
           />
         ))}
