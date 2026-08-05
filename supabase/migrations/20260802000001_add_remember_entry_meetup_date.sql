@@ -1,0 +1,22 @@
+-- "Add an entry": lets the user pick/backdate the actual date a meetup
+-- happened, instead of only ever timestamping at save-time. Checked how
+-- dates currently work in remember_entries before deciding the approach:
+-- `created_at` (timestamptz, auto, save-time only) is the only date
+-- column that exists, and it's also the tiebreaker `fetchTimelineEntries`
+-- sorts by (after `meetup_number_at_entry`, the real primary ordering
+-- key, itself derived from `connections.meetup_count`, not a date at
+-- all, per the 2026-07-28 milestone redesign).
+--
+-- Least disruptive approach: add meetup_date as its own nullable, purely
+-- display-oriented column, alongside created_at rather than replacing
+-- it. created_at keeps meaning exactly what it always has (when the
+-- record was actually saved, still the correct tiebreaker within a
+-- meetup_number_at_entry bucket), and ordering is untouched, still
+-- meetup_number_at_entry then created_at. Re-ordering the Timeline by
+-- this new user-editable date would directly conflict with the
+-- milestone redesign's own reasoning for moving away from date-based
+-- ordering in the first place (a user could pick a nonsensical date that
+-- contradicts the real, confirmed meetup sequence), so this field is
+-- display-only by design, never a sort key.
+alter table public.remember_entries
+  add column if not exists meetup_date date;

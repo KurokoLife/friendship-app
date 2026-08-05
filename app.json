@@ -32,7 +32,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allows the app to transcribe what you say into your profile.",
+          "speechRecognitionPermission": "Allows the app to transcribe what you say into your profile."
+        }
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
