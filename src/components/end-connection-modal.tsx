@@ -215,7 +215,7 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                     {CONNECTION_END_TEMPLATES.map((t) => (
                       <Pressable
                         key={t.key}
-                        onPress={() => handlePickTemplate(t.text)}
+                        onPress={() => handlePickTemplate(t.stem)}
                         className="rounded-full border border-stone-300 px-3 py-2 dark:border-stone-700">
                         <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">
                           {t.label}
@@ -223,6 +223,9 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                       </Pressable>
                     ))}
                   </View>
+                  <Text className="text-caption text-stone-400 dark:text-stone-600">
+                    Add a word or two of your own before sending.
+                  </Text>
                   <View className="relative">
                     <TextInput
                       value={draft}

@@ -200,28 +200,43 @@ export const CONNECTION_END_REASONS: { key: ConnectionEndReason; label: string }
   { key: 'other', label: 'Other' },
 ];
 
-// Verbatim from blueprint Section 10's own "Suggested user-approved
-// wording" table (Friendship_App_Blueprint_v4.docx), no changes beyond
-// this app's own no-em-dash rule (none of the three lines had one). Still
-// gated on the same "user must edit before sending" convention the rest
-// of this app already enforces for every AI-draft/template flow, per
-// explicit instruction: picking one only pre-fills the field, it does not
-// enable Send on its own.
-export const CONNECTION_END_TEMPLATES: { key: string; label: string; text: string }[] = [
+// `text` is verbatim from blueprint Section 10's own "Suggested
+// user-approved wording" table (Friendship_App_Blueprint_v4.docx), no
+// changes beyond this app's own no-em-dash rule (none of the three lines
+// had one). Kept here as the documented, blueprint-sourced full sentence
+// even though the UI no longer inserts it directly (see `stem`), so the
+// original approved wording isn't lost.
+//
+// `stem`, added later per explicit instruction: a chip now inserts only
+// an opening fragment, not the complete sentence, a deliberate departure
+// from the blueprint's own verbatim-wording intent, flagged here rather
+// than silently made. Reasoning given: a one-tap complete sentence read
+// as too easy to send without the sender's own words in it at all, even
+// with the existing "must edit before send" gate technically satisfied
+// by editing anywhere in the message; a stem forces the user's own
+// continuation to be genuinely present in what gets sent, not just
+// technically-edited-somewhere. Each stem ends in a trailing ", " so
+// typing continues the sentence naturally; `draftEdited` (unchanged) is
+// still what gates Send, comparing against whichever text is currently
+// in the field, stem or otherwise.
+export const CONNECTION_END_TEMPLATES: { key: string; label: string; text: string; stem: string }[] = [
   {
     key: 'not_a_match',
     label: 'Not a match',
     text: "Thank you for taking the time to talk with me. I don't think we're the right friendship match, so I'm going to close the connection. I genuinely wish you well.",
+    stem: "I don't think we're the right fit for each other, ",
   },
   {
     key: 'limited_capacity',
     label: 'Limited capacity',
     text: "I've realized I don't have the capacity to build another friendship right now. I wanted to be honest rather than disappear. I wish you the best.",
+    stem: "I've realized I don't have the capacity to build another friendship right now, ",
   },
   {
     key: 'communication_mismatch',
     label: 'Communication mismatch',
     text: "I appreciate getting to know you. I don't think our communication styles are the best fit, so I'm going to step away.",
+    stem: "I appreciate getting to know you, but I don't think our communication styles are the best fit, ",
   },
 ];
 

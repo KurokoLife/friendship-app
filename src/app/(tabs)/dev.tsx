@@ -308,6 +308,8 @@ export default function DevScreen() {
       "Nothing fired: this connection's status is paused, inactive, or passed, the evaluator skips those on purpose (same guard the no-ghost scheduler uses). Use Reactivate this connection below, or pick a different thread.",
     no_activity_recorded:
       'Nothing fired: this connection has no last_plan_activity_at at all yet. Backdate it above first.',
+    date_pending_confirmation:
+      "Nothing fired: a meetup date has been proposed on this connection but not yet confirmed by the other participant, the elapsed-time fallback deliberately does not preempt a real, still-open proposal. Confirm or clear the date first, or pick a different thread.",
   };
 
   const handleRunCheckinEvaluator = async () => {

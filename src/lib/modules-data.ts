@@ -84,24 +84,28 @@ export const MODULES: ModuleDef[] = [
     order: 2,
     title: 'How We Show Up',
     description: 'Messaging rhythm, honest closure, and naming awkwardness directly.',
+    // Concept and scenario replaced per Scene 7 of the video's own
+    // script, matching honest endings rather than the earlier draft's
+    // awkward-moment scenario, since the video content itself was built
+    // around this instead.
     concept: [
-      'Messaging has a rhythm: replying within a reasonable window, being honest about a delay, and rescheduling with a real new time instead of an open-ended someday. Respectful closure matters as much as a good opening message, going quiet leaves the other person wondering what happened.',
-      'Naming an awkward moment directly, kindly, usually makes it easier for both people to move forward, not harder. Boundaries, safety, and being accountable for your own actions are part of showing up too, they are what keep this a place people can trust.',
+      'A brief, honest message about ending a connection is kinder than disappearing. The other person deserves clarity, not silence.',
+      "If something feels unsafe, you don't owe continued contact or an explanation. You can leave, block, or report.",
     ],
     scenario: {
-      prompt: "A conversation hits an awkward pause after a joke that didn't quite land. What's the healthier move?",
+      prompt: "You've decided this connection isn't right for you. What's the healthier move?",
       choices: [
         {
-          label: 'Name it lightly. Well, that landed a little awkward, anyway...',
+          label: "Send a short, honest message letting them know you're ending the connection.",
           correct: true,
           feedback:
-            'Exactly. Naming an awkward moment directly usually makes it easier for both people to move past it, not harder.',
+            "That's honest closure. Even a brief message gives the other person clarity instead of silence, and closes things with the same care you'd want to receive.",
         },
         {
-          label: 'Go quiet and let the conversation trail off.',
+          label: 'Stop replying and let the conversation quietly fade out.',
           correct: false,
           feedback:
-            "Here's what the other person experiences: silence after an awkward moment often reads as bigger than it was, when naming it plainly would have cleared the air.",
+            "Here's what the other person experiences: silence with no explanation, left wondering what happened. A short, honest message is kinder, even when it's a hard one to send.",
         },
       ],
     },
