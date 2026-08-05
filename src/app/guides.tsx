@@ -116,7 +116,11 @@ export default function GuidesScreen() {
     mandatory: m.mandatory,
     videoUrl: getModuleVideoUrl(m.id),
   }));
-  const anxietyRow: GuideRow[] = GUIDE_ONLY_ENTRIES.map((e) => ({
+  // GUIDE_ONLY_ENTRIES renders here, in its own array order (2026-08-25:
+  // anxiety, then friendship-grows-slowly), so a new guide-only entry only
+  // needs to be added to that one array to show up in the right place, no
+  // change needed here.
+  const guideOnlyRows: GuideRow[] = GUIDE_ONLY_ENTRIES.map((e) => ({
     id: e.id,
     title: e.title,
     description: e.description,
@@ -130,7 +134,7 @@ export default function GuidesScreen() {
     mandatory: m.mandatory,
     videoUrl: getModuleVideoUrl(m.id),
   }));
-  const rows = [...onboardingVideoRows, ...anxietyRow, ...remainingRows];
+  const rows = [...onboardingVideoRows, ...guideOnlyRows, ...remainingRows];
 
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">

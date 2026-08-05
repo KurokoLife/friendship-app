@@ -35,6 +35,7 @@ export function getMeetupAnxietyVideoUrl(): string | undefined {
 // file in storage.
 const GUIDE_ONLY_VIDEO_FILES: Record<string, string> = {
   guide_meetup_anxiety: MEETUP_ANXIETY_VIDEO_FILE,
+  guide_friendship_grows: 'module_small_gestures.mp4',
 };
 
 export function getGuideOnlyEntryVideoUrl(id: string): string | undefined {

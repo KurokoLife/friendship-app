@@ -35,13 +35,26 @@ export type GuideOnlyEntry = {
 // before meeting up. A couple of thoughts before you go."), used as the
 // sole grounding for the text below, deliberately brief rather than
 // elaborated on.
+// module_small_gestures.mp4 (2026-08-25). Content sourced directly from a
+// real, explicit purpose/learning-outcome brief given for this specific
+// video, not searched for or inferred, unlike the anxiety entry above.
+// The description below is a synthesis of that brief in this app's own
+// established Guides tone, not a verbatim copy of every listed point, but
+// nothing here goes beyond what the brief actually said.
 export const GUIDE_ONLY_ENTRIES: GuideOnlyEntry[] = [
   {
     id: 'guide_meetup_anxiety',
-    title: 'Feeling Nervous Before a Meetup',
+    title: 'The First Meetup Does Not Need to Be Perfect',
     description: 'A short note for the nerves before a meetup.',
     libraryDescription:
       "For the moments before a meetup when nerves show up: a completely normal way to feel, with a couple of thoughts to carry with you before you go.",
+  },
+  {
+    id: 'guide_friendship_grows',
+    title: 'Friendship Grows a Little at a Time',
+    description: 'Why closeness usually builds slowly, not all at once.',
+    libraryDescription:
+      "After a good first meetup, it's easy to feel pressure to keep the momentum going, to be endlessly interesting, or to share something deeply personal to prove the connection is real. Closeness usually doesn't work that way. It tends to grow through ordinary, repeated contact: showing up reliably, paying attention, and gradually letting someone know more of who you are. You don't have to force it, and you don't have to match someone else's pace. Both people get to decide what feels comfortable.",
   },
 ];
 
