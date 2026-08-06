@@ -67,6 +67,20 @@ export async function resetCoachMarks(): Promise<void> {
   cachedSeen = new Set();
 }
 
+// Dev tab's Time Travel panel: reset just one mark, same own-row DELETE
+// RLS as resetCoachMarks, scoped narrower. Clears the shared cache
+// entirely rather than surgically removing one key, simpler and correct
+// either way since the next real read re-populates it from the (now
+// smaller) real table state.
+export async function resetCoachMark(key: CoachMarkKey): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from('coach_marks_seen').delete().eq('user_id', user.id).eq('mark_key', key);
+  cachedSeen = null;
+}
+
 // Called on every real auth change (sign-in, sign-out, Dev-tab account
 // switch, token refresh) so a different account's cache is never reused.
 export function clearCoachMarksCache(): void {

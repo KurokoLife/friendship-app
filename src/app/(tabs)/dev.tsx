@@ -4,9 +4,42 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { type CoachMarkKey, resetCoachMark, resetCoachMarks } from '@/lib/coach-marks';
 import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
 import { type NoGhostTriggerId } from '@/lib/no-ghost';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+
+const MUTED_ICON_COLOR = '#a8a29e'; // stone-400, matches this app's own established placeholder color
+
+// The 9 real coach-mark keys, for the Time Travel panel's "reset one
+// specific mark" picker. Not imported from coach-marks.ts's own type
+// (a type has no runtime array to iterate), kept in sync manually, same
+// as every other place in this codebase that needs a real list alongside
+// a type (e.g. DEV_SEED_USERS above).
+const ALL_COACH_MARK_KEYS: CoachMarkKey[] = [
+  'tab_discover',
+  'tab_browse',
+  'tab_saved',
+  'tab_inbox',
+  'no_ghost_prompt',
+  'meetup_checkin',
+  'tab_remember',
+  'tab_profile',
+  'credits_premium',
+];
+
+// The 5 real free-tier-capped functions (ai_function_caps) plus
+// generate-personality-narrative's separate retake cap (special-cased
+// inside get_ai_gate_status, not in ai_function_caps), for the Time
+// Travel panel's AI-usage-cap reset picker.
+const AI_CAPPED_FUNCTIONS = [
+  'generate-reply-draft',
+  'generate-activity-suggestions',
+  'generate-connection-analysis',
+  'organize-remember-entry',
+  'summarize-remember-timeline',
+  'generate-personality-narrative',
+];
 
 type DevConversation = {
   connection_id: string;
@@ -67,6 +100,26 @@ export default function DevScreen() {
   const [planActivityHoursAgo, setPlanActivityHoursAgo] = useState('170');
   const [checkinBusy, setCheckinBusy] = useState<string | null>(null);
   const [checkinDevStatus, setCheckinDevStatus] = useState<string | null>(null);
+  const [reflectionOffsetHours, setReflectionOffsetHours] = useState('25');
+  const [reflectionRunBusy, setReflectionRunBusy] = useState(false);
+  const [reflectionRunStatus, setReflectionRunStatus] = useState<string | null>(null);
+
+  // Time Travel panel state
+  const [ttBusy, setTtBusy] = useState<string | null>(null);
+  const [ttStatus, setTtStatus] = useState<string | null>(null);
+  const [ttBackdateHours, setTtBackdateHours] = useState('48');
+  const [ttNewMsgSenderId, setTtNewMsgSenderId] = useState<string | null>(null);
+  const [ttNewMsgText, setTtNewMsgText] = useState('');
+  const [ttNewMsgHoursAgo, setTtNewMsgHoursAgo] = useState('24');
+  const [ttMeetupDate, setTtMeetupDate] = useState('');
+  const [ttMeetupStatus, setTtMeetupStatus] = useState<'proposed' | 'confirmed' | null>(null);
+  const [ttMeetupProposedBy, setTtMeetupProposedBy] = useState<string | null>(null);
+  const [ttDisclosedHoursAgo, setTtDisclosedHoursAgo] = useState('192');
+  const [ttSpecificMark, setTtSpecificMark] = useState<CoachMarkKey>('tab_discover');
+  const [ttCapFunction, setTtCapFunction] = useState<string>('generate-reply-draft');
+  const [ttCapHoursAgo, setTtCapHoursAgo] = useState('');
+  const [ttPoolHoursAgo, setTtPoolHoursAgo] = useState('40');
+  const [ttPoolSpent, setTtPoolSpent] = useState('0');
 
   const loadConversations = useCallback(async () => {
     if (!isSupabaseConfigured) return;
@@ -269,6 +322,53 @@ export default function DevScreen() {
     setReflectionStatus(rpcError ? rpcError.message : 'Reflection state cleared for this thread.');
   };
 
+  // Time Travel panel investigation finding: run_follow_up_reflection_check
+  // already accepted a simulated p_now, but had no dev-callable wrapper at
+  // all (unlike no-ghost and meetup-checkin, both of which already have a
+  // "run with offset" control above), and used to return void, the exact
+  // "can't tell a real no-op from a bug" gap already fixed once for the
+  // checkin evaluator (2026-08-01). Fixed at the DB layer (migration
+  // 20260824000000) and wired here, in the existing F19 section rather
+  // than a new one, since this is the same "time offset" pattern the
+  // no-ghost/checkin sections above already use, just for the one real
+  // evaluator that was missing it.
+  const REFLECTION_RESULT_MESSAGES: Record<string, string> = {
+    fired: 'Fired. A reflection row was created for both participants, open the thread as either to see it.',
+    already_fired_this_cycle:
+      'Nothing new happened: a reflection row already exists for this cycle. Use Reset reflection state above, or send a fresh message (which clears it automatically), then try again.',
+    not_enough_time_elapsed:
+      'Nothing fired: less than 24 hours have passed since the last real message. Increase the hours-ago value above.',
+    not_two_sided_conversation:
+      'Nothing fired: this requires a real two-sided exchange (both participants have sent at least one message), not just an unanswered opener.',
+    no_messages: 'Nothing fired: this connection has no messages at all yet.',
+    connection_not_found: 'Nothing fired: this connection could not be found.',
+  };
+
+  const handleRunReflectionEvaluator = async () => {
+    if (!selectedConnectionId) return;
+    const hours = Number(reflectionOffsetHours);
+    if (!Number.isFinite(hours)) {
+      setReflectionRunStatus('Enter a number of hours, e.g. 25.');
+      return;
+    }
+    setReflectionRunBusy(true);
+    setReflectionRunStatus(null);
+    const fakeNow = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    const { data, error: rpcError } = await supabase.rpc('dev_run_follow_up_reflection_check', {
+      p_connection_id: selectedConnectionId,
+      p_now: fakeNow,
+    });
+    setReflectionRunBusy(false);
+    if (rpcError) {
+      setReflectionRunStatus(rpcError.message);
+      return;
+    }
+    const result = data as string | null;
+    setReflectionRunStatus(
+      (result && REFLECTION_RESULT_MESSAGES[result]) || `Evaluator ran, unrecognized result: ${result}`
+    );
+  };
+
   // 2026-07-28 milestone redesign dev tools: backdates last_plan_activity_at
   // directly (dev_set_last_plan_activity), same simulated-time-offset
   // pattern the no-ghost section already established, so the elapsed-time
@@ -360,6 +460,209 @@ export default function DevScreen() {
     });
     setCheckinBusy(null);
     setCheckinDevStatus(rpcError ? rpcError.message : 'Checkin rows cleared for this connection.');
+  };
+
+  // ---- Time Travel panel ----
+  // Message/meetup capabilities below operate on the selected connection
+  // above (same picker No-ghost testing already uses). User-level
+  // capabilities (coach marks, friendship_experience, disclosed_at, AI
+  // caps, premium pool) operate on the currently signed-in account,
+  // matching this file's own established convention (dev_reset_my_matches,
+  // the F19 triggers) rather than adding a new cross-account reach.
+
+  const handleBackdateLastMessage = async () => {
+    if (!selectedConnectionId) return;
+    const hours = Number(ttBackdateHours);
+    if (!Number.isFinite(hours)) {
+      setTtStatus('Enter a number of hours, e.g. 48.');
+      return;
+    }
+    setTtBusy('backdate-last-message');
+    setTtStatus(null);
+    const { data, error: rpcError } = await supabase.rpc('dev_backdate_last_message', {
+      p_connection_id: selectedConnectionId,
+      p_hours_ago: hours,
+    });
+    setTtBusy(null);
+    if (rpcError) {
+      setTtStatus(rpcError.message);
+      return;
+    }
+    if (!data?.found) {
+      setTtStatus('This connection has no messages yet, nothing to backdate.');
+      return;
+    }
+    setTtStatus(
+      `Before: ${new Date(data.old_created_at).toLocaleString()} → After: ${new Date(data.new_created_at).toLocaleString()}. Reload the thread to see it.`
+    );
+  };
+
+  const handleSendBackdatedMessage = async () => {
+    if (!selectedConnectionId || !ttNewMsgSenderId) {
+      setTtStatus('Select a connection and a sender first.');
+      return;
+    }
+    const content = ttNewMsgText.trim();
+    if (!content) {
+      setTtStatus('Enter some message text first.');
+      return;
+    }
+    const hours = Number(ttNewMsgHoursAgo);
+    if (!Number.isFinite(hours)) {
+      setTtStatus('Enter a number of hours, e.g. 24.');
+      return;
+    }
+    setTtBusy('send-message');
+    setTtStatus(null);
+    const { data, error: rpcError } = await supabase.rpc('dev_send_backdated_message', {
+      p_connection_id: selectedConnectionId,
+      p_sender_id: ttNewMsgSenderId,
+      p_content: content,
+      p_hours_ago: hours,
+    });
+    setTtBusy(null);
+    setTtStatus(
+      rpcError
+        ? rpcError.message
+        : `Sent. created_at set to ${new Date(data.created_at).toLocaleString()}. Reload the thread to see it. Note: this bypasses the real send-time gates (photo requirement, messaging_preference, blocked/inactive/ended), it's for seeding test data, not exercising those checks.`
+    );
+  };
+
+  const handleSetNextMeetup = async () => {
+    if (!selectedConnectionId) return;
+    setTtBusy('set-next-meetup');
+    setTtStatus(null);
+    const { data, error: rpcError } = await supabase.rpc('dev_set_next_meetup', {
+      p_connection_id: selectedConnectionId,
+      p_date: ttMeetupDate.trim() || null,
+      p_status: ttMeetupStatus,
+      p_proposed_by: ttMeetupProposedBy,
+    });
+    setTtBusy(null);
+    setTtStatus(
+      rpcError
+        ? rpcError.message
+        : `Before: ${JSON.stringify(data.old)} → After: ${JSON.stringify(data.new)}. Reload the thread to see it.`
+    );
+  };
+
+  const handleBackdateDisclosedAt = async () => {
+    const hours = Number(ttDisclosedHoursAgo);
+    if (!Number.isFinite(hours)) {
+      setTtStatus('Enter a number of hours, e.g. 192 (8 days).');
+      return;
+    }
+    setTtBusy('disclosed-at');
+    setTtStatus(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setTtBusy(null);
+      setTtStatus('Sign in as a seed account first.');
+      return;
+    }
+    const newValue = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ behavioral_tracking_disclosed_at: newValue })
+      .eq('id', user.id);
+    setTtBusy(null);
+    setTtStatus(
+      updateError
+        ? updateError.message
+        : `behavioral_tracking_disclosed_at set to ${new Date(newValue).toLocaleString()} for the signed-in account. This feeds the friendship-experience prompt's 7-day no-message backstop, reload Discover to see it.`
+    );
+  };
+
+  const handleResetAllCoachMarks = async () => {
+    setTtBusy('reset-all-marks');
+    setTtStatus(null);
+    await resetCoachMarks();
+    setTtBusy(null);
+    setTtStatus('All coach marks cleared for the signed-in account. Reload any tab to see its tip again.');
+  };
+
+  const handleResetOneCoachMark = async () => {
+    setTtBusy('reset-one-mark');
+    setTtStatus(null);
+    await resetCoachMark(ttSpecificMark);
+    setTtBusy(null);
+    setTtStatus(`"${ttSpecificMark}" cleared for the signed-in account. Reload the relevant screen to see it again.`);
+  };
+
+  const handleResetFriendshipExperience = async () => {
+    setTtBusy('reset-experience');
+    setTtStatus(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setTtBusy(null);
+      setTtStatus('Sign in as a seed account first.');
+      return;
+    }
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ friendship_experience: null })
+      .eq('user_id', user.id);
+    setTtBusy(null);
+    setTtStatus(
+      updateError
+        ? updateError.message
+        : 'friendship_experience cleared for the signed-in account. The AI reflection will fall back to pending copy for "What has helped"/"When uncertain" until answered again.'
+    );
+  };
+
+  const handleResetAiCap = async (mode: 'clear' | 'backdate') => {
+    setTtBusy(`ai-cap-${mode}`);
+    setTtStatus(null);
+    const hours = mode === 'backdate' ? Number(ttCapHoursAgo) : null;
+    if (mode === 'backdate' && !Number.isFinite(hours)) {
+      setTtBusy(null);
+      setTtStatus('Enter a number of hours to backdate by, e.g. 200.');
+      return;
+    }
+    const { data, error: rpcError } = await supabase.rpc('dev_reset_ai_usage', {
+      p_function_name: ttCapFunction,
+      p_hours_ago: mode === 'backdate' ? hours : null,
+    });
+    setTtBusy(null);
+    setTtStatus(
+      rpcError
+        ? rpcError.message
+        : `${data.mode === 'cleared' ? 'Cleared' : 'Backdated'} ${data.rows_affected} usage row(s) for ${ttCapFunction} on the signed-in account.`
+    );
+  };
+
+  const handleResetPremiumPool = async () => {
+    const hours = Number(ttPoolHoursAgo);
+    const spent = Number(ttPoolSpent);
+    if (!Number.isFinite(hours) || !Number.isFinite(spent)) {
+      setTtStatus('Enter valid numbers for both hours-ago and spent ($).');
+      return;
+    }
+    setTtBusy('premium-pool');
+    setTtStatus(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setTtBusy(null);
+      setTtStatus('Sign in as a seed account first.');
+      return;
+    }
+    const newPeriodStart = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ premium_pool_period_start: newPeriodStart, premium_pool_spent_usd: spent })
+      .eq('id', user.id);
+    setTtBusy(null);
+    setTtStatus(
+      updateError
+        ? updateError.message
+        : `premium_pool_period_start set to ${new Date(newPeriodStart).toLocaleString()}, premium_pool_spent_usd set to $${spent.toFixed(2)}. Only affects a premium account; the pool is otherwise unread for free-tier accounts.`
+    );
   };
 
   return (
@@ -553,6 +856,31 @@ export default function DevScreen() {
                 {reflectionStatus && (
                   <Text className="text-caption text-stone-500 dark:text-stone-400">{reflectionStatus}</Text>
                 )}
+                <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    Run the real evaluator (requires 24hr+ since the last message, and a genuine
+                    two-sided exchange), as if this many hours from now had passed
+                  </Text>
+                  <View className="flex-row items-center gap-2">
+                    <TextInput
+                      value={reflectionOffsetHours}
+                      onChangeText={setReflectionOffsetHours}
+                      keyboardType="numeric"
+                      className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                    />
+                    <Pressable
+                      onPress={handleRunReflectionEvaluator}
+                      disabled={reflectionRunBusy}
+                      className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                      <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                        {reflectionRunBusy ? 'Running...' : 'Run evaluator now'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {reflectionRunStatus && (
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">{reflectionRunStatus}</Text>
+                  )}
+                </View>
               </View>
             ) : (
               <Text className="text-caption text-stone-400 dark:text-stone-600">
@@ -631,6 +959,337 @@ export default function DevScreen() {
                 Select a conversation above first.
               </Text>
             )}
+          </View>
+
+          <View className="gap-3 border-t border-stone-200 pt-6 dark:border-stone-800">
+            <View className="gap-1">
+              <Text className="text-title text-stone-900 dark:text-stone-50">Time Travel</Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                Trigger and verify time-based features directly, without a new session each time.
+                Message/meetup tools below use the same connection selected under No-ghost testing
+                above. Already covered elsewhere, not duplicated here: backdating
+                last_plan_activity_at (Meetup milestone testing above), and running the no-ghost /
+                meetup-checkin evaluators with a simulated time offset (their own sections above).
+                The follow-up-reflection evaluator&apos;s own &quot;Run evaluator now&quot; is in the
+                F19 section above too. User-level tools below (coach marks, friendship experience,
+                disclosed-at, AI caps, premium pool) act on whichever account is currently signed in.
+              </Text>
+            </View>
+
+            {ttStatus && (
+              <View className="rounded-xl border border-accent-500/40 bg-accent-500/5 p-3">
+                <Text className="text-caption text-stone-700 dark:text-stone-300">{ttStatus}</Text>
+              </View>
+            )}
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Backdate most recent message
+              </Text>
+              {selectedConnectionId ? (
+                <View className="flex-row items-center gap-2">
+                  <TextInput
+                    value={ttBackdateHours}
+                    onChangeText={setTtBackdateHours}
+                    keyboardType="numeric"
+                    className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                  />
+                  <Pressable
+                    onPress={handleBackdateLastMessage}
+                    disabled={ttBusy === 'backdate-last-message'}
+                    className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                    <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                      {ttBusy === 'backdate-last-message' ? 'Backdating...' : 'Backdate (hours ago)'}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                  Select a conversation above first.
+                </Text>
+              )}
+            </View>
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Send a new message, any sender, backdated
+              </Text>
+              {selectedConnectionId && connectionInfo ? (
+                <View className="gap-2">
+                  <View className="flex-row gap-2">
+                    <Pressable
+                      onPress={() => setTtNewMsgSenderId(connectionInfo.user_a_id)}
+                      className={`rounded-full border px-3 py-2 ${
+                        ttNewMsgSenderId === connectionInfo.user_a_id
+                          ? 'border-accent-500 bg-accent-500/10'
+                          : 'border-stone-300 dark:border-stone-700'
+                      }`}>
+                      <Text className="text-caption text-stone-700 dark:text-stone-300">
+                        Sender: user A ({connectionInfo.user_a_id.slice(0, 8)})
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setTtNewMsgSenderId(connectionInfo.user_b_id)}
+                      className={`rounded-full border px-3 py-2 ${
+                        ttNewMsgSenderId === connectionInfo.user_b_id
+                          ? 'border-accent-500 bg-accent-500/10'
+                          : 'border-stone-300 dark:border-stone-700'
+                      }`}>
+                      <Text className="text-caption text-stone-700 dark:text-stone-300">
+                        Sender: user B ({connectionInfo.user_b_id.slice(0, 8)})
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <TextInput
+                    value={ttNewMsgText}
+                    onChangeText={setTtNewMsgText}
+                    placeholder="Message text"
+                    placeholderTextColor={MUTED_ICON_COLOR}
+                    multiline
+                    className="rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                  />
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">Hours ago</Text>
+                    <TextInput
+                      value={ttNewMsgHoursAgo}
+                      onChangeText={setTtNewMsgHoursAgo}
+                      keyboardType="numeric"
+                      className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                    />
+                    <Pressable
+                      onPress={handleSendBackdatedMessage}
+                      disabled={ttBusy === 'send-message'}
+                      className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                      <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                        {ttBusy === 'send-message' ? 'Sending...' : 'Send'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                  Select a conversation above first.
+                </Text>
+              )}
+            </View>
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Set next-meetup date / status / proposed-by directly
+              </Text>
+              {selectedConnectionId && connectionInfo ? (
+                <View className="gap-2">
+                  <TextInput
+                    value={ttMeetupDate}
+                    onChangeText={setTtMeetupDate}
+                    placeholder="YYYY-MM-DD (blank to clear)"
+                    placeholderTextColor={MUTED_ICON_COLOR}
+                    className="rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                  />
+                  <View className="flex-row flex-wrap gap-2">
+                    {(['proposed', 'confirmed', null] as const).map((s) => (
+                      <Pressable
+                        key={s ?? 'none'}
+                        onPress={() => setTtMeetupStatus(s)}
+                        className={`rounded-full border px-3 py-2 ${
+                          ttMeetupStatus === s
+                            ? 'border-accent-500 bg-accent-500/10'
+                            : 'border-stone-300 dark:border-stone-700'
+                        }`}>
+                        <Text className="text-caption text-stone-700 dark:text-stone-300">
+                          Status: {s ?? 'none (clear)'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    {([connectionInfo.user_a_id, connectionInfo.user_b_id, null] as const).map((id) => (
+                      <Pressable
+                        key={id ?? 'none'}
+                        onPress={() => setTtMeetupProposedBy(id)}
+                        className={`rounded-full border px-3 py-2 ${
+                          ttMeetupProposedBy === id
+                            ? 'border-accent-500 bg-accent-500/10'
+                            : 'border-stone-300 dark:border-stone-700'
+                        }`}>
+                        <Text className="text-caption text-stone-700 dark:text-stone-300">
+                          Proposed by: {id ? `${id === connectionInfo.user_a_id ? 'A' : 'B'} (${id.slice(0, 8)})` : 'none'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Pressable
+                    onPress={handleSetNextMeetup}
+                    disabled={ttBusy === 'set-next-meetup'}
+                    className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                    <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                      {ttBusy === 'set-next-meetup' ? 'Applying...' : 'Apply'}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                  Select a conversation above first.
+                </Text>
+              )}
+            </View>
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Backdate behavioral_tracking_disclosed_at (signed-in account)
+              </Text>
+              <View className="flex-row items-center gap-2">
+                <TextInput
+                  value={ttDisclosedHoursAgo}
+                  onChangeText={setTtDisclosedHoursAgo}
+                  keyboardType="numeric"
+                  className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                />
+                <Pressable
+                  onPress={handleBackdateDisclosedAt}
+                  disabled={ttBusy === 'disclosed-at'}
+                  className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                    {ttBusy === 'disclosed-at' ? 'Backdating...' : 'Backdate (hours ago)'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Reset coach marks (signed-in account)
+              </Text>
+              <Pressable
+                onPress={handleResetAllCoachMarks}
+                disabled={ttBusy === 'reset-all-marks'}
+                className="self-start rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
+                <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
+                  {ttBusy === 'reset-all-marks' ? 'Resetting...' : 'Reset all marks'}
+                </Text>
+              </Pressable>
+              <View className="flex-row flex-wrap gap-2">
+                {ALL_COACH_MARK_KEYS.map((k) => (
+                  <Pressable
+                    key={k}
+                    onPress={() => setTtSpecificMark(k)}
+                    className={`rounded-full border px-3 py-2 ${
+                      ttSpecificMark === k
+                        ? 'border-accent-500 bg-accent-500/10'
+                        : 'border-stone-300 dark:border-stone-700'
+                    }`}>
+                    <Text className="text-caption text-stone-700 dark:text-stone-300">{k}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Pressable
+                onPress={handleResetOneCoachMark}
+                disabled={ttBusy === 'reset-one-mark'}
+                className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
+                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                  {ttBusy === 'reset-one-mark' ? 'Resetting...' : `Reset just "${ttSpecificMark}"`}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Reset friendship_experience (signed-in account)
+              </Text>
+              <Pressable
+                onPress={handleResetFriendshipExperience}
+                disabled={ttBusy === 'reset-experience'}
+                className="self-start rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
+                <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
+                  {ttBusy === 'reset-experience' ? 'Resetting...' : 'Clear friendship_experience'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Reset/backdate an AI usage cap (signed-in account)
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {AI_CAPPED_FUNCTIONS.map((fn) => (
+                  <Pressable
+                    key={fn}
+                    onPress={() => setTtCapFunction(fn)}
+                    className={`rounded-full border px-3 py-2 ${
+                      ttCapFunction === fn
+                        ? 'border-accent-500 bg-accent-500/10'
+                        : 'border-stone-300 dark:border-stone-700'
+                    }`}>
+                    <Text className="text-caption text-stone-700 dark:text-stone-300">{fn}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Pressable
+                onPress={() => handleResetAiCap('clear')}
+                disabled={ttBusy === 'ai-cap-clear'}
+                className="self-start rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
+                <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
+                  {ttBusy === 'ai-cap-clear' ? 'Clearing...' : `Clear all usage for ${ttCapFunction}`}
+                </Text>
+              </Pressable>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  Or backdate existing usage by (hours)
+                </Text>
+                <TextInput
+                  value={ttCapHoursAgo}
+                  onChangeText={setTtCapHoursAgo}
+                  keyboardType="numeric"
+                  placeholder="e.g. 200"
+                  placeholderTextColor={MUTED_ICON_COLOR}
+                  className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                />
+                <Pressable
+                  onPress={() => handleResetAiCap('backdate')}
+                  disabled={ttBusy === 'ai-cap-backdate'}
+                  className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                    {ttBusy === 'ai-cap-backdate' ? 'Backdating...' : 'Backdate'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                Reset/backdate premium pool (signed-in account)
+              </Text>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">Period start, hours ago</Text>
+                <TextInput
+                  value={ttPoolHoursAgo}
+                  onChangeText={setTtPoolHoursAgo}
+                  keyboardType="numeric"
+                  className="w-20 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                />
+              </View>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">Spent so far ($)</Text>
+                <TextInput
+                  value={ttPoolSpent}
+                  onChangeText={setTtPoolSpent}
+                  keyboardType="numeric"
+                  className="w-20 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                />
+                <Pressable
+                  onPress={handleResetPremiumPool}
+                  disabled={ttBusy === 'premium-pool'}
+                  className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                    {ttBusy === 'premium-pool' ? 'Applying...' : 'Apply'}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text className="text-caption text-stone-400 dark:text-stone-600">
+                Set spent to 0 with any period-start to simulate a fresh pool, or a value ≥ $3.00 to
+                simulate an exhausted one. Only has an effect for a premium account.
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
