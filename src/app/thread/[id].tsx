@@ -19,6 +19,7 @@ import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
 import { FollowUpReflectionCard } from '@/components/follow-up-reflection-card';
 import { MeetupCheckinCard } from '@/components/meetup-checkin-card';
+import { MeetupConfirmationCard } from '@/components/meetup-confirmation-card';
 import { MeetupOutcomeCard } from '@/components/meetup-outcome-card';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { ConversationFlowPromptCard } from '@/components/conversation-flow-prompt-card';
@@ -38,12 +39,17 @@ import {
 import {
   dismissMeetupOutcome,
   fetchMeetupCheckinStatus,
+  fetchMeetupLog,
   fetchNextMeetupStatus,
+  fetchPendingMeetupConfirmation,
+  formatMeetupDateShort,
   hasAckedNextMeetupFeeling,
   proposeNextMeetup,
   recordPlanActivity,
   submitNextMeetupFeeling,
   type MeetupCheckinStatus,
+  type MeetupConfirmationRequest,
+  type MeetupLogEntry,
   type NextMeetupStatus,
 } from '@/lib/meetup-milestones';
 import { NextMeetupIndicator } from '@/components/next-meetup-indicator';
@@ -178,6 +184,15 @@ export default function ThreadScreen() {
   const [meetupSuggestionState, setMeetupSuggestionState] = useState<MeetupSuggestionState | null>(null);
   const [activitySuggestionsVisible, setActivitySuggestionsVisible] = useState(false);
   const [checkinStatus, setCheckinStatus] = useState<MeetupCheckinStatus | null>(null);
+  // Graduation foundation (2026-08-25): a separate signal from
+  // checkinStatus above, fires only when the OTHER participant just
+  // reported a meetup happened, decoupled from this viewer's own
+  // checkinStatus (which may not exist, may be unresolved, or may already
+  // be resolved, none of that matters here). meetupLog backs the thread
+  // header's "Met N times · date, date, date" display, only ever grows on
+  // a real mutual confirm.
+  const [pendingMeetupConfirmation, setPendingMeetupConfirmation] = useState<MeetupConfirmationRequest | null>(null);
+  const [meetupLog, setMeetupLog] = useState<MeetupLogEntry[]>([]);
   const [showFirstMilestone, setShowFirstMilestone] = useState(false);
   // Item 4, 2026-08-16: next-meetup date. nextMeetupStatus backs the
   // always-visible NextMeetupIndicator; feelingAcked tracks whether the
@@ -236,6 +251,16 @@ export default function ThreadScreen() {
   const loadCheckinStatus = useCallback(async () => {
     if (!connectionId) return;
     setCheckinStatus(await fetchMeetupCheckinStatus(connectionId));
+  }, [connectionId]);
+
+  const loadPendingMeetupConfirmation = useCallback(async () => {
+    if (!connectionId) return;
+    setPendingMeetupConfirmation(await fetchPendingMeetupConfirmation(connectionId));
+  }, [connectionId]);
+
+  const loadMeetupLog = useCallback(async () => {
+    if (!connectionId) return;
+    setMeetupLog(await fetchMeetupLog(connectionId));
   }, [connectionId]);
 
   // Item 4, 2026-08-16: reloaded after propose/confirm/reschedule so the
@@ -454,6 +479,8 @@ export default function ThreadScreen() {
       await loadFollowUpReflection();
       await loadMeetupSuggestionState();
       await loadCheckinStatus();
+      await loadPendingMeetupConfirmation();
+      await loadMeetupLog();
       await loadNextMeetupStatus(user.id);
 
       // Shared channel (src/lib/realtime-messages.ts), not a per-screen
@@ -490,6 +517,8 @@ export default function ThreadScreen() {
     loadFollowUpReflection,
     loadMeetupSuggestionState,
     loadCheckinStatus,
+    loadPendingMeetupConfirmation,
+    loadMeetupLog,
     loadNextMeetupStatus,
   ]);
 
@@ -771,6 +800,16 @@ export default function ThreadScreen() {
             {statusLine && (
               <Text className="text-caption text-stone-400 dark:text-stone-600">{statusLine}</Text>
             )}
+            {/* Graduation foundation: only shown once at least one meetup
+                is mutually confirmed, per explicit instruction not to
+                clutter a thread that hasn't met yet. meetupLog is already
+                ordered most-recent-first (fetchMeetupLog's own order). */}
+            {meetupLog.length > 0 && (
+              <Text className="text-caption text-stone-400 dark:text-stone-600">
+                Met {meetupLog.length} {meetupLog.length === 1 ? 'time' : 'times'} ·{' '}
+                {meetupLog.map((entry) => formatMeetupDateShort(entry.meetup_date)).join(', ')}
+              </Text>
+            )}
           </Pressable>
           {rhythmNoteText && (
             <View className="mt-1 flex-row items-start gap-2">
@@ -1003,6 +1042,26 @@ export default function ThreadScreen() {
                   onResolved={loadCheckinStatus}
                   onDismiss={handleDismissCheckinOutcome}
                   onExitConfirmed={handleExitConfirmed}
+                />
+              </View>
+            )}
+
+            {/* Graduation foundation: a genuinely separate signal from
+                checkinStatus above, can appear regardless of whether this
+                viewer's own checkin exists, is unresolved, or already has
+                a branch, since it's about confirming the OTHER
+                participant's report, not this viewer's own record. */}
+            {pendingMeetupConfirmation && (
+              <View className="px-6 pt-4">
+                <MeetupConfirmationCard
+                  requestId={pendingMeetupConfirmation.id}
+                  otherName={other?.display_name ?? 'them'}
+                  reportedMeetupDate={pendingMeetupConfirmation.reported_meetup_date}
+                  onResolved={() => {
+                    setPendingMeetupConfirmation(null);
+                    loadMeetupLog();
+                  }}
+                  onDismissed={() => setPendingMeetupConfirmation(null)}
                 />
               </View>
             )}
