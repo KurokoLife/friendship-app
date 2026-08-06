@@ -5,7 +5,9 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
+import { track } from '@/lib/analytics';
 import { fetchActiveReflections, reflectionByConnection, type FollowUpReflection } from '@/lib/follow-up-reflection';
+import { checkAndMarkGraduationContinuation } from '@/lib/graduation';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { bestPromptPerConnection, fetchActivePrompts, isSenderTrigger, type NoGhostPrompt } from '@/lib/no-ghost';
 import { subscribeToMessages } from '@/lib/realtime-messages';
@@ -24,6 +26,7 @@ type Conversation = {
   last_message_at: string;
   last_message_sender_id: string;
   has_unread: boolean;
+  meetup_count: number;
 };
 
 type CapacityStatus = {
@@ -82,11 +85,30 @@ export default function InboxScreen() {
       // no parameters, always operates on auth.uid()).
       supabase.rpc('my_connection_capacity'),
     ]);
-    setConversations((data ?? []) as Conversation[]);
+    const loadedConversations = (data ?? []) as Conversation[];
+    setConversations(loadedConversations);
     setNoGhostByConnection(bestPromptPerConnection(activePrompts));
     setReflectionsByConnection(reflectionByConnection(activeReflections));
     setCapacity((capacityRows?.[0] as CapacityStatus | undefined) ?? null);
     setLoaded(true);
+
+    // Optional 30/90-day continuation measurement (see graduation.ts's
+    // own comment for why this is driven from here rather than a cron
+    // job): Inbox already visits every one of the caller's connections on
+    // every focus, the natural place to speculatively check each
+    // graduated one. Both calls are safe to fire on every load, the RPC
+    // itself is idempotent (returns null unless the checkpoint is both
+    // genuinely due and not yet recorded), so no client-side "have I
+    // already checked this" bookkeeping is needed here.
+    for (const c of loadedConversations) {
+      if (c.connection_status !== 'graduated') continue;
+      for (const days of [30, 90] as const) {
+        checkAndMarkGraduationContinuation(c.connection_id, days).then((continued) => {
+          if (continued === null) return;
+          track('graduation_30_90_day_continuation', { connectionId: c.connection_id, days, continued });
+        });
+      }
+    }
   }, []);
 
   useFocusEffect(
@@ -137,6 +159,7 @@ export default function InboxScreen() {
   const paused: Conversation[] = [];
   const blocked: Conversation[] = [];
   const ended: Conversation[] = [];
+  const graduated: Conversation[] = [];
   const rest: Conversation[] = [];
   for (const c of conversations) {
     const noGhostPrompt = noGhostByConnection.get(c.connection_id);
@@ -144,6 +167,13 @@ export default function InboxScreen() {
       blocked.push(c);
     } else if (c.connection_status === 'ended') {
       ended.push(c);
+    } else if (c.connection_status === 'graduated') {
+      // Blueprint's own required Inbox section, a real, deliberate state
+      // (not a closure like Ended/Blocked), its own section per the spec
+      // rather than folded into "Conversations", so a genuinely
+      // successful outcome is visible as its own category, not blended
+      // in with everything else.
+      graduated.push(c);
     } else if (c.connection_status === 'paused') {
       paused.push(c);
     } else if (noGhostPrompt && !isSenderTrigger(noGhostPrompt.trigger_id)) {
@@ -188,10 +218,22 @@ export default function InboxScreen() {
           }`}>
           {c.last_message_content}
         </Text>
+        {/* Blueprint's own Inbox spec: "Show last message, state and
+            meetup count." Shown only once there's at least one to show,
+            matching this app's own established "don't clutter with a
+            zero" convention elsewhere (Remember's People List, the
+            thread header's own meetup history line). */}
+        {c.meetup_count > 0 && (
+          <Text className="text-caption text-stone-400 dark:text-stone-600">
+            Met {c.meetup_count} {c.meetup_count === 1 ? 'time' : 'times'}
+          </Text>
+        )}
         {c.connection_status === 'blocked' ? (
           <Text className="text-caption font-semibold text-red-500 dark:text-red-400">Blocked</Text>
         ) : c.connection_status === 'ended' ? (
           <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Ended</Text>
+        ) : c.connection_status === 'graduated' ? (
+          <Text className="text-caption font-semibold text-accent-500">Graduated</Text>
         ) : c.connection_status === 'paused' ? (
           <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Paused</Text>
         ) : c.connection_status === 'inactive' ? (
@@ -287,6 +329,21 @@ export default function InboxScreen() {
                 Paused
               </Text>
               {paused.map(renderConversation)}
+            </View>
+          )}
+
+          {/* Blueprint's own required Inbox section. A genuinely
+              successful outcome, styled distinctly from Paused/Ended/
+              Blocked (which are all, in different ways, a conversation
+              winding down), the accent color elsewhere in this app marks
+              a positive/selected state, reused here for the same
+              reason. */}
+          {graduated.length > 0 && (
+            <View className="gap-3">
+              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                Graduated
+              </Text>
+              {graduated.map(renderConversation)}
             </View>
           )}
 

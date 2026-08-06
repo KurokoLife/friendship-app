@@ -18,6 +18,7 @@ import { CoachMark } from '@/components/coach-mark';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
 import { FollowUpReflectionCard } from '@/components/follow-up-reflection-card';
+import { GraduationModal } from '@/components/graduation-modal';
 import { MeetupCheckinCard } from '@/components/meetup-checkin-card';
 import { MeetupConfirmationCard } from '@/components/meetup-confirmation-card';
 import { MeetupOutcomeCard } from '@/components/meetup-outcome-card';
@@ -29,6 +30,8 @@ import { ReportModal } from '@/components/report-modal';
 import { SpotlightTarget } from '@/components/spotlight-target';
 import { CreditBlockedError, DraftServiceError, UniversalTextBox } from '@/components/universal-text-box';
 import { fetchActiveReflections, type FollowUpReflection } from '@/lib/follow-up-reflection';
+import { fetchGraduationEligibility, shouldShowGraduationPrompt } from '@/lib/graduation';
+import { track } from '@/lib/analytics';
 import {
   dismissMeetupSuggestionPermanently,
   fetchMeetupSuggestionState,
@@ -193,6 +196,7 @@ export default function ThreadScreen() {
   // a real mutual confirm.
   const [pendingMeetupConfirmation, setPendingMeetupConfirmation] = useState<MeetupConfirmationRequest | null>(null);
   const [meetupLog, setMeetupLog] = useState<MeetupLogEntry[]>([]);
+  const [graduationModalVisible, setGraduationModalVisible] = useState(false);
   const [showFirstMilestone, setShowFirstMilestone] = useState(false);
   // Item 4, 2026-08-16: next-meetup date. nextMeetupStatus backs the
   // always-visible NextMeetupIndicator; feelingAcked tracks whether the
@@ -261,6 +265,23 @@ export default function ThreadScreen() {
   const loadMeetupLog = useCallback(async () => {
     if (!connectionId) return;
     setMeetupLog(await fetchMeetupLog(connectionId));
+  }, [connectionId]);
+
+  // Graduation: checked alongside meetupLog (both react to the same
+  // underlying event, a meetup_count change via mutual confirmation),
+  // fires the "Shown" analytics event exactly once per genuine
+  // transition into visible, not on every re-check while it's already
+  // showing or already dismissed.
+  const checkGraduationEligibility = useCallback(async () => {
+    if (!connectionId) return;
+    const eligibility = await fetchGraduationEligibility(connectionId);
+    const shouldShow = shouldShowGraduationPrompt(eligibility);
+    setGraduationModalVisible((wasVisible) => {
+      if (shouldShow && !wasVisible) {
+        track('graduation_shown', { connectionId });
+      }
+      return shouldShow;
+    });
   }, [connectionId]);
 
   // Item 4, 2026-08-16: reloaded after propose/confirm/reschedule so the
@@ -481,6 +502,7 @@ export default function ThreadScreen() {
       await loadCheckinStatus();
       await loadPendingMeetupConfirmation();
       await loadMeetupLog();
+      await checkGraduationEligibility();
       await loadNextMeetupStatus(user.id);
 
       // Shared channel (src/lib/realtime-messages.ts), not a per-screen
@@ -519,6 +541,7 @@ export default function ThreadScreen() {
     loadCheckinStatus,
     loadPendingMeetupConfirmation,
     loadMeetupLog,
+    checkGraduationEligibility,
     loadNextMeetupStatus,
   ]);
 
@@ -1060,6 +1083,7 @@ export default function ThreadScreen() {
                   onResolved={() => {
                     setPendingMeetupConfirmation(null);
                     loadMeetupLog();
+                    checkGraduationEligibility();
                   }}
                   onDismissed={() => setPendingMeetupConfirmation(null)}
                 />
@@ -1318,6 +1342,18 @@ export default function ThreadScreen() {
           onEnded={handleExitConfirmed}
           connectionId={connectionId}
           otherName={other?.display_name ?? 'this person'}
+        />
+      )}
+
+      {connectionId && (
+        <GraduationModal
+          visible={graduationModalVisible}
+          connectionId={connectionId}
+          onKeptOrDeferred={() => setGraduationModalVisible(false)}
+          onGraduated={() => {
+            setGraduationModalVisible(false);
+            loadConnectionStatus();
+          }}
         />
       )}
     </KeyboardAvoidingView>
