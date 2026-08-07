@@ -94,6 +94,9 @@ export default function DevScreen() {
   const [noGhostStatus, setNoGhostStatus] = useState<string | null>(null);
   const [resettingMatches, setResettingMatches] = useState(false);
   const [resetMatchesStatus, setResetMatchesStatus] = useState<string | null>(null);
+  const [resetAllConfirming, setResetAllConfirming] = useState(false);
+  const [resetAllBusy, setResetAllBusy] = useState(false);
+  const [resetAllStatus, setResetAllStatus] = useState<string | null>(null);
   const [connectionInfo, setConnectionInfo] = useState<DevConnectionInfo | null>(null);
   const [reflectionBusy, setReflectionBusy] = useState<string | null>(null);
   const [reflectionStatus, setReflectionStatus] = useState<string | null>(null);
@@ -188,6 +191,58 @@ export default function DevScreen() {
       rpcError
         ? rpcError.message
         : 'Cleared. All connections, messages, and match suggestions for this account are gone, Discover will regenerate from scratch next time it loads.'
+    );
+    loadConversations();
+  };
+
+  // "Reset ALL seed accounts", distinct from handleResetMyMatches above,
+  // which only ever touches the currently signed-in account. This clears
+  // real, wide-reaching state across all 9 seed accounts at once
+  // (connections, messages, match suggestions, reports, blocks, coach
+  // marks, friendship_experience, AI usage caps, plus everything that
+  // cascades from a deleted connection: no-ghost prompts, meetup
+  // checkins/log/confirmation requests, follow-up reflections, Remember
+  // entries, and more, see dev_reset_all_seed_matches's own migration
+  // comment for the full, verified list). Genuinely destructive and
+  // wide-reaching, so this requires a real second tap before it runs,
+  // not a single click, mirroring this app's own established two-step
+  // confirm pattern (account deletion, Honest Exit).
+  const handleRequestResetAll = () => {
+    setResetAllStatus(null);
+    setResetAllConfirming(true);
+  };
+
+  const handleCancelResetAll = () => {
+    setResetAllConfirming(false);
+  };
+
+  const handleConfirmResetAll = async () => {
+    setResetAllBusy(true);
+    setResetAllConfirming(false);
+    setResetAllStatus(null);
+    const { data, error: rpcError } = await supabase.rpc('dev_reset_all_seed_matches');
+    setResetAllBusy(false);
+    if (rpcError) {
+      setResetAllStatus(rpcError.message);
+      return;
+    }
+    const r = data as {
+      seed_accounts?: number;
+      connections_deleted?: number;
+      match_suggestions_deleted?: number;
+      reports_deleted?: number;
+      blocks_deleted?: number;
+      coach_marks_deleted?: number;
+      friendship_experience_cleared?: number;
+      ai_usage_events_deleted?: number;
+      error?: string;
+    };
+    if (r.error) {
+      setResetAllStatus(r.error);
+      return;
+    }
+    setResetAllStatus(
+      `Cleared across all ${r.seed_accounts} seed accounts: ${r.connections_deleted} connection(s) (and everything tied to them: messages, no-ghost prompts, meetup checkins/log/confirmations, follow-up reflections, Remember entries, and more), ${r.match_suggestions_deleted} match suggestion(s), ${r.reports_deleted} report(s), ${r.blocks_deleted} block(s), ${r.coach_marks_deleted} coach mark(s) seen, ${r.friendship_experience_cleared} friendship_experience answer(s), ${r.ai_usage_events_deleted} AI usage event(s).`
     );
     loadConversations();
   };
@@ -712,6 +767,56 @@ export default function DevScreen() {
                 {resetMatchesStatus}
               </Text>
             )}
+
+            <View className="mt-2 gap-2 rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
+              <Text className="text-caption font-semibold text-red-700 dark:text-red-400">
+                Reset ALL 9 seed accounts (not just the signed-in one)
+              </Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                Clears connections, messages, match suggestions, reports, blocks, coach marks
+                seen, friendship_experience answers, and AI usage caps for every seed account at
+                once (Maria, David, Aisha, Robert, Priya, Marcus, Jordan, Sam, and Elena), not
+                just whoever is currently signed in.
+              </Text>
+              {!resetAllConfirming ? (
+                <Pressable
+                  onPress={handleRequestResetAll}
+                  disabled={resetAllBusy}
+                  className="self-start rounded-full bg-red-600 px-4 py-2 active:opacity-80">
+                  <Text className="text-caption font-semibold text-white">
+                    {resetAllBusy ? 'Resetting...' : 'Reset all seed accounts'}
+                  </Text>
+                </Pressable>
+              ) : (
+                <View className="gap-2">
+                  <Text className="text-caption font-semibold text-red-700 dark:text-red-400">
+                    Are you sure? This clears real test state for all 9 seed accounts and cannot
+                    be undone.
+                  </Text>
+                  <View className="flex-row gap-2">
+                    <Pressable
+                      onPress={handleConfirmResetAll}
+                      className="rounded-full bg-red-600 px-4 py-2 active:opacity-80">
+                      <Text className="text-caption font-semibold text-white">
+                        Yes, reset everything
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={handleCancelResetAll}
+                      className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
+                      <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                        Cancel
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+              {resetAllStatus && (
+                <Text className="text-caption text-stone-600 dark:text-stone-400">
+                  {resetAllStatus}
+                </Text>
+              )}
+            </View>
           </View>
 
           <View className="gap-3 border-t border-stone-200 pt-6 dark:border-stone-800">
