@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type CoachMarkKey, resetCoachMark, resetCoachMarks } from '@/lib/coach-marks';
 import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
-import { shouldShowFriendshipExperiencePrompt } from '@/lib/friendship-experience';
 import { type GraduationEligibility, shouldShowGraduationPrompt } from '@/lib/graduation';
 import { type NoGhostTriggerId } from '@/lib/no-ghost';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -126,10 +125,14 @@ export default function DevScreen() {
   const [ttPoolHoursAgo, setTtPoolHoursAgo] = useState('40');
   const [ttPoolSpent, setTtPoolSpent] = useState('0');
 
-  // Quick Tests panel state: one busy flag shared across all 5 buttons
+  // Quick Tests panel state: one busy flag shared across all 4 buttons
   // (only one runs at a time, same pattern ttBusy already uses), one
   // status message per test (keyed by test id) so running one doesn't
-  // clear another's most recent result.
+  // clear another's most recent result. A 5th button, testing the old
+  // post-first-message friendship-experience trigger, was removed
+  // 2026-08-08 alongside that trigger itself (moved back into onboarding,
+  // see src/app/friendship-experience.tsx); Task 3's own systematic pass
+  // covers verifying the new onboarding-based version instead.
   const [quickBusy, setQuickBusy] = useState<string | null>(null);
   const [quickStatus, setQuickStatus] = useState<Record<string, string | null>>({});
   const setQuickResult = (key: string, message: string | null) => {
@@ -638,7 +641,7 @@ export default function DevScreen() {
     setTtStatus(
       updateError
         ? updateError.message
-        : `behavioral_tracking_disclosed_at set to ${new Date(newValue).toLocaleString()} for the signed-in account. This feeds the friendship-experience prompt's 7-day no-message backstop, reload Discover to see it.`
+        : `behavioral_tracking_disclosed_at set to ${new Date(newValue).toLocaleString()} for the signed-in account. This no longer feeds the friendship-experience prompt (that trigger was removed 2026-08-08, the survey now fires once during onboarding instead); it still feeds the referral system's 30-day qualification window (referral_reward_qualifies).`
     );
   };
 
@@ -735,11 +738,10 @@ export default function DevScreen() {
   // ---- Quick Tests panel ----
   // One-tap end-to-end tests, each a thin wrapper around the granular
   // tools already built above (No-ghost testing, Meetup milestone
-  // testing, and this same Time Travel panel's own coach-mark/friendship-
-  // experience tools), not a duplicate implementation of any of them. The
-  // no-ghost/checkin/graduation tests need a connection selected (same
-  // picker as No-ghost testing below); coach marks and friendship
-  // experience act on the signed-in account only.
+  // testing, and this same Time Travel panel's own coach-mark tools), not
+  // a duplicate implementation of any of them. The no-ghost/checkin/
+  // graduation tests need a connection selected (same picker as No-ghost
+  // testing below); coach marks act on the signed-in account only.
 
   const handleQuickTestNoGhost = async () => {
     if (!selectedConnectionId) {
@@ -868,63 +870,6 @@ export default function DevScreen() {
     );
   };
 
-  const handleQuickTestFriendshipExperience = async () => {
-    setQuickBusy('friendship-experience');
-    setQuickResult('friendship-experience', null);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setQuickBusy(null);
-      setQuickResult('friendship-experience', 'Sign in as a seed account first.');
-      return;
-    }
-    const { error: clearError } = await supabase
-      .from('profiles')
-      .update({ friendship_experience: null })
-      .eq('user_id', user.id);
-    const backdated = new Date(Date.now() - 192 * 60 * 60 * 1000).toISOString();
-    const { error: backdateError } = await supabase
-      .from('users')
-      .update({ behavioral_tracking_disclosed_at: backdated })
-      .eq('id', user.id);
-    if (clearError || backdateError) {
-      setQuickBusy(null);
-      setQuickResult('friendship-experience', (clearError ?? backdateError)!.message);
-      return;
-    }
-    // The real eligibility function checks a 4-hour-since-first-message
-    // trigger FIRST, and only falls back to the 7-day-since-onboarding
-    // backstop backdated above when the account has no messages at all
-    // yet. Query the same signal here so the report is honest about
-    // which path actually governed the result, not just the boolean.
-    const { data: myConnections } = await supabase
-      .from('connections')
-      .select('id')
-      .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
-    const connectionIds = (myConnections ?? []).map((c) => c.id as string);
-    let earliestMessageAt: string | null = null;
-    if (connectionIds.length > 0) {
-      const { data: earliest } = await supabase
-        .from('messages')
-        .select('created_at')
-        .in('connection_id', connectionIds)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      earliestMessageAt = (earliest?.created_at as string | undefined) ?? null;
-    }
-    const ready = await shouldShowFriendshipExperiencePrompt(user.id);
-    setQuickBusy(null);
-    const via = earliestMessageAt
-      ? `the 4-hour-since-first-message trigger (this account's earliest message was ${new Date(earliestMessageAt).toLocaleString()}), not the backdated onboarding timestamp`
-      : 'the 7-day-since-onboarding backstop just backdated above';
-    setQuickResult(
-      'friendship-experience',
-      `Cleared friendship_experience and backdated behavioral_tracking_disclosed_at to 8 days ago. Real eligibility check governed by ${via}: ${ready ? 'ready to show' : 'not ready yet'}.${ready ? ' Reload Discover to see it.' : ''}`
-    );
-  };
-
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
@@ -1003,22 +948,6 @@ export default function DevScreen() {
               </Pressable>
               {quickStatus['coach-marks'] && (
                 <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['coach-marks']}</Text>
-              )}
-            </View>
-
-            <View className="gap-2">
-              <Pressable
-                onPress={handleQuickTestFriendshipExperience}
-                disabled={quickBusy === 'friendship-experience'}
-                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                  {quickBusy === 'friendship-experience' ? 'Testing...' : 'Test friendship-experience survey end-to-end'}
-                </Text>
-              </Pressable>
-              {quickStatus['friendship-experience'] && (
-                <Text className="text-caption text-stone-600 dark:text-stone-400">
-                  {quickStatus['friendship-experience']}
-                </Text>
               )}
             </View>
           </View>

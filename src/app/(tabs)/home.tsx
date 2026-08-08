@@ -6,11 +6,9 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
-import { FriendshipExperienceModal } from '@/components/friendship-experience-modal';
 import { purchaseAiCreditPack } from '@/lib/ai-credits';
 import { CAPACITY_ERROR_MESSAGES, getOrCreateConnectionId } from '@/lib/connections';
 import { formatDistance } from '@/lib/distance';
-import { shouldShowFriendshipExperiencePrompt } from '@/lib/friendship-experience';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -130,17 +128,6 @@ export default function HomeScreen() {
   // blueprint's own "avoid shaming labels" framing, not an error.
   const [capacityNotice, setCapacityNotice] = useState<string | null>(null);
   const [usingDevFallback, setUsingDevFallback] = useState(false);
-  // "Your experience with new friendship" (2026-07-28, moved off
-  // onboarding, see src/lib/friendship-experience.ts). Checked once per
-  // load on the app's default landing tab, the closest available reading
-  // of "next app open" this app has, no push infrastructure exists to
-  // fire this proactively. bigFiveResponses is fetched alongside the
-  // eligibility check only when actually needed, so a user who's already
-  // answered (the common case almost immediately after this ships) never
-  // pays for the extra query.
-  const [experienceUserId, setExperienceUserId] = useState<string | null>(null);
-  const [experienceModalVisible, setExperienceModalVisible] = useState(false);
-  const [bigFiveResponsesForModal, setBigFiveResponsesForModal] = useState<Record<number, string> | null>(null);
   // Consumable AI credits (2026-07-29): capReached is a new signal from
   // generate-match-suggestions, confirmed absent before this (the cache-
   // first architecture previously just silently served fewer/cached
@@ -172,21 +159,6 @@ export default function HomeScreen() {
       return;
     }
     setUsingDevFallback(false);
-
-    if (await shouldShowFriendshipExperiencePrompt(user.id)) {
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('big_five_scores')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const stored = (profileRow?.big_five_scores as { responses?: Record<string, string> } | null)?.responses;
-      const responses: Record<number, string> | null = stored
-        ? Object.fromEntries(Object.entries(stored).map(([id, label]) => [Number(id), label]))
-        : null;
-      setBigFiveResponsesForModal(responses);
-      setExperienceUserId(user.id);
-      setExperienceModalVisible(true);
-    }
 
     const freshCutoff = new Date(Date.now() - CACHE_FRESHNESS_MS).toISOString();
     const [{ data: cachedRows }, { data: connections }] = await Promise.all([
@@ -519,15 +491,6 @@ export default function HomeScreen() {
           })}
         </ScrollView>
       </SafeAreaView>
-
-      {experienceUserId && (
-        <FriendshipExperienceModal
-          visible={experienceModalVisible}
-          userId={experienceUserId}
-          bigFiveResponses={bigFiveResponsesForModal}
-          onClose={() => setExperienceModalVisible(false)}
-        />
-      )}
     </View>
   );
 }

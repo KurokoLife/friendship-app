@@ -415,7 +415,26 @@ export default function ThreadScreen() {
       return;
     }
 
+    // Real bug, confirmed live (not just theorized): this effect can run
+    // twice for a single navigation (confirmed via direct instrumentation,
+    // ~380ms apart, same connectionId, in this dev environment, most
+    // likely Expo Router wrapping routes in StrictMode during development).
+    // Without this flag, the first invocation's cleanup fires before its
+    // own async chain has reached subscribeToMessages below (there are many
+    // awaited steps ahead of it), so `unsubscribe` is still null and
+    // cleanup is a no-op. The first invocation's async work keeps running
+    // in the background regardless, and eventually registers its OWN
+    // realtime handler anyway, on top of the second invocation's. Both then
+    // stay registered for the lifetime of the real mount, so every single
+    // INSERT event calls setMessages twice, appending the identical row
+    // (identical id) to the array twice, which is exactly what produced the
+    // "Encountered two children with the same key" React warning and the
+    // visibly duplicated message bubble a real user reported. `cancelled`
+    // is checked immediately after subscribing (no await in between, so no
+    // race window) and tears down a subscription that was registered by an
+    // invocation React had already asked to clean up.
     let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
 
     (async () => {
       const {
@@ -510,11 +529,19 @@ export default function ThreadScreen() {
       // collide, filtering by connection_id happens here client-side
       // instead of via a server-side channel filter, since the channel
       // itself is shared across connections now.
-      unsubscribe = subscribeToMessages({
+      const realtimeUnsubscribe = subscribeToMessages({
         onInsert: (payload) => {
           const incoming = payload.new as Message;
           if (incoming.connection_id !== connectionId) return;
-          setMessages((prev) => [...prev, incoming]);
+          // Defense in depth, independent of the cancelled-effect fix
+          // above: never append a message id that's already in the list,
+          // regardless of why a duplicate delivery might happen (a stray
+          // second subscription, or Realtime's own occasional redelivery
+          // on reconnect). This is what actually stops "two children with
+          // the same key" at the render level, the cancelled flag above
+          // stops the stray subscription from existing in the first place,
+          // together they cover both the cause and the symptom.
+          setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
           if (incoming.sender_id !== user.id) {
             markIncomingRead(user.id);
           }
@@ -527,9 +554,15 @@ export default function ThreadScreen() {
           setFollowUpReflection(null);
         },
       });
+      if (cancelled) {
+        realtimeUnsubscribe();
+        return;
+      }
+      unsubscribe = realtimeUnsubscribe;
     })();
 
     return () => {
+      cancelled = true;
       if (unsubscribe) unsubscribe();
     };
   }, [

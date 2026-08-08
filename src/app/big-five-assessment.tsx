@@ -166,11 +166,14 @@ export const QUESTIONS: BigFiveQuestion[] = [
 
 // "Your experience with new friendship" no longer lives in this screen.
 // 2026-07-28: moved from an onboarding-only phase here to a post-first-
-// message trigger (FriendshipExperienceModal, shown from home.tsx), see
+// message trigger. 2026-08-08: moved back into onboarding, as its own real
+// route (src/app/friendship-experience.tsx), reached via this screen's own
+// Continue button below for a fresh (non-edit-mode) run. See
 // src/lib/friendship-experience.ts for the question data, types, and
-// eligibility logic, now shared between that modal and this screen (this
+// saveFriendshipExperience, shared between that screen and this one (this
 // screen still needs to know whether it's already been answered, to
-// decide whether to pass it into fetchNarrative on a retake).
+// decide whether to pass it into fetchNarrative on a retake, since a
+// retake never routes through the friendship-experience screen at all).
 
 type Scores = Record<Trait, number>;
 
@@ -229,12 +232,14 @@ export default function BigFiveAssessmentScreen() {
   const isEditMode = from === 'profile';
   const [phase, setPhase] = useState<'questions' | 'results'>('questions');
   const [responses, setResponses] = useState<Record<number, string>>({});
-  // Whether profiles.friendship_experience already has real data, from
-  // either onboarding path this screen doesn't control anymore: the
-  // post-first-message FriendshipExperienceModal, or (much less likely
-  // this early) the 7-day backstop. Drives whether fetchNarrative can
-  // include it, and whether the results screen shows real "what helped"/
-  // "when uncertain" content or the pending copy.
+  // Whether profiles.friendship_experience already has real data. For a
+  // fresh (non-edit-mode) run reaching this results screen, this is always
+  // false, the new friendship-experience onboarding screen that collects
+  // it hasn't happened yet at this point, it's the very next step. True
+  // here only for an edit-mode retake of an account that already
+  // completed onboarding (and therefore already answered it once). Drives
+  // whether fetchNarrative can include it, and whether the results screen
+  // shows real "what helped"/"when uncertain" content or the pending copy.
   const [experience, setExperience] = useState<FriendshipExperience>(EMPTY_EXPERIENCE);
   const [hasStoredExperience, setHasStoredExperience] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -352,11 +357,13 @@ export default function BigFiveAssessmentScreen() {
       return;
     }
 
-    // 2026-07-28: the "Your experience with new friendship" phase that
-    // used to sit here (fresh onboarding only) is gone, moved to a
-    // post-first-message trigger, see FriendshipExperienceModal. Both
-    // fresh onboarding and edit-mode retakes now go straight to the
-    // reflection the same way.
+    // The "Your experience with new friendship" phase that used to sit
+    // directly inside this screen is gone (moved through a post-first-
+    // message trigger 2026-07-28, then to its own onboarding route
+    // 2026-08-08, see src/app/friendship-experience.tsx). Both fresh
+    // onboarding and edit-mode retakes go straight to this results phase
+    // the same way; a fresh run's own Continue button below is what routes
+    // to the new screen next, an edit-mode retake never does.
     setPhase('results');
     fetchNarrative();
   };
@@ -426,7 +433,7 @@ export default function BigFiveAssessmentScreen() {
           </ScrollView>
 
           <Pressable
-            onPress={() => router.replace(isEditMode ? '/profile' : '/etiquette-modules')}
+            onPress={() => router.replace(isEditMode ? '/profile' : '/friendship-experience')}
             className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
             <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
               {isEditMode ? 'Done' : 'Continue'}

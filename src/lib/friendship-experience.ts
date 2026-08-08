@@ -1,13 +1,16 @@
 import { supabase } from '@/lib/supabase';
 
-// "Your experience with new friendship": five private questions, formerly
-// asked during onboarding (before generate-personality-narrative existed
-// in its three-section form), moved 2026-07-28 to a post-first-message
-// trigger instead, see FriendshipExperienceModal and
-// shouldShowFriendshipExperiencePrompt below. Never shown on a public
-// profile, never shared with other users, never used as a matching
-// filter, ranking signal, or block signal, never turned into a score or a
-// label, unchanged from the original onboarding version of this feature.
+// "Your experience with new friendship": five private questions. Asked
+// during onboarding originally, moved 2026-07-28 to a post-first-message
+// trigger, moved back to onboarding 2026-08-08 (src/app/friendship-
+// experience.tsx, reached right after big-five-assessment.tsx completes).
+// The time-based eligibility logic that lived here for the post-first-
+// message version (shouldShowFriendshipExperiencePrompt) is fully removed,
+// not just unused, this is a real trigger-mechanism replacement, not an
+// addition alongside it. Never shown on a public profile, never shared
+// with other users, never used as a matching filter, ranking signal, or
+// block signal, never turned into a score or a label, unchanged
+// throughout every version of this feature's own trigger.
 
 export type ExperienceMultiKey = 'growthFactors' | 'lostMomentumReasons';
 export type ExperienceSingleKey = 'awkwardnessInterpretation' | 'afterPositiveMeetupBehavior' | 'hardestCurrentStep';
@@ -131,60 +134,4 @@ export const WHEN_UNCERTAIN_PENDING_COPY =
 
 export async function saveFriendshipExperience(userId: string, experience: FriendshipExperience): Promise<void> {
   await supabase.from('profiles').upsert({ user_id: userId, friendship_experience: experience });
-}
-
-// Eligibility for the post-first-message prompt (2026-07-28 redesign,
-// replacing the old onboarding placement). Two triggers, whichever comes
-// first:
-// 1. Four hours after the user's first message, sent OR received, across
-//    ANY of their connections, whichever happened first. Read as "the
-//    earliest message in any conversation this user is a participant in,
-//    regardless of who sent it", exactly matching that framing.
-// 2. A seven-day backstop since onboarding completed
-//    (users.behavioral_tracking_disclosed_at, the real "onboarding is
-//    fully done" timestamp readiness-commitment.tsx already writes), for
-//    a user who hasn't exchanged a first message at all yet.
-// No push infrastructure exists in this app (a standing, documented
-// limitation), so this is checked live on load rather than fired by a
-// server-side scheduler, same "next app open" surfacing every other
-// elapsed-time prompt in this app already uses when there's no DB-backed
-// evaluator behind it.
-export async function shouldShowFriendshipExperiencePrompt(userId: string): Promise<boolean> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('friendship_experience')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (profile?.friendship_experience) return false;
-
-  const { data: myConnections } = await supabase
-    .from('connections')
-    .select('id')
-    .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`);
-  const connectionIds = (myConnections ?? []).map((c) => c.id as string);
-
-  if (connectionIds.length > 0) {
-    const { data: earliestMessage } = await supabase
-      .from('messages')
-      .select('created_at')
-      .in('connection_id', connectionIds)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (earliestMessage) {
-      const elapsedMs = Date.now() - new Date(earliestMessage.created_at as string).getTime();
-      return elapsedMs >= 4 * 60 * 60 * 1000;
-    }
-  }
-
-  const { data: userRow } = await supabase
-    .from('users')
-    .select('behavioral_tracking_disclosed_at')
-    .eq('id', userId)
-    .maybeSingle();
-  if (!userRow?.behavioral_tracking_disclosed_at) return false;
-
-  const onboardingElapsedMs = Date.now() - new Date(userRow.behavioral_tracking_disclosed_at as string).getTime();
-  return onboardingElapsedMs >= 7 * 24 * 60 * 60 * 1000;
 }
