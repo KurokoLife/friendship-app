@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type CoachMarkKey, resetCoachMark, resetCoachMarks } from '@/lib/coach-marks';
 import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
+import { shouldShowFriendshipExperiencePrompt } from '@/lib/friendship-experience';
+import { type GraduationEligibility, shouldShowGraduationPrompt } from '@/lib/graduation';
 import { type NoGhostTriggerId } from '@/lib/no-ghost';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -123,6 +125,16 @@ export default function DevScreen() {
   const [ttCapHoursAgo, setTtCapHoursAgo] = useState('');
   const [ttPoolHoursAgo, setTtPoolHoursAgo] = useState('40');
   const [ttPoolSpent, setTtPoolSpent] = useState('0');
+
+  // Quick Tests panel state: one busy flag shared across all 5 buttons
+  // (only one runs at a time, same pattern ttBusy already uses), one
+  // status message per test (keyed by test id) so running one doesn't
+  // clear another's most recent result.
+  const [quickBusy, setQuickBusy] = useState<string | null>(null);
+  const [quickStatus, setQuickStatus] = useState<Record<string, string | null>>({});
+  const setQuickResult = (key: string, message: string | null) => {
+    setQuickStatus((s) => ({ ...s, [key]: message }));
+  };
 
   const loadConversations = useCallback(async () => {
     if (!isSupabaseConfigured) return;
@@ -720,6 +732,199 @@ export default function DevScreen() {
     );
   };
 
+  // ---- Quick Tests panel ----
+  // One-tap end-to-end tests, each a thin wrapper around the granular
+  // tools already built above (No-ghost testing, Meetup milestone
+  // testing, and this same Time Travel panel's own coach-mark/friendship-
+  // experience tools), not a duplicate implementation of any of them. The
+  // no-ghost/checkin/graduation tests need a connection selected (same
+  // picker as No-ghost testing below); coach marks and friendship
+  // experience act on the signed-in account only.
+
+  const handleQuickTestNoGhost = async () => {
+    if (!selectedConnectionId) {
+      setQuickResult('no-ghost', 'Select a conversation in the No-ghost testing section below first.');
+      return;
+    }
+    setQuickBusy('no-ghost');
+    setQuickResult('no-ghost', null);
+    const { data, error: rpcError } = await supabase.rpc('dev_test_no_ghost_end_to_end', {
+      p_connection_id: selectedConnectionId,
+    });
+    setQuickBusy(null);
+    if (rpcError) {
+      setQuickResult('no-ghost', rpcError.message);
+      return;
+    }
+    if (!data?.has_messages) {
+      setQuickResult(
+        'no-ghost',
+        'This conversation has no messages yet, the no-ghost scheduler has nothing to evaluate against. Pick a thread with at least one message.'
+      );
+      return;
+    }
+    const fired = (data.fired ?? []) as Array<{
+      trigger_id: string;
+      user_id: string;
+      display_name: string | null;
+      role: 'A' | 'B';
+    }>;
+    if (fired.length === 0) {
+      setQuickResult(
+        'no-ghost',
+        'Cleared existing prompt state and ran the real scheduler as if 40 hours had passed since the last message, but nothing fired. Most likely cause: this connection is paused, inactive, blocked, ended, or passed, the scheduler skips those on purpose.'
+      );
+      return;
+    }
+    const summary = fired
+      .map((f) => `${f.trigger_id} for ${f.display_name ?? 'a member'} (user ${f.role})`)
+      .join(', ');
+    setQuickResult(
+      'no-ghost',
+      `Fired: ${summary}. Cleared existing prompt state first, then ran the real scheduler as if 40 hours had passed since the last message (that offset reliably triggers R1 alone, R2/R3/S1 all need more elapsed time to fire). Sign in as the targeted account above and open this thread to see it.`
+    );
+  };
+
+  const handleQuickTestMeetupCheckin = async () => {
+    if (!selectedConnectionId) {
+      setQuickResult('checkin', 'Select a conversation in the No-ghost testing section below first.');
+      return;
+    }
+    setQuickBusy('checkin');
+    setQuickResult('checkin', null);
+    const { data, error: rpcError } = await supabase.rpc('dev_test_meetup_checkin_end_to_end', {
+      p_connection_id: selectedConnectionId,
+    });
+    setQuickBusy(null);
+    if (rpcError) {
+      setQuickResult('checkin', rpcError.message);
+      return;
+    }
+    const outcome = data?.outcome as string | undefined;
+    const outcomeMessage = (outcome && CHECKIN_RESULT_MESSAGES[outcome]) || `Evaluator ran, unrecognized result: ${outcome}`;
+    const prefix = 'Cleared checkin state, backdated last_plan_activity_at past the real 7-day threshold, and ran the real checkin evaluator.';
+    if (outcome === 'fired') {
+      const names = ((data.checkins ?? []) as Array<{ display_name: string | null }>)
+        .map((c) => c.display_name ?? 'a member')
+        .join(' and ');
+      setQuickResult('checkin', `${prefix} ${outcomeMessage} (${names}). Sign in as either above and open this thread to see it.`);
+    } else {
+      setQuickResult('checkin', `${prefix} ${outcomeMessage}`);
+    }
+  };
+
+  const handleQuickTestGraduation = async () => {
+    if (!selectedConnectionId) {
+      setQuickResult('graduation', 'Select a conversation in the No-ghost testing section below first.');
+      return;
+    }
+    setQuickBusy('graduation');
+    setQuickResult('graduation', null);
+    const { data, error: rpcError } = await supabase.rpc('dev_test_graduation_end_to_end', {
+      p_connection_id: selectedConnectionId,
+    });
+    setQuickBusy(null);
+    if (rpcError) {
+      setQuickResult('graduation', rpcError.message);
+      return;
+    }
+    if (!data?.target_reached) {
+      const reason = data?.abort_reason as string | undefined;
+      const reasonMessage = (reason && CHECKIN_RESULT_MESSAGES[reason]) || `Ran into an unrecognized blocker: ${reason}`;
+      setQuickResult(
+        'graduation',
+        `Completed ${data?.completed_cycles ?? 0} of the meetups needed before hitting a real blocker (same evaluator No-ghost/Meetup milestone testing use). ${reasonMessage}`
+      );
+      return;
+    }
+    const eligibility: GraduationEligibility = {
+      meetupCount: data.final_meetup_count,
+      status: data.status,
+      graduationDismissedAtCount: data.graduation_dismissed_at_count,
+    };
+    const met = shouldShowGraduationPrompt(eligibility);
+    setQuickResult(
+      'graduation',
+      `Pushed ${data.completed_cycles} real, mutually-confirmed meetup(s) through the actual report → confirmation request → confirm → meetup_log + meetup_count mechanism (this dev tool plays both sides since only one account is signed in at a time, see the migration's own comment for why). Connection now has ${data.final_meetup_count} confirmed meetup(s), status "${data.status}". Real graduation-modal condition met: ${met ? 'yes, open this thread to see it' : 'no'}.`
+    );
+  };
+
+  const handleQuickTestCoachMarks = async () => {
+    setQuickBusy('coach-marks');
+    setQuickResult('coach-marks', null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setQuickBusy(null);
+      setQuickResult('coach-marks', 'Sign in as a seed account first.');
+      return;
+    }
+    await resetCoachMarks();
+    setQuickBusy(null);
+    setQuickResult(
+      'coach-marks',
+      'All 9 coach marks cleared for the signed-in account. Reload any tab (Discover, Browse, Saved, Inbox, Remember, Profile) to see its first-time tip again, or revisit a thread with an active no-ghost prompt or meetup checkin, or a blocked AI-assist surface, to see those.'
+    );
+  };
+
+  const handleQuickTestFriendshipExperience = async () => {
+    setQuickBusy('friendship-experience');
+    setQuickResult('friendship-experience', null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setQuickBusy(null);
+      setQuickResult('friendship-experience', 'Sign in as a seed account first.');
+      return;
+    }
+    const { error: clearError } = await supabase
+      .from('profiles')
+      .update({ friendship_experience: null })
+      .eq('user_id', user.id);
+    const backdated = new Date(Date.now() - 192 * 60 * 60 * 1000).toISOString();
+    const { error: backdateError } = await supabase
+      .from('users')
+      .update({ behavioral_tracking_disclosed_at: backdated })
+      .eq('id', user.id);
+    if (clearError || backdateError) {
+      setQuickBusy(null);
+      setQuickResult('friendship-experience', (clearError ?? backdateError)!.message);
+      return;
+    }
+    // The real eligibility function checks a 4-hour-since-first-message
+    // trigger FIRST, and only falls back to the 7-day-since-onboarding
+    // backstop backdated above when the account has no messages at all
+    // yet. Query the same signal here so the report is honest about
+    // which path actually governed the result, not just the boolean.
+    const { data: myConnections } = await supabase
+      .from('connections')
+      .select('id')
+      .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
+    const connectionIds = (myConnections ?? []).map((c) => c.id as string);
+    let earliestMessageAt: string | null = null;
+    if (connectionIds.length > 0) {
+      const { data: earliest } = await supabase
+        .from('messages')
+        .select('created_at')
+        .in('connection_id', connectionIds)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      earliestMessageAt = (earliest?.created_at as string | undefined) ?? null;
+    }
+    const ready = await shouldShowFriendshipExperiencePrompt(user.id);
+    setQuickBusy(null);
+    const via = earliestMessageAt
+      ? `the 4-hour-since-first-message trigger (this account's earliest message was ${new Date(earliestMessageAt).toLocaleString()}), not the backdated onboarding timestamp`
+      : 'the 7-day-since-onboarding backstop just backdated above';
+    setQuickResult(
+      'friendship-experience',
+      `Cleared friendship_experience and backdated behavioral_tracking_disclosed_at to 8 days ago. Real eligibility check governed by ${via}: ${ready ? 'ready to show' : 'not ready yet'}.${ready ? ' Reload Discover to see it.' : ''}`
+    );
+  };
+
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
@@ -733,6 +938,90 @@ export default function DevScreen() {
           </View>
 
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+
+          <View className="gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
+            <View className="gap-1">
+              <Text className="text-title text-stone-900 dark:text-stone-50">Quick Tests</Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                One tap per feature, chaining the granular tools below into a single end-to-end
+                check. The three connection-based tests use whichever conversation is selected in
+                the No-ghost testing section further down; sign in and pick one there first if a
+                button below says so.
+              </Text>
+            </View>
+
+            <View className="gap-2">
+              <Pressable
+                onPress={handleQuickTestNoGhost}
+                disabled={quickBusy === 'no-ghost'}
+                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                  {quickBusy === 'no-ghost' ? 'Testing...' : 'Test no-ghost end-to-end'}
+                </Text>
+              </Pressable>
+              {quickStatus['no-ghost'] && (
+                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['no-ghost']}</Text>
+              )}
+            </View>
+
+            <View className="gap-2">
+              <Pressable
+                onPress={handleQuickTestMeetupCheckin}
+                disabled={quickBusy === 'checkin'}
+                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                  {quickBusy === 'checkin' ? 'Testing...' : 'Test meetup check-in end-to-end'}
+                </Text>
+              </Pressable>
+              {quickStatus['checkin'] && (
+                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['checkin']}</Text>
+              )}
+            </View>
+
+            <View className="gap-2">
+              <Pressable
+                onPress={handleQuickTestGraduation}
+                disabled={quickBusy === 'graduation'}
+                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                  {quickBusy === 'graduation' ? 'Testing...' : 'Test meetup confirmation + graduation end-to-end'}
+                </Text>
+              </Pressable>
+              {quickStatus['graduation'] && (
+                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['graduation']}</Text>
+              )}
+            </View>
+
+            <View className="gap-2">
+              <Pressable
+                onPress={handleQuickTestCoachMarks}
+                disabled={quickBusy === 'coach-marks'}
+                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                  {quickBusy === 'coach-marks' ? 'Testing...' : 'Test coach marks end-to-end'}
+                </Text>
+              </Pressable>
+              {quickStatus['coach-marks'] && (
+                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['coach-marks']}</Text>
+              )}
+            </View>
+
+            <View className="gap-2">
+              <Pressable
+                onPress={handleQuickTestFriendshipExperience}
+                disabled={quickBusy === 'friendship-experience'}
+                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                  {quickBusy === 'friendship-experience' ? 'Testing...' : 'Test friendship-experience survey end-to-end'}
+                </Text>
+              </Pressable>
+              {quickStatus['friendship-experience'] && (
+                <Text className="text-caption text-stone-600 dark:text-stone-400">
+                  {quickStatus['friendship-experience']}
+                </Text>
+              )}
+            </View>
+          </View>
 
           <View className="gap-2">
             {DEV_SEED_USERS.map((u) => (
