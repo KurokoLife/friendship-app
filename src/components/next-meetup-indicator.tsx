@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { formatMeetupDate, parseMeetupDate } from '@/lib/remember';
@@ -27,6 +28,21 @@ function formatDisplayDate(iso: string): string {
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
+// Collapse/hide preference (Part 3, repeat-meetup scheduling session,
+// 2026-08-09): a pure, personal display choice, not something that needs
+// to sync across devices or be visible to the other participant, so a
+// plain on-device AsyncStorage key is enough, no database column, same
+// reasoning already established for src/lib/device-id.ts's own local-only
+// storage. Scoped by BOTH connectionId and myId (not connectionId alone):
+// this app's own Dev tab routinely switches between several real accounts
+// on the same device/browser to test a single shared connection from both
+// sides, and a collapse choice made as one participant should never leak
+// into the other participant's own view of the identical connection just
+// because they happen to share a device during testing.
+function collapseStorageKey(connectionId: string, myId: string): string {
+  return `limen_next_meetup_collapsed:${myId}:${connectionId}`;
+}
+
 // Persistent, always-visible regardless of how the date got there
 // (direct propose, a reschedule, or auto-proposed by "Let's plan
 // something", see thread/[id].tsx's own handlePlanSomething). Lightweight
@@ -39,6 +55,24 @@ export function NextMeetupIndicator({ connectionId, myId, otherName, status, onC
   const [dateText, setDateText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const value = await AsyncStorage.getItem(collapseStorageKey(connectionId, myId));
+      if (!cancelled) setCollapsed(value === '1');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId, myId]);
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    AsyncStorage.setItem(collapseStorageKey(connectionId, myId), next ? '1' : '0');
+  };
 
   const startEdit = () => {
     setDateText(status.date ?? '');
@@ -131,13 +165,39 @@ export function NextMeetupIndicator({ connectionId, myId, otherName, status, onC
     );
   }
 
+  // Collapsed: a small, unambiguous strip, not a total disappearance. Still
+  // names the real current state at a glance (no meetup planned / a date
+  // proposed / a date confirmed) so collapsing it once doesn't mean losing
+  // track of where things stand, and "Show" is always right there, never
+  // buried in a menu.
+  if (collapsed) {
+    const collapsedLabel = !status.date || !status.status
+      ? 'No meetup planned yet'
+      : status.status === 'proposed'
+        ? `Meetup proposed: ${formatDisplayDate(status.date)}`
+        : `Next meetup: ${formatDisplayDate(status.date)}`;
+    return (
+      <View className="mx-6 mt-4 flex-row items-center justify-between gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 dark:border-stone-700 dark:bg-stone-800">
+        <Text className="text-caption text-stone-400 dark:text-stone-600">{collapsedLabel}</Text>
+        <Pressable onPress={toggleCollapsed}>
+          <Text className="text-caption font-semibold text-accent-500">Show</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (!status.date || !status.status) {
     return (
       <View className="mx-6 mt-4 flex-row items-center justify-between gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <Text className="text-caption text-stone-400 dark:text-stone-600">No meetup planned yet</Text>
-        <Pressable onPress={startEdit}>
-          <Text className="text-caption font-semibold text-accent-500">Propose a date</Text>
-        </Pressable>
+        <View className="flex-row items-center gap-4">
+          <Pressable onPress={startEdit}>
+            <Text className="text-caption font-semibold text-accent-500">Propose a date</Text>
+          </Pressable>
+          <Pressable onPress={toggleCollapsed}>
+            <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Hide</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -149,11 +209,16 @@ export function NextMeetupIndicator({ connectionId, myId, otherName, status, onC
     return (
       <View className="mx-6 mt-4 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
-        <Text className="text-caption text-stone-500 dark:text-stone-400">
-          {iAmProposer
-            ? `You proposed ${label}. Waiting for ${otherName} to confirm.`
-            : `${otherName} proposed ${label}.`}
-        </Text>
+        <View className="flex-row items-start justify-between gap-2">
+          <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">
+            {iAmProposer
+              ? `You proposed ${label}. Waiting for ${otherName} to confirm.`
+              : `${otherName} proposed ${label}.`}
+          </Text>
+          <Pressable onPress={toggleCollapsed}>
+            <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Hide</Text>
+          </Pressable>
+        </View>
         <View className="flex-row items-center gap-4">
           {!iAmProposer && (
             <Pressable
@@ -176,9 +241,14 @@ export function NextMeetupIndicator({ connectionId, myId, otherName, status, onC
   return (
     <View className="mx-6 mt-4 flex-row items-center justify-between gap-2 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
       <Text className="text-caption text-stone-700 dark:text-stone-300">Next meetup: {label}</Text>
-      <Pressable onPress={startEdit}>
-        <Text className="text-caption font-semibold text-accent-500">Reschedule</Text>
-      </Pressable>
+      <View className="flex-row items-center gap-4">
+        <Pressable onPress={startEdit}>
+          <Text className="text-caption font-semibold text-accent-500">Reschedule</Text>
+        </Pressable>
+        <Pressable onPress={toggleCollapsed}>
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Hide</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

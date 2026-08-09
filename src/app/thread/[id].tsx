@@ -311,6 +311,27 @@ export default function ThreadScreen() {
     [connectionId, myId]
   );
 
+  // Bug fix, repeat-meetup scheduling investigation (2026-08-09):
+  // NextMeetupIndicator's propose/confirm actions used to only trigger
+  // loadNextMeetupStatus (via its onChanged prop). Proposing a new date
+  // (propose_next_meetup) already deletes any stale meetup_checkins rows
+  // server-side the moment it's called, correctly wiping out a prior
+  // meetup's resolved outcome card in the database, but nothing told this
+  // screen's own checkinStatus to re-fetch, so an already-open thread kept
+  // showing the previous meetup's stale "Sounds like it went well..." card
+  // until a full reload happened to re-fetch everything from scratch.
+  // Confirmed live: the database was correct immediately after proposing,
+  // only the in-memory checkinStatus was stale. This is the "something
+  // changed, please refresh" callback NextMeetupIndicator already had, just
+  // widened to refresh both pieces of state a propose/confirm can actually
+  // invalidate, not a new callback prop, since onChanged was already a
+  // generic no-argument signal with nothing propose/confirm-specific about
+  // its name.
+  const handleNextMeetupChanged = useCallback(() => {
+    loadNextMeetupStatus();
+    loadCheckinStatus();
+  }, [loadNextMeetupStatus, loadCheckinStatus]);
+
   // Persisted (meetup_outcome_dismissals), not client-only: this app's Back
   // button always calls router.replace(), so the thread screen never
   // survives a real exit and re-entry the way a tab screen does, a purely
@@ -419,20 +440,27 @@ export default function ThreadScreen() {
     // twice for a single navigation (confirmed via direct instrumentation,
     // ~380ms apart, same connectionId, in this dev environment, most
     // likely Expo Router wrapping routes in StrictMode during development).
-    // Without this flag, the first invocation's cleanup fires before its
-    // own async chain has reached subscribeToMessages below (there are many
-    // awaited steps ahead of it), so `unsubscribe` is still null and
-    // cleanup is a no-op. The first invocation's async work keeps running
-    // in the background regardless, and eventually registers its OWN
-    // realtime handler anyway, on top of the second invocation's. Both then
-    // stay registered for the lifetime of the real mount, so every single
-    // INSERT event calls setMessages twice, appending the identical row
-    // (identical id) to the array twice, which is exactly what produced the
-    // "Encountered two children with the same key" React warning and the
-    // visibly duplicated message bubble a real user reported. `cancelled`
-    // is checked immediately after subscribing (no await in between, so no
-    // race window) and tears down a subscription that was registered by an
-    // invocation React had already asked to clean up.
+    // Originally fixed narrowly, for the realtime message subscription only
+    // (a stale invocation's cleanup fires before its own async chain has
+    // reached subscribeToMessages, since there are many awaited steps ahead
+    // of it, so cleanup is a no-op and the stale invocation's subscription
+    // stays registered forever alongside the fresh one, doubling every
+    // INSERT event).
+    //
+    // Broadened (repeat-meetup scheduling investigation, 2026-08-09) after
+    // finding the identical root cause producing a second, separate
+    // symptom: reloading the same thread repeatedly showed stale/incomplete
+    // state (a missing "Propose a date" link, an incomplete "Met N times"
+    // list) roughly 1 time in 3, self-correcting on the next reload. Cause
+    // is the same double-invocation, just affecting the OTHER setState
+    // calls in this same effect, none of which checked whether their own
+    // invocation had already been cancelled before committing a result: a
+    // stale invocation's slower awaits can resolve AFTER a fresher
+    // invocation's already have, and nothing stopped the stale, older data
+    // from silently overwriting the fresher data that had already rendered
+    // correctly moments earlier. `cancelled` is now checked after every
+    // await in this effect, immediately before whatever setState call
+    // would otherwise follow it, not just around the one subscription.
     let unsubscribe: (() => void) | null = null;
     let cancelled = false;
 
@@ -440,6 +468,7 @@ export default function ThreadScreen() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (cancelled) return;
       if (!user) {
         setLoaded(true);
         return;
@@ -451,6 +480,7 @@ export default function ThreadScreen() {
         .select('user_a_id, user_b_id, status')
         .eq('id', connectionId)
         .maybeSingle();
+      if (cancelled) return;
 
       if (!connection) {
         setNotFound(true);
@@ -490,6 +520,7 @@ export default function ThreadScreen() {
           supabase.from('profiles').select('photo_url').eq('user_id', user.id).maybeSingle(),
           supabase.from('users').select('gender_identity').eq('id', user.id).maybeSingle(),
         ]);
+      if (cancelled) return;
 
       setOther(otherProfile ?? null);
       setMessages((existingMessages ?? []) as Message[]);
@@ -510,19 +541,29 @@ export default function ThreadScreen() {
           .eq('blocker_id', user.id)
           .eq('blocked_id', otherUserId)
           .maybeSingle();
+        if (cancelled) return;
         setIsBlocker(Boolean(myBlock));
       }
 
       setLoaded(true);
       await markIncomingRead(user.id);
+      if (cancelled) return;
       await loadNoGhostPrompt();
+      if (cancelled) return;
       await loadFollowUpReflection();
+      if (cancelled) return;
       await loadMeetupSuggestionState();
+      if (cancelled) return;
       await loadCheckinStatus();
+      if (cancelled) return;
       await loadPendingMeetupConfirmation();
+      if (cancelled) return;
       await loadMeetupLog();
+      if (cancelled) return;
       await checkGraduationEligibility();
+      if (cancelled) return;
       await loadNextMeetupStatus(user.id);
+      if (cancelled) return;
 
       // Shared channel (src/lib/realtime-messages.ts), not a per-screen
       // one, so this and the inbox screen's own subscription can never
@@ -968,7 +1009,7 @@ export default function ThreadScreen() {
                 myId={myId}
                 otherName={other?.display_name ?? 'them'}
                 status={nextMeetupStatus}
-                onChanged={loadNextMeetupStatus}
+                onChanged={handleNextMeetupChanged}
               />
             )}
 
