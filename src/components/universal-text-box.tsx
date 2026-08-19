@@ -75,6 +75,12 @@ type Props = {
   // compose flow reads consistently start to finish, a deliberately scoped
   // rename, not a default change for every caller.
   draftActionLabel?: string;
+  // Part 1 of tonight's consolidated build: overrides the idle+hasContent
+  // "Clean up" label, "Clean up" by default everywhere else. The no-ghost
+  // cards pass "Help me reply" here so the same real polish mechanism
+  // (generate-reply-draft's cleanup mode, unchanged) reads correctly in a
+  // reply-composition context rather than a generic editing one.
+  cleanupActionLabel?: string;
   disabled?: boolean;
 };
 
@@ -102,6 +108,7 @@ export function UniversalTextBox({
   onRequestDraft,
   draftPurpose,
   draftActionLabel = 'Draft it',
+  cleanupActionLabel = 'Clean up',
   disabled,
 }: Props) {
   const [mode, setMode] = useState<BoxMode>('idle');
@@ -305,7 +312,7 @@ export function UniversalTextBox({
       {mode === 'idle' && hasContent && (
         <View className="flex-row items-center gap-3">
           <Pressable onPress={handleCleanUp} disabled={disabled}>
-            <Text className="text-caption font-semibold text-accent-500">Clean up</Text>
+            <Text className="text-caption font-semibold text-accent-500">{cleanupActionLabel}</Text>
           </Pressable>
           <Pressable onPress={handleCancel} disabled={disabled}>
             <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>

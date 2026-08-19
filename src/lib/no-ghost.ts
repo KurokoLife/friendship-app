@@ -76,31 +76,19 @@ export function genderBucket(genderIdentity: string | null): GenderBucket {
   return genderIdentity === 'man' ? 'men' : 'women';
 }
 
-// Sender-only, client-computed reassurance, no DB row (same "computed,
-// not stored" approach this system has always used for passive,
-// non-actionable content). Blueprint: 20h shows the recipient's usual
-// reply rhythm plus reassurance; 72h ("in Chat") shows a second,
-// different reassurance line, still no push, still no action attached.
-// Both verbatim from blueprint Section 10's "Sender messages" table,
-// the 20h line's opening clause substituted with the same
-// otherName/responseTimePhrase pattern this app already established
-// (RESPONSE_TIME_PHRASES in thread/[id].tsx) rather than the table's
-// own literal "They usually reply within two days" example line, since
-// that line is itself just one instantiation of the template for a
-// "1-2 days" responder.
-export function senderReassuranceLine(
-  otherName: string,
-  responseTimePhrase: string | null,
-  hoursSinceSent: number,
-  hasReply: boolean
-): string | null {
-  if (hasReply) return null;
-  if (hoursSinceSent >= 20 && hoursSinceSent < 72) {
-    if (!responseTimePhrase) return null;
-    return `${otherName} ${responseTimePhrase}. A delayed response can have many explanations, so it may be too soon to draw a conclusion.`;
-  }
-  if (hoursSinceSent >= 72 && hoursSinceSent < 125) {
-    return 'Life gets busy. You may keep waiting or send a gentle follow-up. Their delay is information, but it is not proof of why they have not replied.';
+// Part 1 of tonight's consolidated build: replaces the old two-window
+// (20-72h, 72-125h) reassurance with a single new sender-side trigger at
+// 36 hours, distinct from S1 (still 125h, still the real actionable
+// card). Same "computed client-side, no DB row" approach the old
+// two-window version already established (no priority-queue entry, no
+// stored intervention row, just a passive line shown in the thread
+// header, gone the moment a reply lands or S1 takes over the same
+// waiting period). Copy is a fresh line for this specific 36h trigger,
+// not carried over from the old windows' own text, adapted to this
+// app's own even, non-alarmist tone.
+export function senderReassuranceLine(hoursSinceSent: number): string | null {
+  if (hoursSinceSent >= 36 && hoursSinceSent < 125) {
+    return 'Sometimes it takes a few days to reply. This does not necessarily mean anything.';
   }
   return null;
 }

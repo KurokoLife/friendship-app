@@ -56,6 +56,10 @@ import {
   type NextMeetupStatus,
 } from '@/lib/meetup-milestones';
 import { NextMeetupIndicator } from '@/components/next-meetup-indicator';
+import { NextMeetupIndicatorV2 } from '@/components/next-meetup-indicator-v2';
+import { PrimaryInterventionCard } from '@/components/primary-intervention-card';
+import { EndedConnectionVideoLink, VideoGuidanceCard } from '@/components/video-guidance-card';
+import { getActiveIntervention, type ActiveIntervention } from '@/lib/friendship-journey';
 import { NextMeetupFeelingCard } from '@/components/next-meetup-feeling-card';
 import { formatMeetupDate } from '@/lib/remember';
 import { fetchLatestRememberNote } from '@/lib/remember';
@@ -161,6 +165,17 @@ function timeLabel(iso: string): string {
 // receiving side (see the "Recipients can mark messages as read" RLS
 // policy in 20260712000004_add_messages.sql, which enforces the same
 // rule at the data layer).
+
+// Friendship Journey cutover flag, 2026-08-10. Explicitly typed `boolean`,
+// not inferred (which would collapse to the literal type `true` and make
+// TypeScript treat the old block below as statically unreachable code,
+// discarding its own internal null-narrowing and producing spurious
+// errors — confirmed by hitting exactly that during this cutover, fixed by
+// this typed const instead of a bare literal). Rollback is a one-word flip:
+// change `true` to `false` here, nothing else in either render block needs
+// to change.
+const NEW_SYSTEM_LIVE: boolean = true;
+
 export default function ThreadScreen() {
   const { id: connectionId } = useLocalSearchParams<{ id: string }>();
   const [myId, setMyId] = useState<string | null>(null);
@@ -239,7 +254,49 @@ export default function ThreadScreen() {
   // profiles) instead, fetched in the same initial batch.
   const [myGenderIdentity, setMyGenderIdentity] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  // Friendship Journey rebuild (Phase 3): the new priority-queue-driven
+  // system's single active intervention. __DEV__-gated only, per this
+  // file's own explicit safety requirement — the new system is fully built
+  // and tested (see FRIENDSHIP_JOURNEY_DESIGN.md and the Phase 3 report),
+  // but is deliberately not the default experience for a real production
+  // user yet. That is the separate, explicit cutover step, not taken here.
+  // In __DEV__, this REPLACES every old card below (no_ghost/checkin/
+  // outcome/confirmation/suggestion), never renders alongside them, so old
+  // and new never both drive what one user sees at once.
+  const [newSystemIntervention, setNewSystemIntervention] = useState<ActiveIntervention | null>(null);
+  // 2026-08-12 correction: at most one Limen video guidance offer may be
+  // visible at once. Video 3 (NextMeetupIndicatorV2) and Video 6 (inline in
+  // PrimaryInterventionCard's PreMeetupSupport) each report upward via a
+  // plain callback whenever their own offer becomes visible; VideoGuidanceCard
+  // (Videos 2/4/5) is simply not rendered while either is true. Deliberately
+  // two separate booleans, not one shared setter both call: either one
+  // clearing must not accidentally clear the other's still-active state.
+  const [video3OfferActive, setVideo3OfferActive] = useState(false);
+  const [video6OfferActive, setVideo6OfferActive] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  const loadNewSystemIntervention = useCallback(
+    async (viewerId?: string) => {
+      // Bug found and fixed during cutover verification, 2026-08-10: this
+      // had its OWN internal `!__DEV__` early return, separate from (and
+      // missed by) the render-block flip to NEW_SYSTEM_LIVE above. In a
+      // real production build (__DEV__ === false) this would have silently
+      // never populated newSystemIntervention at all, no matter what the
+      // render block's own condition said -- the new card would have
+      // rendered its container but never any actual content, forever.
+      // Fixed to use the same NEW_SYSTEM_LIVE flag as the render blocks,
+      // so the two can't drift apart again.
+      if (!NEW_SYSTEM_LIVE || !connectionId) return;
+      const resolvedViewerId = viewerId ?? myId;
+      if (!resolvedViewerId) return;
+      try {
+        setNewSystemIntervention(await getActiveIntervention(connectionId, resolvedViewerId));
+      } catch {
+        setNewSystemIntervention(null);
+      }
+    },
+    [connectionId, myId]
+  );
 
   const loadMeetupSuggestionState = useCallback(async () => {
     if (!connectionId) return;
@@ -564,6 +621,8 @@ export default function ThreadScreen() {
       if (cancelled) return;
       await loadNextMeetupStatus(user.id);
       if (cancelled) return;
+      await loadNewSystemIntervention(user.id);
+      if (cancelled) return;
 
       // Shared channel (src/lib/realtime-messages.ts), not a per-screen
       // one, so this and the inbox screen's own subscription can never
@@ -617,6 +676,7 @@ export default function ThreadScreen() {
     loadMeetupLog,
     checkGraduationEligibility,
     loadNextMeetupStatus,
+    loadNewSystemIntervention,
   ]);
 
   useEffect(() => {
@@ -688,19 +748,25 @@ export default function ThreadScreen() {
   const responsePhrase =
     !conversationEnded && other?.response_time ? RESPONSE_TIME_PHRASES[other.response_time] : null;
 
-  // Fix #2: sender-only passive reassurance line (blueprint's 20h and
-  // 72h-in-Chat checkpoints), only shown to whoever sent the last
+  // Part 1 of tonight's consolidated build: sender-only passive
+  // reassurance line, now a single new trigger at 36 hours (was the old
+  // two-window 20h/72h version), only shown to whoever sent the last
   // message and is waiting on a reply, never to the recipient (they get
   // the actual prompt card instead, when due). Disappears once a reply
-  // lands or the real S1 prompt (125h) takes over the same header slot.
+  // lands, or once the real S1 card (125h, the new system's own stored
+  // intervention) takes over -- checked directly against
+  // newSystemIntervention now, replacing the old, always-null
+  // noGhostPrompt check this line used before the cutover (a real gap:
+  // that guard was checking a table nothing writes to anymore, so it was
+  // vacuously true always, this line was already showing regardless).
   const lastMessage = messages[messages.length - 1];
   const isSenderWaiting = Boolean(lastMessage && myId && lastMessage.sender_id === myId);
   const hoursSinceSent = lastMessage
     ? (Date.now() - new Date(lastMessage.created_at).getTime()) / (60 * 60 * 1000)
     : 0;
   const statusLine =
-    !conversationEnded && isSenderWaiting && !noGhostPrompt
-      ? senderReassuranceLine(other?.display_name ?? 'They', responsePhrase, hoursSinceSent, false)
+    !conversationEnded && isSenderWaiting && newSystemIntervention?.intervention_type !== 'no_ghost_s1'
+      ? senderReassuranceLine(hoursSinceSent)
       : null;
 
   // F16 update: a real behavioral mismatch (I'm replying much faster than
@@ -994,15 +1060,101 @@ export default function ThreadScreen() {
                 available here anymore.
               </Text>
             )}
+            {/* Video 7 ("When a Friendship Changes or Ends"), 2026-08-11
+                video architecture update. Optional, after the fact only --
+                never a gate on ending, never shown before Report/Block in
+                the header, both of which are completely untouched by this
+                and remain reachable regardless of connection status. */}
+            <EndedConnectionVideoLink />
           </View>
         )}
 
-        {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && (
+        {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && NEW_SYSTEM_LIVE && (
           <>
-            {/* Item 4, 2026-08-16: persistent, always at the top of this
-                block regardless of how the date got there (direct
-                propose, reschedule, or auto-populated via "Let's plan
-                something"), per the given spec literally. */}
+            {/* Friendship Journey rebuild, new-system path (Phase 3):
+                CUTOVER 2026-08-10 — this is now the live production path,
+                `__DEV__` replaced with the typed `NEW_SYSTEM_LIVE` const
+                above (not removed) so the flip back to the old block below
+                is a one-line rollback, not a restore. ambient status stays outside the priority queue
+                exactly as the old system's own NextMeetupIndicator already
+                did (design doc §6a), just reading from the new `meetups`
+                table instead of connections.next_meetup_date. Below it, at
+                most ONE card renders — whichever get_active_intervention()
+                says is highest-priority right now — replacing what used to
+                be up to six independently-evaluated, potentially-
+                simultaneous cards. */}
+            {myId && connectionId && (
+              <NextMeetupIndicatorV2
+                connectionId={connectionId}
+                myId={myId}
+                otherName={other?.display_name ?? 'them'}
+                onChanged={() => loadNewSystemIntervention()}
+                onVideoOfferChange={setVideo3OfferActive}
+              />
+            )}
+            {connectionId && (
+              <View className="px-6 pt-2">
+                <Pressable onPress={() => router.push({ pathname: '/meetup-history/[connectionId]', params: { connectionId } })}>
+                  <Text className="text-caption font-semibold text-accent-500">View meetup history</Text>
+                </Pressable>
+              </View>
+            )}
+            {newSystemIntervention && connectionId && (
+              <View className="px-6 pt-4">
+                <PrimaryInterventionCard
+                  intervention={newSystemIntervention}
+                  connectionId={connectionId}
+                  otherName={other?.display_name ?? 'them'}
+                  onResolved={() => loadNewSystemIntervention()}
+                  onVideoOfferChange={setVideo6OfferActive}
+                />
+              </View>
+            )}
+            {/* Video trigger/placement architecture (2026-08-11), Videos 2/4/5:
+                deliberately rendered AFTER PrimaryInterventionCard, never
+                instead of it -- optional secondary support only, never the
+                primary relational intervention. myId is guaranteed defined
+                here, this whole block already requires it above.
+                2026-08-12 correction: not rendered at all while Video 3
+                (NextMeetupIndicatorV2, above) or Video 6 (inline in
+                PrimaryInterventionCard just above) already has its own
+                offer visible -- the simplest way to guarantee at most one
+                video guidance offer on screen, without a shared resolver or
+                new priority system. Nothing about WHEN 2/4/5 would
+                individually qualify changes; only whether this component
+                mounts at all does. */}
+            {myId && connectionId && !video3OfferActive && !video6OfferActive && (
+              <VideoGuidanceCard
+                connectionId={connectionId}
+                myId={myId}
+                currentInterventionType={newSystemIntervention?.intervention_type}
+              />
+            )}
+          </>
+        )}
+
+        {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && !NEW_SYSTEM_LIVE && (
+          <>
+            {/* RETIRED at Friendship Journey cutover, 2026-08-10. This whole
+                block, including MeetupSuggestionBanner ("Let's plan
+                something" at 7+ messages), is deliberately disabled, not
+                deleted: `!__DEV__` replaced with `!NEW_SYSTEM_LIVE` so
+                rollback is a one-word flip (NEW_SYSTEM_LIVE = false, at the
+                const declaration above), not a restore from git history. MeetupSuggestionBanner specifically was NOT ported
+                into the new intervention system as part of this cutover —
+                that was an explicit product decision, not an oversight: the
+                old "suggest planning a meetup at 7+ messages" behavior was
+                never designed or approved as part of the new
+                single-intervention-priority architecture, so no new
+                intervention type, priority rank, threshold, or replacement
+                trigger was invented for it here. Retired pending later
+                feature-level review of when and how Limen should encourage
+                moving from conversation to an in-person meetup, to be
+                revisited in the feature-by-feature QA phase, not here.
+                Item 4, 2026-08-16 (original comment, preserved): persistent,
+                always at the top of this block regardless of how the date
+                got there (direct propose, reschedule, or auto-populated via
+                "Let's plan something"), per the given spec literally. */}
             {myId && connectionId && (
               <NextMeetupIndicator
                 connectionId={connectionId}
