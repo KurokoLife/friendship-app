@@ -1106,6 +1106,7 @@ export default function ThreadScreen() {
                   connectionId={connectionId}
                   otherName={other?.display_name ?? 'them'}
                   onResolved={() => loadNewSystemIntervention()}
+                  onPlanSomething={handlePlanSomething}
                   onVideoOfferChange={setVideo6OfferActive}
                 />
               </View>

@@ -11,10 +11,12 @@ import {
   reportMeetupOccurrence,
   resolveMeetupDateResolution,
   submitGraduationReadiness,
+  submitMeetupCancellationReason,
   submitPostMeetupReflection,
   submitRhythmPreference,
   submitSecondLookResponse,
   type ActiveIntervention,
+  type MeetupCancellationReason,
   type PauseDuration,
 } from '@/lib/friendship-journey';
 import { supabase } from '@/lib/supabase';
@@ -35,6 +37,13 @@ type Props = {
   // mechanism, not a new priority system, just a one-way "something is
   // showing" signal up to thread/[id].tsx.
   onVideoOfferChange?: (active: boolean) => void;
+  // Part 3 of tonight's consolidated build: threaded down from
+  // thread/[id].tsx's own real handlePlanSomething, so the redesigned
+  // post-meetup flow's "Let's plan something" link does the exact same
+  // real thing the always-visible compose-footer link already does
+  // (first-time milestone / Remember reminder / activity suggestions
+  // branching, unchanged), not a second, simplified reimplementation.
+  onPlanSomething?: () => void;
 };
 
 // Friendship Journey rebuild — the single card this app now renders, driven
@@ -45,7 +54,7 @@ type Props = {
 // __DEV__-gated only, see thread/[id].tsx's own comment for why: this is
 // real, tested code, not a stub, but it is not yet the default experience
 // for a real production user — that is the deliberate cutover step.
-export function PrimaryInterventionCard({ intervention, connectionId, otherName, onResolved, onVideoOfferChange }: Props) {
+export function PrimaryInterventionCard({ intervention, connectionId, otherName, onResolved, onVideoOfferChange, onPlanSomething }: Props) {
   switch (intervention.intervention_type) {
     case 'no_ghost_r1':
       return <NoGhostR1 connectionId={connectionId} onResolved={onResolved} />;
@@ -68,7 +77,15 @@ export function PrimaryInterventionCard({ intervention, connectionId, otherName,
         />
       );
     case 'meetup_occurrence_check':
-      return <MeetupOccurrenceCheck intervention={intervention} otherName={otherName} onResolved={onResolved} />;
+      return (
+        <MeetupOccurrenceCheck
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          onResolved={onResolved}
+          onPlanSomething={onPlanSomething}
+        />
+      );
     case 'post_meetup_reflection':
       return <PostMeetupReflectionPrompt intervention={intervention} otherName={otherName} onResolved={onResolved} />;
     case 'second_look_prompt':
@@ -462,51 +479,271 @@ function PreMeetupSupport({
   );
 }
 
+function formatMeetupDisplayDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+const CANCELLATION_REASON_OPTIONS: { key: MeetupCancellationReason; label: string }[] = [
+  { key: 'schedule_conflict', label: 'Something came up' },
+  { key: 'circumstances_changed', label: 'Things changed on my end' },
+  { key: 'lost_interest', label: "It didn't feel like the right fit anymore" },
+  { key: 'other', label: 'Other' },
+];
+
+type OccurrenceMode =
+  | 'ask'
+  | 'yes_date'
+  | 'no_followup'
+  | 'cancelled_reason'
+  | 'cancelled_reschedule_ask'
+  | 'cancelled_reschedule_compose'
+  | 'rescheduled_done'
+  | 'cancelled_done';
+
+// Part 3 of tonight's consolidated build: replaces the old plain
+// Yes/No-plus-re-asked-date card with a real branching post-meetup flow.
+// The real date is read directly from the intervention's own payload
+// (confirmed_date, added to run_meetup_occurrence_check_v2's own
+// raise_intervention call this same session), never re-asked of the user.
+// "Yes" still flows through the same real reportMeetupOccurrence
+// mechanism as before (preserving meetup_count/friendship_stage
+// integrity), and once both participants say yes, the existing
+// post_meetup_reflection intervention (rank 4, right below this one)
+// naturally becomes the next thing shown -- that IS the "How did it go?"
+// step, reusing the real, already-built reflection options rather than
+// inventing a second, parallel one.
+//
+// "No" also calls reportMeetupOccurrence(false) immediately (keeping that
+// same real mechanism intact regardless of which sub-branch is chosen
+// next), but deliberately does NOT call onResolved() until the whole
+// rescheduled/cancelled sub-flow finishes -- calling it early would let
+// thread/[id].tsx re-fetch and potentially swap this card out from under
+// the user mid-flow if something else is now higher-priority, the same
+// local-state-until-truly-done pattern MeetupOutcomeCard's own exitMode
+// already established.
 function MeetupOccurrenceCheck({
+  connectionId,
   intervention,
   otherName,
   onResolved,
+  onPlanSomething,
 }: {
+  connectionId: string;
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
+  onPlanSomething?: () => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
-  const [pickedYes, setPickedYes] = useState(false);
-  const [date, setDate] = useState('');
+  const confirmedDate = intervention.payload.confirmed_date as string | undefined;
+  const dateLabel = confirmedDate ? formatMeetupDisplayDate(confirmedDate) : null;
 
-  const answerNo = async () => {
-    await reportMeetupOccurrence(meetupId, false);
-    onResolved();
-  };
-  const confirmYes = async () => {
-    await reportMeetupOccurrence(meetupId, true, date || null);
-    onResolved();
+  const [mode, setMode] = useState<OccurrenceMode>('ask');
+  const [busy, setBusy] = useState(false);
+  const [reason, setReason] = useState<MeetupCancellationReason | null>(null);
+  const [draft, setDraft] = useState('');
+  const [draftEdited, setDraftEdited] = useState(false);
+
+  const handleDraftChange = (text: string) => {
+    setDraft(text);
+    setDraftEdited(true);
   };
 
-  return (
-    <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">Did you meet with {otherName}?</Text>
-      {!pickedYes ? (
+  const answerYes = async () => {
+    setBusy(true);
+    try {
+      await reportMeetupOccurrence(meetupId, true, confirmedDate ?? null);
+      onResolved();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Real bug found and fixed during this session's own live verification,
+  // not assumed correct from reading the code: reportMeetupOccurrence's own
+  // SQL marks the underlying connection_interventions row resolved as a
+  // side effect of ANY report, regardless of yes/no. Calling it the moment
+  // "No" was tapped (the first version of this flow) meant a page reload
+  // partway through the rescheduled/cancelled sub-flow lost the whole
+  // card -- get_active_intervention had nothing left to return, since the
+  // row was already resolved, even though the richer follow-up (reason,
+  // reschedule intent) was still mid-flow. Fixed by deferring the actual
+  // reportMeetupOccurrence(false) call to each branch's own terminal step
+  // (pickRescheduled, and the reschedule-intent answer for the cancelled
+  // branch) instead of firing it immediately on "No", so the underlying
+  // row -- and therefore this whole card -- stays reload-resumable for as
+  // long as the user is still actively answering it.
+  const answerNo = () => {
+    setMode('no_followup');
+  };
+
+  const pickRescheduled = async () => {
+    setBusy(true);
+    try {
+      await reportMeetupOccurrence(meetupId, false);
+      setMode('rescheduled_done');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pickCancelled = () => setMode('cancelled_reason');
+
+  const submitReason = (r: MeetupCancellationReason) => {
+    setReason(r);
+    setMode('cancelled_reschedule_ask');
+  };
+
+  const answerRescheduleWanted = async (wants: boolean) => {
+    if (!reason) return;
+    setBusy(true);
+    try {
+      await submitMeetupCancellationReason(meetupId, reason, wants);
+      await reportMeetupOccurrence(meetupId, false);
+      setMode(wants ? 'cancelled_reschedule_compose' : 'cancelled_done');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendRescheduleMessage = async () => {
+    if (!draft.trim()) return;
+    setBusy(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('messages').insert({ connection_id: connectionId, sender_id: user.id, content: draft.trim(), type: 'text' });
+      setMode('cancelled_done');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (mode === 'ask') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          {dateLabel ? `Did you meet ${otherName} on ${dateLabel}?` : `Did you meet with ${otherName}?`}
+        </Text>
         <View className="flex-row gap-2">
-          <OptionPill label="Yes" onPress={() => setPickedYes(true)} />
+          <OptionPill label="Yes" onPress={answerYes} />
           <OptionPill label="No" onPress={answerNo} />
         </View>
-      ) : (
+      </Card>
+    );
+  }
+
+  if (mode === 'no_followup') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">Was it rescheduled, or cancelled?</Text>
+        <View className="flex-row gap-2">
+          <OptionPill label="Rescheduled" onPress={pickRescheduled} />
+          <OptionPill label="Cancelled" onPress={pickCancelled} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (mode === 'rescheduled_done') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          No problem. Use the meetup card above whenever you&apos;re ready to propose a new date.
+        </Text>
+        <Pressable onPress={onResolved} className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
+          <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">Got it</Text>
+        </Pressable>
+      </Card>
+    );
+  }
+
+  if (mode === 'cancelled_reason') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">Why was it cancelled?</Text>
         <View className="gap-2">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">When did you meet? (YYYY-MM-DD)</Text>
+          {CANCELLATION_REASON_OPTIONS.map((o) => (
+            <Pressable
+              key={o.key}
+              onPress={() => submitReason(o.key)}
+              disabled={busy}
+              className="rounded-xl border border-stone-300 px-4 py-3 dark:border-stone-700">
+              <Text className="text-body text-stone-900 dark:text-stone-50">{o.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </Card>
+    );
+  }
+
+  if (mode === 'cancelled_reschedule_ask') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">Do you want to propose rescheduling?</Text>
+        <View className="flex-row gap-2">
+          <OptionPill label="Yes" onPress={() => answerRescheduleWanted(true)} />
+          <OptionPill label="No" onPress={() => answerRescheduleWanted(false)} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (mode === 'cancelled_reschedule_compose') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          You don&apos;t need a perfect message. Write what you&apos;re thinking, Help me reply can clean it
+          up once you have.
+        </Text>
+        <View className="relative">
           <TextInput
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
+            value={draft}
+            onChangeText={handleDraftChange}
+            onFocus={() => setDraftEdited(true)}
+            placeholder="Write what you want to say"
             placeholderTextColor={MUTED_ICON_COLOR}
-            className="rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+            multiline
+            className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 pr-12 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
           />
-          <Pressable onPress={confirmYes} className="self-start rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Confirm</Text>
+          <MicPlaceholderButton />
+        </View>
+        <UniversalTextBox value={draft} onChangeText={handleDraftChange} cleanupActionLabel="Help me reply" disabled={busy} />
+        <View className="flex-row flex-wrap items-center gap-3">
+          <Pressable
+            onPress={sendRescheduleMessage}
+            disabled={busy || !draftEdited || !draft.trim()}
+            className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${
+              busy || !draftEdited || !draft.trim() ? 'opacity-40' : ''
+            }`}>
+            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
+          </Pressable>
+          {/* The same real "Let's plan something" handler the always-visible
+              compose-footer link already calls, threaded down from
+              thread/[id].tsx, not a second, simplified reimplementation. */}
+          <Pressable
+            onPress={() => {
+              setMode('cancelled_done');
+              onPlanSomething?.();
+            }}
+            disabled={busy}>
+            <Text className="text-caption font-semibold text-accent-500">Let&apos;s plan something</Text>
           </Pressable>
         </View>
-      )}
+      </Card>
+    );
+  }
+
+  // cancelled_done
+  return (
+    <Card>
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        Thanks for letting us know. No further action needed.
+      </Text>
+      <Pressable onPress={onResolved} className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
+        <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">Close</Text>
+      </Pressable>
     </Card>
   );
 }
