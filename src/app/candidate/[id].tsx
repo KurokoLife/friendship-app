@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProfileStories } from '@/components/profile-stories';
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { ReportModal } from '@/components/report-modal';
 import {
@@ -344,6 +345,10 @@ export default function CandidateProfileScreen() {
             </View>
           )}
 
+
+          {/* Limen v2: Stories, in their own words, plus the reader's
+              private "I wonder..." notes. */}
+          {id && <ProfileStories subjectUserId={id} subjectName={profile.display_name ?? null} />}
 
           {/* 3. Values, as soft chips, plus any free-text addition (display
               only, never fed into match scoring). */}

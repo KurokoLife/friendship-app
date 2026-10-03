@@ -206,9 +206,7 @@ export default function ProfileBasicsScreen() {
                 within the 30 days since signup. Wording below describes
                 exactly that, not the word "active" standing in for it. */}
             <Text className="text-caption text-stone-400 dark:text-stone-600">
-              Once you&apos;ve both been using Limen for about 30 days, and you&apos;ve each opened
-              the app on at least 14 different days during that time (not all at once), you&apos;ll
-              each get 30 days of Premium, free.
+              Limen is free during the pilot, for you and for anyone you invite.
             </Text>
           </View>
 

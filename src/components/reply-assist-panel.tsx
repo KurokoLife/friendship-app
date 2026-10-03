@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
-import { DraftServiceError, UniversalTextBox } from '@/components/universal-text-box';
-import { supabase } from '@/lib/supabase';
+import { UniversalTextBox } from '@/components/universal-text-box';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -16,7 +15,11 @@ type ReplyAssistPanelProps = {
   recentMessages: ReplyAssistContextMessage[];
 };
 
-// F18: AI message assistance, now built on the universal text box
+// Limen v2 (2026-10-03): the AI no longer drafts or rewrites anything
+// here. UniversalTextBox now offers only Reflect (questions) and Check
+// (fact-only observations). See docs/LIMEN_V2_DECISIONS.md.
+//
+// F18 (historical): AI message assistance, built on the universal text box
 // pattern (2026-07-17) rather than its own bespoke two-step flow.
 // UniversalTextBox owns the "describe your situation, then Claude
 // drafts" step and, once something is in the field, "Clean up"/"Cancel"
@@ -47,17 +50,6 @@ export function ReplyAssistPanel({ visible, onClose, onSend, recentMessages }: R
     setEdited(true);
   };
 
-  const requestDraft = async (situation: string): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke('generate-reply-draft', {
-      body: { rawInput: situation, recentMessages },
-    });
-    if (error) throw error;
-    if (data?.blocked) throw new DraftServiceError(data.message as string);
-    if (data?.error) throw new DraftServiceError(data.error as string);
-    if (!data?.draft) throw new Error('No draft returned');
-    return data.draft as string;
-  };
-
   const canSend = edited && draft.trim().length > 0 && !sending;
 
   const handleSend = async () => {
@@ -85,7 +77,7 @@ export function ReplyAssistPanel({ visible, onClose, onSend, recentMessages }: R
               <TextInput
                 value={draft}
                 onChangeText={handleChange}
-                placeholder="Type your own, or use Help me write below"
+                placeholder="In your own words"
                 placeholderTextColor={MUTED_ICON_COLOR}
                 multiline
                 numberOfLines={5}
@@ -98,15 +90,9 @@ export function ReplyAssistPanel({ visible, onClose, onSend, recentMessages }: R
             <UniversalTextBox
               value={draft}
               onChangeText={handleChange}
-              onRequestDraft={requestDraft}
-              situationPrompt="What's the situation, and what do you want to say?"
+              context="reply"
+              recentMessages={recentMessages}
             />
-
-            {!edited && draft.length > 0 && (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
-                Edit the draft before sending, make it your own.
-              </Text>
-            )}
 
             <View className="flex-row items-center justify-between pt-1">
               <Pressable onPress={handleClose}>

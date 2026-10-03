@@ -18,7 +18,7 @@ import { CoachMark } from '@/components/coach-mark';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
 import { FollowUpReflectionCard } from '@/components/follow-up-reflection-card';
-import { GraduationModal } from '@/components/graduation-modal';
+import { MirrorSheet } from '@/components/mirror-sheet';
 import { MeetupCheckinCard } from '@/components/meetup-checkin-card';
 import { MeetupConfirmationCard } from '@/components/meetup-confirmation-card';
 import { MeetupOutcomeCard } from '@/components/meetup-outcome-card';
@@ -28,9 +28,9 @@ import { MeetupSuggestionBanner } from '@/components/meetup-suggestion-banner';
 import { ReplyAssistPanel, type ReplyAssistContextMessage } from '@/components/reply-assist-panel';
 import { ReportModal } from '@/components/report-modal';
 import { SpotlightTarget } from '@/components/spotlight-target';
-import { CreditBlockedError, DraftServiceError, UniversalTextBox } from '@/components/universal-text-box';
+import { UniversalTextBox } from '@/components/universal-text-box';
+import { fetchConnectionCareStyle } from '@/lib/care-style';
 import { fetchActiveReflections, type FollowUpReflection } from '@/lib/follow-up-reflection';
-import { fetchGraduationEligibility, shouldShowGraduationPrompt } from '@/lib/graduation';
 import { track } from '@/lib/analytics';
 import {
   dismissMeetupSuggestionPermanently,
@@ -211,7 +211,18 @@ export default function ThreadScreen() {
   // a real mutual confirm.
   const [pendingMeetupConfirmation, setPendingMeetupConfirmation] = useState<MeetupConfirmationRequest | null>(null);
   const [meetupLog, setMeetupLog] = useState<MeetupLogEntry[]>([]);
-  const [graduationModalVisible, setGraduationModalVisible] = useState(false);
+  const [mirrorVisible, setMirrorVisible] = useState(false);
+  const [otherCareStyle, setOtherCareStyle] = useState<string | null>(null);
+  useEffect(() => {
+    if (!connectionId) return;
+    let cancelled = false;
+    fetchConnectionCareStyle(connectionId).then((t) => {
+      if (!cancelled) setOtherCareStyle(t);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId]);
   const [showFirstMilestone, setShowFirstMilestone] = useState(false);
   // Item 4, 2026-08-16: next-meetup date. nextMeetupStatus backs the
   // always-visible NextMeetupIndicator; feelingAcked tracks whether the
@@ -329,17 +340,12 @@ export default function ThreadScreen() {
   // fires the "Shown" analytics event exactly once per genuine
   // transition into visible, not on every re-check while it's already
   // showing or already dismissed.
-  const checkGraduationEligibility = useCallback(async () => {
-    if (!connectionId) return;
-    const eligibility = await fetchGraduationEligibility(connectionId);
-    const shouldShow = shouldShowGraduationPrompt(eligibility);
-    setGraduationModalVisible((wasVisible) => {
-      if (shouldShow && !wasVisible) {
-        track('graduation_shown', { connectionId });
-      }
-      return shouldShow;
-    });
-  }, [connectionId]);
+  // Limen v2 (2026-10-03): the old 5-meetup GraduationModal is retired.
+  // Graduation now runs only through the Friendship Journey's private,
+  // mutual graduation_checkpoint (PrimaryInterventionCard), see
+  // docs/LIMEN_V2_DECISIONS.md. Kept as a no-op so existing call sites
+  // don't need to change.
+  const checkGraduationEligibility = useCallback(async () => {}, []);
 
   // Item 4, 2026-08-16: reloaded after propose/confirm/reschedule so the
   // indicator reflects the real, persisted state rather than an
@@ -867,23 +873,6 @@ export default function ThreadScreen() {
     content: m.content,
   }));
 
-  const requestComposeDraft = async (situation: string): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke('generate-reply-draft', {
-      body: { rawInput: situation, recentMessages: replyAssistContext },
-    });
-    if (error) throw error;
-    // 2026-07-30 fix: this custom onRequestDraft previously never checked
-    // data?.blocked, so a real cap/pool block on this specific surface
-    // fell through to the generic "No draft returned" error below instead
-    // of UniversalTextBox's own CreditBlockedError handling (the blocked
-    // message plus the "Get 50 AI credits" button, already working on
-    // every other AI-assist surface in the app). Matches the exact check
-    // order UniversalTextBox's own internal requestDraft already uses.
-    if (data?.blocked) throw new CreditBlockedError(data.message as string, data.tier as string | undefined);
-    if (data?.error) throw new DraftServiceError(data.error as string);
-    if (!data?.draft) throw new Error('No draft returned');
-    return data.draft as string;
-  };
 
   // 2026-07-30: a brand-new conversation (zero messages either direction)
   // requires the sender to have a real profile photo before their first
@@ -1108,6 +1097,7 @@ export default function ThreadScreen() {
                   onResolved={() => loadNewSystemIntervention()}
                   onPlanSomething={handlePlanSomething}
                   onVideoOfferChange={setVideo6OfferActive}
+                  onEndConnection={() => setEndConnectionVisible(true)}
                 />
               </View>
             )}
@@ -1502,9 +1492,16 @@ export default function ThreadScreen() {
           <UniversalTextBox
             value={draft}
             onChangeText={setDraft}
-            onRequestDraft={requestComposeDraft}
-            situationPrompt="What's the situation, and what do you want to say?"
+            context="reply"
+            recentMessages={replyAssistContext}
+            otherCareStyle={otherCareStyle}
+            otherName={other?.display_name ?? null}
           />
+          <Pressable onPress={() => setMirrorVisible(true)} className="self-start">
+            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+              Unsure how to read something? Another way to see it
+            </Text>
+          </Pressable>
         </>
         )}
         </View>
@@ -1572,17 +1569,11 @@ export default function ThreadScreen() {
         />
       )}
 
-      {connectionId && (
-        <GraduationModal
-          visible={graduationModalVisible}
-          connectionId={connectionId}
-          onKeptOrDeferred={() => setGraduationModalVisible(false)}
-          onGraduated={() => {
-            setGraduationModalVisible(false);
-            loadConnectionStatus();
-          }}
-        />
-      )}
+      <MirrorSheet
+        visible={mirrorVisible}
+        onClose={() => setMirrorVisible(false)}
+        otherName={other?.display_name ?? null}
+      />
     </KeyboardAvoidingView>
   );
 }

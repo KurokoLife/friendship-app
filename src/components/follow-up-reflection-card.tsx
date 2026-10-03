@@ -34,7 +34,7 @@ export function FollowUpReflectionCard({ reflection, otherName, onHelpMeSayIt, o
         <Pressable
           onPress={onHelpMeSayIt}
           className="rounded-full border border-stone-900 bg-stone-900 px-4 py-2 dark:border-stone-50 dark:bg-stone-50">
-          <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Help me say it</Text>
+          <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Reflect, then write it</Text>
         </Pressable>
         <Pressable onPress={handleOwnWay} className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
           <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">

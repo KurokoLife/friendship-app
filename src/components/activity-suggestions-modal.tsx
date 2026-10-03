@@ -102,7 +102,9 @@ export function ActivitySuggestionsModal({ visible, onClose, connectionId, onSen
 
   const handlePick = (s: Suggestion) => {
     setSelected(s);
-    setDraft(s.message);
+    // Limen v2: the idea is suggested, the invitation is the user's own
+    // words. The AI-generated `message` is no longer pre-filled.
+    setDraft('');
     setEdited(false);
     setStep('draft');
   };
@@ -195,7 +197,10 @@ export function ActivitySuggestionsModal({ visible, onClose, connectionId, onSen
           {step === 'draft' && selected && (
             <>
               <Text className="text-title text-stone-900 dark:text-stone-50">
-                Here&apos;s a starting point, make it sound like you
+                Invite them in your own words
+              </Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                Idea: {selected.label}. {selected.description}
               </Text>
               <View className="relative">
                 <TextInput
@@ -218,12 +223,8 @@ export function ActivitySuggestionsModal({ visible, onClose, connectionId, onSen
                   setDraft(text);
                   setEdited(true);
                 }}
+                context="plan"
               />
-              {!edited && (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  Edit the draft before sending, make it your own.
-                </Text>
-              )}
               <View className="flex-row items-center justify-between pt-1">
                 <Pressable onPress={() => setStep('pick')}>
                   <Text className="text-body text-stone-500 dark:text-stone-400">Back</Text>

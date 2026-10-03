@@ -80,7 +80,11 @@ const MAX_SUGGESTIONS = 5;
 // near a midnight boundary may occasionally see a cached suggestion
 // linger briefly into a new calendar day before this window expires,
 // a pre-existing, minor timing quirk this fix doesn't change.
-const CACHE_FRESHNESS_HOURS = 24;
+// Limen v2: suggestions are weekly, so a batch stays fresh for 7 days.
+const CACHE_FRESHNESS_HOURS = 7 * 24;
+
+// Limen v2: suggestions per rolling week, same for everyone.
+const SUGGESTIONS_PER_WEEK = 3;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -594,12 +598,16 @@ async function generateAndCacheSuggestions(
   dailyCap: number
 ): Promise<SuggestionResult[]> {
   const today = new Date().toISOString().slice(0, 10);
+  // Limen v2 (2026-10-03): the cap window is now a rolling 7 days, not a
+  // calendar day. "dailyCap" keeps its parameter name for a smaller diff,
+  // but it's the weekly cap (SUGGESTIONS_PER_WEEK) everywhere it's passed.
+  const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data: todayRows } = await supabase
     .from('match_suggestions')
     .select('candidate_id, reasoning, human_detail')
     .eq('user_id', userId)
-    .eq('suggested_date', today);
+    .gte('suggested_date', weekStart);
   const existingToday = (todayRows ?? []) as { candidate_id: string; reasoning: string; human_detail: string | null }[];
   const todaySuggestedIds = new Set(existingToday.map((r) => r.candidate_id));
   const remaining = Math.max(0, dailyCap - todaySuggestedIds.size);
@@ -799,8 +807,8 @@ async function runBatchRefresh(): Promise<{ usersProcessed: number }> {
 
       const viewer: Viewer = viewerRows;
       const alreadySeen = new Set((existingConnections ?? []).map((c) => c.user_b_id));
-      // Fix #3: 2/day free, 5/day premium (blueprint Sections 8/9/25).
-      const dailyCap = u.is_premium ? 5 : 2;
+      // Limen v2: one flat weekly cap for everyone, never sold.
+      const dailyCap = SUGGESTIONS_PER_WEEK;
       await generateAndCacheSuggestions(supabase, u.id, viewer, (candidatePool ?? []) as Candidate[], alreadySeen, dailyCap);
       return true;
     })
@@ -930,58 +938,19 @@ Deno.serve(async (req: Request) => {
       'user_id, display_name, age_band, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, languages, friendship_type, communication_style_openness, location_city, distance_miles'
     );
 
-  // Fix #3: 2/day free, 5/day premium (blueprint Sections 8/9/25).
-  const { data: userRow } = await supabase.from('users').select('is_premium').eq('id', user.id).maybeSingle();
-  const dailyCap = userRow?.is_premium ? 5 : 2;
-
-  // Consumable AI credits (2026-07-29): the only real usage cap anywhere
-  // in this codebase is this one, a daily cap, not the "monthly pool"
-  // this feature was originally scoped against, confirmed absent
-  // (PROGRESS.md's 2026-07-29 discovery). Only the interactive per-user
-  // path spends a credit, deliberately never the batch cron
-  // (runBatchRefresh, service-role, no real user in the loop to have
-  // consented to spending anything for them right now). Checked BEFORE
-  // calling generateAndCacheSuggestions so the credit is only spent when
-  // the cap is genuinely already exhausted, not on every call.
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: todayRows } = await supabase
+  // Limen v2 (2026-10-03): one flat weekly cap for everyone
+  // (SUGGESTIONS_PER_WEEK). No Premium increase and no AI credits: more
+  // options lowers satisfaction and commitment (D'Angelo & Toma 2017), so
+  // capacity is never sold. See docs/LIMEN_V2_DECISIONS.md.
+  const dailyCap = SUGGESTIONS_PER_WEEK;
+  const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { data: weekRows } = await supabase
     .from('match_suggestions')
     .select('candidate_id')
     .eq('user_id', user.id)
-    .eq('suggested_date', today);
-  const todaySuggestedIds = new Set((todayRows ?? []).map((r) => r.candidate_id));
-  const atDailyCap = todaySuggestedIds.size >= dailyCap;
-
-  // Found during testing (2026-07-29): an account with zero remaining
-  // real compatible candidates would still be charged a credit even
-  // though generateAndCacheSuggestions could never produce anything new
-  // for it, spending a paid consumable for zero deliverable value. Check
-  // real candidate availability with the exact same filter
-  // generateAndCacheSuggestions itself applies before ever attempting to
-  // consume a credit, so a credit is only ever spent when it can
-  // actually buy one more suggestion.
-  const hasAvailableCandidate = (candidatePool ?? []).some(
-    (c) =>
-      !alreadySeen.has(c.user_id) &&
-      !todaySuggestedIds.has(c.user_id) &&
-      !dealbreakerConflict(viewer, c as Candidate)
-  );
-
-  let usedCredit = false;
-  let effectiveCap = dailyCap;
-  if (atDailyCap && hasAvailableCandidate) {
-    const { data: consumed } = await supabase.rpc('try_consume_ai_credit', {
-      p_user_id: user.id,
-      p_reason: 'generate-match-suggestions:daily-cap',
-    });
-    usedCredit = Boolean(consumed);
-    // Exactly one credit buys exactly one extra suggestion beyond the
-    // normal cap, reusing generateAndCacheSuggestions' own existing
-    // "remaining" math (dailyCap - todaySuggestedIds.size) rather than a
-    // second, parallel generation path, so caching/scoring/Claude-call
-    // logic isn't duplicated for the credit-funded case.
-    if (usedCredit) effectiveCap = dailyCap + 1;
-  }
+    .gte('suggested_date', weekStart);
+  const atDailyCap = (weekRows ?? []).length >= dailyCap;
+  const effectiveCap = dailyCap;
 
   const suggestions = await generateAndCacheSuggestions(
     supabase,
@@ -998,11 +967,9 @@ Deno.serve(async (req: Request) => {
   // explicit blocked state), what the client's "buy credits" prompt is
   // shown against. Only true when genuinely blocked with zero credits
   // left to spend, never true just because today's cap exists.
-  const capReached = atDailyCap && !usedCredit;
+  const capReached = atDailyCap;
 
-  const { data: creditRow } = await supabase.from('users').select('ai_credits').eq('id', user.id).maybeSingle();
-
-  return new Response(JSON.stringify({ suggestions, capReached, usedCredit, aiCredits: creditRow?.ai_credits ?? 0 }), {
+  return new Response(JSON.stringify({ suggestions, capReached, usedCredit: false, aiCredits: 0 }), {
     headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
   });
 });

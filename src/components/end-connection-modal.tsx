@@ -2,15 +2,13 @@ import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
-import { DraftServiceError, UniversalTextBox } from '@/components/universal-text-box';
+import { UniversalTextBox } from '@/components/universal-text-box';
 import {
   CONNECTION_END_REASONS,
-  CONNECTION_END_TEMPLATES,
   endConnectionWithMessage,
   HONEST_EXIT_SENDER_TEXT,
   type ConnectionEndReason,
 } from '@/lib/no-ghost';
-import { supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -47,7 +45,6 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
   // instruction: picking a template only pre-fills the field, it does not
   // by itself make the message ready to send.
   const [draftEdited, setDraftEdited] = useState(false);
-  const [drafting, setDrafting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ended, setEnded] = useState(false);
@@ -55,26 +52,6 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
   const handleDraftChange = (text: string) => {
     setDraftRaw(text);
     setDraftEdited(true);
-  };
-
-  const handlePickTemplate = (text: string) => {
-    setDraftRaw(text);
-    setDraftEdited(false);
-  };
-
-  const requestDraft = async (situation: string): Promise<string> => {
-    const { data, error: fnError } = await supabase.functions.invoke('generate-reply-draft', {
-      body: {
-        rawInput: situation,
-        recentMessages: [],
-        purpose: `write a short, honest, respectful message to end this connection with ${otherName}`,
-      },
-    });
-    if (fnError) throw fnError;
-    if (data?.blocked) throw new DraftServiceError(data.message as string);
-    if (data?.error) throw new DraftServiceError(data.error as string);
-    if (!data?.draft) throw new Error('No draft returned');
-    return data.draft as string;
   };
 
   const handleClose = () => {
@@ -204,34 +181,23 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                 </View>
               </View>
 
-              {/* Step 4: write freely, choose a template, ask AI to draft
-                  or polish. Only shown when sending a message. */}
+              {/* Step 4: write freely, in their own words. Limen v2: no
+                  templates and no AI drafting, Reflect offers questions
+                  only. Only shown when sending a message. */}
               {sendMessage && (
                 <View className="gap-2">
                   <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
                     Message
                   </Text>
-                  <View className="flex-row flex-wrap gap-2">
-                    {CONNECTION_END_TEMPLATES.map((t) => (
-                      <Pressable
-                        key={t.key}
-                        onPress={() => handlePickTemplate(t.stem)}
-                        className="rounded-full border border-stone-300 px-3 py-2 dark:border-stone-700">
-                        <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">
-                          {t.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
                   <Text className="text-caption text-stone-400 dark:text-stone-600">
-                    Add a word or two of your own before sending.
+                    In your own words. A short, honest message is enough.
                   </Text>
                   <View className="relative">
                     <TextInput
                       value={draft}
                       onChangeText={handleDraftChange}
                       onFocus={() => setDraftEdited(true)}
-                      placeholder="Write what you want to say, or pick a starting point above"
+                      placeholder="Write what you want to say"
                       placeholderTextColor={MUTED_ICON_COLOR}
                       multiline
                       numberOfLines={4}
@@ -243,21 +209,9 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                   <UniversalTextBox
                     value={draft}
                     onChangeText={handleDraftChange}
-                    onRequestDraft={async (situation) => {
-                      setDrafting(true);
-                      try {
-                        return await requestDraft(situation);
-                      } finally {
-                        setDrafting(false);
-                      }
-                    }}
-                    disabled={drafting}
+                    context="exit"
+                    checkEnabled={false}
                   />
-                  {!draftEdited && draft.trim().length > 0 && (
-                    <Text className="text-caption text-stone-400 dark:text-stone-600">
-                      Edit the message before sending, make it your own.
-                    </Text>
-                  )}
                 </View>
               )}
 

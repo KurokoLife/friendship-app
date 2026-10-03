@@ -111,7 +111,8 @@ const DEV_FALLBACK_SUGGESTIONS: Suggestion[] = [
 // always had, just no longer the ONLY path. Freshness is a rolling 24
 // hour window (created_at), matching the Edge Function's own cache
 // check, kept in sync by hand since a Deno function can't import this.
-const CACHE_FRESHNESS_MS = 24 * 60 * 60 * 1000;
+// Limen v2: suggestions are weekly (3 per rolling 7 days, same for everyone).
+const CACHE_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export default function HomeScreen() {
   const [loaded, setLoaded] = useState(false);
@@ -365,52 +366,19 @@ export default function HomeScreen() {
 
           {!generating && suggestions.length === 0 && !error && capReached && (
             <View className="gap-3 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
-              <CoachMark
-                markKey="credits_premium"
-                text="Free plans include a daily/weekly cap on AI help. Once you hit it, you can buy a small pack of extra credits, or upgrade to Premium for a much larger monthly allowance."
-                actionLabel="See Premium"
-                onAction={() => router.push('/premium')}
-              />
+              {/* Limen v2: a small, curated set each week, the same for
+                  everyone. No credits or Premium unlock more. */}
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                You&apos;ve used today&apos;s free suggestions. They&apos;ll refresh tomorrow, or you can
-                unlock more right now.
+                That&apos;s this week&apos;s suggestions. A few at a time is on purpose, it leaves room to really get
+                to know someone. New ones arrive later this week.
               </Text>
-              {aiCredits > 0 && (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  You have {aiCredits} AI credit{aiCredits === 1 ? '' : 's'}, this shouldn&apos;t be showing,
-                  pull to refresh.
-                </Text>
-              )}
-              <Pressable
-                onPress={handleBuyCredits}
-                disabled={purchasing}
-                className={`items-center rounded-full bg-stone-900 px-4 py-3 active:opacity-80 dark:bg-stone-50 ${
-                  purchasing ? 'opacity-40' : ''
-                }`}>
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                  {purchasing ? 'Processing...' : 'Get 50 AI credits for $1.99'}
-                </Text>
-              </Pressable>
-              {/* 2026-08-12: this comment used to say no Premium screen
-                  existed yet, stale since /premium.tsx shipped 2026-08-01,
-                  and this line was plain, non-tappable text as a result.
-                  Real link now, offered alongside the credit pack, not
-                  instead of it, matching the original instruction. */}
-              <Pressable onPress={() => router.push('/premium')} className="self-start">
-                <Text className="text-caption font-semibold text-accent-500">
-                  Premium members get 5 suggestions a day instead of 2.
-                </Text>
-              </Pressable>
-              {purchaseMessage && (
-                <Text className="text-caption text-stone-500 dark:text-stone-400">{purchaseMessage}</Text>
-              )}
             </View>
           )}
 
           {!generating && suggestions.length === 0 && !error && !capReached && (
             <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                No new suggestions right now. Check back soon, we look for new matches every day.
+                No new suggestions right now. We look for a few thoughtful matches each week.
               </Text>
             </View>
           )}

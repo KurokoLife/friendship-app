@@ -20,6 +20,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
+import { CARE_STYLE_EXAMPLES, CARE_STYLE_MAX_LENGTH, CARE_STYLE_PROMPT } from '@/lib/care-style';
+import { StoriesEditor } from '@/components/stories-editor';
+import { normalizeStories, type Story } from '@/lib/stories';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { VoiceTextInput } from '@/components/voice-text-input';
 import {
@@ -359,6 +362,10 @@ type ProfileFormState = {
   lifeTransitions: string[];
   lifeTransitionsOther: string;
   personalStatement: string;
+  // Limen v2: "How I like care", the user's own words (optional).
+  careStyle: string;
+  // Limen v2: 2-3 short stories in the user's own words.
+  stories: Story[];
   values: string[];
   valuesOther: string;
   activityCategories: string[];
@@ -393,6 +400,8 @@ const EMPTY_PROFILE: ProfileFormState = {
   lifeTransitions: [],
   lifeTransitionsOther: '',
   personalStatement: '',
+  careStyle: '',
+  stories: [],
   values: [],
   valuesOther: '',
   activityCategories: [],
@@ -622,6 +631,8 @@ export default function ProfileBuildScreen() {
           lifeTransitions: data.life_transitions ?? [],
           lifeTransitionsOther: data.life_transitions_other ?? '',
           personalStatement: data.personal_statement ?? '',
+          careStyle: data.care_style ?? '',
+          stories: normalizeStories(data.stories),
           values: data.values ?? [],
           valuesOther: data.values_other ?? '',
           activityCategories: activityInterests.categories ?? [],
@@ -724,6 +735,8 @@ export default function ProfileBuildScreen() {
       life_transitions: next.lifeTransitions,
       life_transitions_other: next.lifeTransitionsOther.trim() || null,
       personal_statement: next.personalStatement || null,
+      care_style: next.careStyle.trim().slice(0, CARE_STYLE_MAX_LENGTH) || null,
+      stories: next.stories.filter((st) => st.text.trim().length > 0 || st.prompt_key),
       values: next.values,
       values_other: next.valuesOther.trim() || null,
       activity_interests: {
@@ -1288,8 +1301,32 @@ export default function ProfileBuildScreen() {
             <UniversalTextBox
               value={profile.personalStatement}
               onChangeText={(text) => updateAndSave({ personalStatement: text })}
-              draftPurpose="write a few warm, honest sentences for the About You section of their friendship-app profile, introducing who they are right now"
-              situationPrompt="What would you want a new friend to know about you?"
+              context="profile"
+            />
+          </Section>
+          )}
+
+          {(isEditMode || step === STEP_ABOUT_YOU) && (
+          <Section
+            title="Stories"
+            subtitle="Two or three short stories that show what you're like. Not a biography, just moments. Optional.">
+            <StoriesEditor
+              value={profile.stories}
+              onChange={(stories) => setProfile((p) => ({ ...p, stories }))}
+              onCommit={(stories) => updateAndSave({ stories })}
+            />
+          </Section>
+          )}
+
+          {(isEditMode || step === STEP_ABOUT_YOU) && (
+          <Section title="How I like care" subtitle={`${CARE_STYLE_PROMPT} Optional, only people you connect with see this.`}>
+            <VoiceTextInput
+              value={profile.careStyle}
+              onChangeText={(text) => setProfile((p) => ({ ...p, careStyle: text }))}
+              onBlur={() => persist(profile)}
+              numberOfLines={3}
+              minHeightClassName="min-h-20"
+              placeholder={CARE_STYLE_EXAMPLES}
             />
           </Section>
           )}
@@ -1580,8 +1617,11 @@ export default function ProfileBuildScreen() {
             <UniversalTextBox
               value={profile.dealbreakers}
               onChangeText={(text) => updateAndSave({ dealbreakers: text })}
-              draftPurpose="write a short, direct list of dealbreakers for their friendship-app profile, things that are a hard no for them in a friendship"
-              situationPrompt="What's a hard no for you in a friendship?"
+              context="profile"
+              reflectionQuestions={[
+                "Think of a time a friendship didn't work for you. What was the real reason?",
+                'Is it truly a hard no, or something you could talk about?',
+              ]}
             />
           </Section>
           </>
