@@ -44,6 +44,9 @@ type Props = {
   // (first-time milestone / Remember reminder / activity suggestions
   // branching, unchanged), not a second, simplified reimplementation.
   onPlanSomething?: () => void;
+  // Limen v2: the graduation decision point's "Close honestly" option
+  // opens the thread's existing Honest Exit modal.
+  onEndConnection?: () => void;
 };
 
 // Friendship Journey rebuild — the single card this app now renders, driven
@@ -54,7 +57,7 @@ type Props = {
 // __DEV__-gated only, see thread/[id].tsx's own comment for why: this is
 // real, tested code, not a stub, but it is not yet the default experience
 // for a real production user — that is the deliberate cutover step.
-export function PrimaryInterventionCard({ intervention, connectionId, otherName, onResolved, onVideoOfferChange, onPlanSomething }: Props) {
+export function PrimaryInterventionCard({ intervention, connectionId, otherName, onResolved, onVideoOfferChange, onPlanSomething, onEndConnection }: Props) {
   switch (intervention.intervention_type) {
     case 'no_ghost_r1':
       return <NoGhostR1 connectionId={connectionId} onResolved={onResolved} />;
@@ -95,7 +98,15 @@ export function PrimaryInterventionCard({ intervention, connectionId, otherName,
     case 'rhythm_reminder':
       return <RhythmReminder connectionId={connectionId} intervention={intervention} onResolved={onResolved} />;
     case 'graduation_checkpoint':
-      return <GraduationCheckpoint connectionId={connectionId} onResolved={onResolved} />;
+      return (
+        <GraduationCheckpoint
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          onResolved={onResolved}
+          onEndConnection={onEndConnection}
+        />
+      );
     case 'meetup_date_reconciliation':
       return <MeetupDateReconciliation intervention={intervention} onResolved={onResolved} />;
     default:
@@ -154,7 +165,7 @@ function NoGhostR1({ connectionId, onResolved }: { connectionId: string; onResol
               than inventing new copy. */}
           <Text className="text-caption text-stone-500 dark:text-stone-400">
             You don&apos;t need a perfect reply. A short, honest response helps the other person know where
-            things stand. Write what you&apos;re thinking, Help me reply can clean it up once you have.
+            things stand. Write what you&apos;re thinking, in your own words.
           </Text>
           <View className="relative">
             <TextInput
@@ -167,7 +178,7 @@ function NoGhostR1({ connectionId, onResolved }: { connectionId: string; onResol
             />
             <MicPlaceholderButton />
           </View>
-          <UniversalTextBox value={draft} onChangeText={setDraft} cleanupActionLabel="Help me reply" />
+          <UniversalTextBox value={draft} onChangeText={setDraft} />
           <Pressable onPress={send} disabled={!draft.trim()} className="self-start rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
             <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
           </Pressable>
@@ -175,7 +186,7 @@ function NoGhostR1({ connectionId, onResolved }: { connectionId: string; onResol
       ) : (
         <View className="flex-row flex-wrap gap-2">
           <OptionPill label="Reply" onPress={() => setShowCompose(true)} />
-          <OptionPill label="Help me reply" onPress={() => setShowCompose(true)} />
+          <OptionPill label="Reflect, then reply" onPress={() => setShowCompose(true)} />
           <OptionPill label="I'll come back to this" onPress={onResolved} />
         </View>
       )}
@@ -255,8 +266,8 @@ function NoGhostR2R3({
           {/* Same adapted old-system framing as R1, "write first" rather
               than offering to generate something from nothing. */}
           <Text className="text-caption text-stone-500 dark:text-stone-400">
-            You don&apos;t need a perfect reply. Write what you&apos;re thinking, Help me reply can clean it
-            up once you have.
+            You don&apos;t need a perfect reply. Write what you&apos;re thinking, in your own words.
+            {/* Limen v2: AI no longer cleans up or rewrites messages. */}
           </Text>
           <View className="relative">
             <TextInput
@@ -269,7 +280,7 @@ function NoGhostR2R3({
             />
             <MicPlaceholderButton />
           </View>
-          <UniversalTextBox value={draft} onChangeText={setDraft} cleanupActionLabel="Help me reply" />
+          <UniversalTextBox value={draft} onChangeText={setDraft} />
           <View className="flex-row gap-2">
             <Pressable onPress={send} disabled={!draft.trim()} className="rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
               <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
@@ -308,8 +319,8 @@ function NoGhostS1({ connectionId, onResolved }: { connectionId: string; onResol
       {showCompose ? (
         <View className="gap-2">
           <Text className="text-caption text-stone-500 dark:text-stone-400">
-            You don&apos;t need a perfect message. Write what you&apos;re thinking, Help me write can clean
-            it up once you have.
+            You don&apos;t need a perfect message. Write what you&apos;re thinking, in your own words.
+            {/* Limen v2: AI no longer cleans up or rewrites messages. */}
           </Text>
           <View className="relative">
             <TextInput
@@ -322,7 +333,7 @@ function NoGhostS1({ connectionId, onResolved }: { connectionId: string; onResol
             />
             <MicPlaceholderButton />
           </View>
-          <UniversalTextBox value={draft} onChangeText={setDraft} cleanupActionLabel="Help me write" />
+          <UniversalTextBox value={draft} onChangeText={setDraft} />
           <Pressable onPress={send} disabled={!draft.trim()} className="self-start rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
             <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
           </Pressable>
@@ -694,8 +705,8 @@ function MeetupOccurrenceCheck({
     return (
       <Card>
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          You don&apos;t need a perfect message. Write what you&apos;re thinking, Help me reply can clean it
-          up once you have.
+          You don&apos;t need a perfect message. Write what you&apos;re thinking, in your own words.
+          {/* Limen v2: AI no longer cleans up or rewrites messages. */}
         </Text>
         <View className="relative">
           <TextInput
@@ -709,7 +720,7 @@ function MeetupOccurrenceCheck({
           />
           <MicPlaceholderButton />
         </View>
-        <UniversalTextBox value={draft} onChangeText={handleDraftChange} cleanupActionLabel="Help me reply" disabled={busy} />
+        <UniversalTextBox value={draft} onChangeText={handleDraftChange} disabled={busy} />
         <View className="flex-row flex-wrap items-center gap-3">
           <Pressable
             onPress={sendRescheduleMessage}
@@ -866,19 +877,140 @@ function RhythmReminder({
   );
 }
 
-function GraduationCheckpoint({ connectionId, onResolved }: { connectionId: string; onResolved: () => void }) {
-  const pick = async (r: 'still_helpful' | 'mostly_on_our_own' | 'not_sure') => {
-    await submitGraduationReadiness(connectionId, r);
-    onResolved();
+// Limen v2 (2026-10-03) graduation spec, see docs/LIMEN_V2_DECISIONS.md.
+// get_active_intervention returns payload.stage:
+//   - 'ready_check': earliest point (6+ meetups over 8+ weeks, both people
+//     have proposed at least 2 plans, a rhythm is set). Asked privately.
+//   - 'decision_point': 10 meetups or 6 months since matching. A choice is
+//     required: graduate together, keep going here for now (with a short
+//     private reason), or close honestly.
+// Answers are private. Nobody ever sees the other person's answer; only a
+// mutual "yes" is revealed, by graduating the connection for both.
+function GraduationCheckpoint({
+  connectionId,
+  intervention,
+  otherName,
+  onResolved,
+  onEndConnection,
+}: {
+  connectionId: string;
+  intervention: ActiveIntervention;
+  otherName: string;
+  onResolved: () => void;
+  onEndConnection?: () => void;
+}) {
+  const stage = (intervention.payload?.stage as string | undefined) ?? 'ready_check';
+  const meetups = intervention.payload?.meetup_count as number | undefined;
+  const [mode, setMode] = useState<'ask' | 'reason' | 'graduated' | 'waiting'>('ask');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const pick = async (r: 'still_helpful' | 'mostly_on_our_own' | 'not_sure', note?: string) => {
+    setBusy(true);
+    try {
+      const graduated = await submitGraduationReadiness(connectionId, r, note);
+      if (graduated) {
+        setMode('graduated');
+        return;
+      }
+      if (r === 'mostly_on_our_own') {
+        setMode('waiting');
+        return;
+      }
+      onResolved();
+    } finally {
+      setBusy(false);
+    }
   };
+
+  if (mode === 'graduated') {
+    return (
+      <Card>
+        <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">You both said yes.</Text>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          You and {otherName} have a rhythm and you both make plans. That&apos;s what it takes to keep a friendship
+          going. If you haven&apos;t yet, swap numbers so you can keep going outside Limen. This chat stays available.
+        </Text>
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Friendships still need tending. Limen will check in privately in a month, and again in three.
+        </Text>
+        <OptionPill label="Done" onPress={onResolved} />
+      </Card>
+    );
+  }
+
+  if (mode === 'waiting') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Thanks. Your answer stays private. If {otherName} feels the same, you&apos;ll both see it.
+        </Text>
+        <OptionPill label="OK" onPress={onResolved} />
+      </Card>
+    );
+  }
+
+  if (mode === 'reason') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          What is Limen still helping with? This is just for you, nobody else sees it.
+        </Text>
+        <TextInput
+          value={reason}
+          onChangeText={setReason}
+          placeholder="In your own words"
+          placeholderTextColor={MUTED_ICON_COLOR}
+          multiline
+          className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+        />
+        <View className="flex-row gap-2">
+          <OptionPill label="Save" onPress={() => pick('still_helpful', reason.trim() || undefined)} />
+          <OptionPill label="Back" onPress={() => setMode('ask')} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (stage === 'decision_point') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          {meetups && meetups >= 10
+            ? `You and ${otherName} have met ${meetups} times.`
+            : `It's been about six months since you and ${otherName} connected.`}{' '}
+          It&apos;s time to decide where this goes next.
+        </Text>
+        <Text className="text-caption text-stone-400 dark:text-stone-600">
+          Private. {otherName} only sees an outcome if you both choose to graduate.
+        </Text>
+        <View className="gap-2">
+          <OptionPill label="Graduate, we can keep this going ourselves" onPress={() => !busy && pick('mostly_on_our_own')} />
+          <OptionPill label="Keep going here for now" onPress={() => setMode('reason')} />
+          <OptionPill
+            label="Close this honestly"
+            onPress={() => {
+              if (onEndConnection) onEndConnection();
+              else onResolved();
+            }}
+          />
+        </View>
+      </Card>
+    );
+  }
+
   return (
     <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">Does this connection still need Limen to keep moving?</Text>
-      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Private — shared only if you both say the same thing.</Text>
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        You and {otherName} both make plans and you have a rhythm. Could you two keep this going outside Limen?
+      </Text>
+      <Text className="text-caption text-stone-400 dark:text-stone-600">
+        Private. Nobody sees your answer. If you both say yes, you graduate together.
+      </Text>
       <View className="gap-2">
-        <OptionPill label="Limen is still helpful" onPress={() => pick('still_helpful')} />
-        <OptionPill label="We mostly connect on our own now" onPress={() => pick('mostly_on_our_own')} />
-        <OptionPill label="I'm not sure yet" onPress={() => pick('not_sure')} />
+        <OptionPill label="Yes" onPress={() => !busy && pick('mostly_on_our_own')} />
+        <OptionPill label="Not yet" onPress={() => !busy && pick('still_helpful')} />
+        <OptionPill label="I'm not sure this is a friendship" onPress={() => !busy && pick('not_sure')} />
       </View>
     </Card>
   );

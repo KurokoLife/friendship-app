@@ -43,17 +43,13 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="browse"
-        options={{
-          title: 'Browse',
-          tabBarIcon: ({ color, size }) => (
-            <SpotlightTarget markKey="tab_browse">
-              <Ionicons name="filter-outline" size={size} color={color} />
-            </SpotlightTarget>
-          ),
-        }}
-      />
+      {/* Limen v2 (2026-10-03): Browse is removed from the tab bar.
+          Endless browsing works against commitment (choice overload,
+          D'Angelo & Toma 2017); discovery is a small weekly set in
+          Discover instead. The route file stays so nothing deep-linking
+          to it crashes, but href: null removes it from navigation.
+          See docs/LIMEN_V2_DECISIONS.md. */}
+      <Tabs.Screen name="browse" options={{ href: null }} />
       <Tabs.Screen
         name="saved"
         options={{

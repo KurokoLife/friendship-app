@@ -3,7 +3,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
-import { DraftServiceError, UniversalTextBox } from '@/components/universal-text-box';
+import { UniversalTextBox } from '@/components/universal-text-box';
 import {
   CONVERSATION_IDENTITY_MIRROR,
   dismissPrompt,
@@ -76,7 +76,6 @@ export function ConversationFlowPromptCard({
   // flips this, proving the user actually saw the field, not just that
   // a value exists in state.
   const [draftEdited, setDraftEdited] = useState(false);
-  const [drafting, setDrafting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selectedOption, setSelectedOption] = useState<ReceiverEscalationOptionKey | null>(null);
   const [exitConfirmed, setExitConfirmed] = useState(false);
@@ -92,17 +91,6 @@ export function ConversationFlowPromptCard({
   const handleDraftChange = (text: string) => {
     setDraftRaw(text);
     setDraftEdited(true);
-  };
-
-  const requestDraft = async (situation: string, purpose: string): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke('generate-reply-draft', {
-      body: { rawInput: situation, recentMessages, purpose },
-    });
-    if (error) throw error;
-    if (data?.blocked) throw new DraftServiceError(data.message as string);
-    if (data?.error) throw new DraftServiceError(data.error as string);
-    if (!data?.draft) throw new Error('No draft returned');
-    return data.draft as string;
   };
 
   const handleDismiss = async () => {
@@ -263,26 +251,9 @@ export function ConversationFlowPromptCard({
             <UniversalTextBox
               value={draft}
               onChangeText={handleDraftChange}
-              onRequestDraft={async (situation) => {
-                setDrafting(true);
-                try {
-                  return await requestDraft(
-                    situation,
-                    selectedOption === 'exit'
-                      ? 'write a short, honest, respectful message to end this connection'
-                      : 'write a short, warm reply to catch up after being slow to respond'
-                  );
-                } finally {
-                  setDrafting(false);
-                }
-              }}
-              disabled={drafting}
+              context={selectedOption === 'exit' ? 'exit' : 'reply'}
+              recentMessages={recentMessages}
             />
-            {!draftEdited && draft.trim().length > 0 && (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
-                Edit the draft before sending, make it your own.
-              </Text>
-            )}
             <Pressable
               onPress={handleSendEscalation}
               disabled={busy || !draftEdited || !draft.trim()}
@@ -307,13 +278,7 @@ export function ConversationFlowPromptCard({
     );
   }
 
-  // S1, R1: single "Help me write" flow (live Claude draft from a brief
-  // user-described situation).
-  const draftPurpose =
-    prompt.trigger_id === 'S1'
-      ? 'write a short, honest, respectful message to close out this connection, or a brief warm follow-up if they would rather keep waiting'
-      : 'write a short, warm reply to a friend whose message has been waiting a little while';
-
+  // S1, R1: Limen v2, no AI drafting. Reflect questions + Check only.
   return (
     <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
       <Text className="text-body text-stone-700 dark:text-stone-300">{awareness}</Text>
@@ -327,7 +292,7 @@ export function ConversationFlowPromptCard({
           value={draft}
           onChangeText={handleDraftChange}
           onFocus={() => setDraftEdited(true)}
-          placeholder="Write what you want to say, or use Help me write below"
+          placeholder="Write what you want to say, in your own words"
           placeholderTextColor={MUTED_ICON_COLOR}
           multiline
           numberOfLines={4}
@@ -340,27 +305,9 @@ export function ConversationFlowPromptCard({
       <UniversalTextBox
         value={draft}
         onChangeText={handleDraftChange}
-        onRequestDraft={async (situation) => {
-          setDrafting(true);
-          try {
-            return await requestDraft(situation, draftPurpose);
-          } finally {
-            setDrafting(false);
-          }
-        }}
-        // Rename, S1 (sender, 125h) only: "Help Me Write" instead of the
-        // default "Draft it", for consistency with the rest of this
-        // specific flow. R1 keeps the default label, not part of this
-        // rename's stated scope.
-        draftActionLabel={prompt.trigger_id === 'S1' ? 'Help Me Write' : undefined}
-        disabled={drafting}
+        context={prompt.trigger_id === 'S1' ? 'exit' : 'reply'}
+        recentMessages={recentMessages}
       />
-
-      {!draftEdited && draft.trim().length > 0 && (
-        <Text className="text-caption text-stone-400 dark:text-stone-600">
-          Edit the draft before sending, make it your own.
-        </Text>
-      )}
 
       {draft.trim().length > 0 && (
         <Pressable

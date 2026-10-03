@@ -189,12 +189,21 @@ export async function submitRhythmPreference(connectionId: string, cadence: Rhyt
 }
 
 export type GraduationReadiness = 'still_helpful' | 'mostly_on_our_own' | 'not_sure';
-export async function submitGraduationReadiness(connectionId: string, readiness: GraduationReadiness): Promise<void> {
-  const { error } = await supabase.rpc('submit_graduation_readiness', {
+// Limen v2: returns true when this answer completed a mutual "yes" and the
+// connection graduated for both people. `note` is an optional private
+// reason ("Keep going here for now"), never shown to the other person.
+export async function submitGraduationReadiness(
+  connectionId: string,
+  readiness: GraduationReadiness,
+  note?: string
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('submit_graduation_readiness', {
     p_connection_id: connectionId,
     p_readiness: readiness,
+    p_note: note ?? null,
   });
   if (error) throw error;
+  return data === true;
 }
 
 export type PreMeetupConcern = 'awkwardness' | 'low_energy' | 'plan_too_big' | 'safety' | 'other';

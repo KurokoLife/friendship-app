@@ -211,29 +211,14 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
 
-          {/* Premium / billing, read-only. The actual purchase flow lives on
-              /premium, not here. */}
+          {/* Limen v2: no Premium tier. Everyone gets the same app. */}
           <View className="gap-3">
-            <SectionHeader label="Premium" />
+            <SectionHeader label="Membership" />
             <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-body text-stone-900 dark:text-stone-50">
-                {account?.is_premium ? 'Premium' : 'Free'}
-              </Text>
-              {account?.is_premium && account.premium_until && (
-                <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  Renews or expires {dateLabel(account.premium_until)}
-                </Text>
-              )}
-              {account?.is_premium && !account.premium_until && (
-                <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  No expiration on file for your account.
-                </Text>
-              )}
-              {!account?.is_premium && (
-                <Pressable onPress={() => router.push('/premium')}>
-                  <Text className="text-caption font-semibold text-accent-500">See Premium</Text>
-                </Pressable>
-              )}
+              <Text className="text-body text-stone-900 dark:text-stone-50">Free during the pilot</Text>
+              <Pressable onPress={() => router.push('/premium')}>
+                <Text className="text-caption font-semibold text-accent-500">How Limen is paid for</Text>
+              </Pressable>
             </View>
           </View>
 
@@ -251,9 +236,7 @@ export default function SettingsScreen() {
                   Your code: {account.referral_code}
                 </Text>
                 <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
-                  Once your friend joins and opens the app on at least 14 different days within
-                  their first 30 days, you&apos;ll both get 30 days of Premium, free. This applies
-                  to your first successful referral.
+                  Know someone who could use a new friend? Limen is free during the pilot.
                 </Text>
               </Pressable>
             </View>
