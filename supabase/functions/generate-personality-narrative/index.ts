@@ -212,7 +212,7 @@ function profileAtoms(p: ProfileSelections | null): AnswerAtom[] {
   };
   addArray('life_transitions', 'What brought them to this app', p.life_transitions);
   addArray('values', 'A value they selected as important to them', p.values);
-  addSingle('communication_freq', 'How often they like to check in with a new friend', p.communication_freq);
+  // communication_freq is no longer collected (2026-10-04), not cited.
   addSingle('meeting_freq', 'How often they like to meet up with a new friend', p.meeting_freq);
   addSingle('response_time', 'How quickly they typically reply to messages', p.response_time);
   addSingle(
@@ -266,11 +266,11 @@ function experienceAtoms(fe: FriendshipExperience): AnswerAtom[] {
   return atoms;
 }
 
-const SYSTEM_INSTRUCTION = `You are creating a brief reflection for a friendship app based on three sources: the user's profile selections, ten existing reflection answers, and (when present) five friendship-experience answers.
+const SYSTEM_INSTRUCTION = `You are creating a brief reflection for a friendship app based on three sources: the user's profile selections, five existing reflection answers, and (when present) five friendship-experience answers.
 
 The friendship-experience answers supplement the existing personality and profile reflection. They must not replace it.
 
-Each answer below has an id and belongs to one of three groups: connection (profile selections and the ten reflection answers), helped (the single "what helped a friendship grow" answer), or uncertain (the other friendship-experience answers). Every displayed sentence you write must be directly supported by one or more ids from the matching group for that section, and you must return which ids support each section.
+Each answer below has an id and belongs to one of three groups: connection (profile selections and the five reflection answers), helped (the single "what helped a friendship grow" answer), or uncertain (the other friendship-experience answers). Every displayed sentence you write must be directly supported by one or more ids from the matching group for that section, and you must return which ids support each section.
 
 Do not infer traits, motivations, emotional needs, life circumstances, relationship history, or behavioral causes that the user did not explicitly provide. Do not connect two answers into a causal explanation unless that relationship is already explicit in the answers themselves. Do not present a prediction about how the user will behave. Do not describe the user as a fixed type.
 
@@ -283,7 +283,7 @@ You may only:
 Write three sections:
 
 1. "How you tend to connect"
-Use only the profile selections and the ten existing reflection answers (the "connection" group) to describe two or three supported qualities about how the user may approach connection, communication, reliability, or familiarity. This should not become a generic flattering personality description, only include a quality when it is clearly supported.
+Use only the profile selections and the five existing reflection answers (the "connection" group) to describe two or three supported qualities about how the user may approach connection, communication, reliability, or familiarity. This should not become a generic flattering personality description, only include a quality when it is clearly supported.
 
 2. "What has helped before"
 Use only the "helped" group, the user's answer to what helped a friendship grow. Lightly paraphrase it. Do not add causes, outcomes, or personality conclusions.

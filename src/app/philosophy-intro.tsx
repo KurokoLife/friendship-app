@@ -13,15 +13,18 @@ export default function PhilosophyIntroScreen() {
             Meeting people is only the beginning.
           </Text>
           <Text className="text-body text-stone-500 dark:text-stone-400">
-            A new friendship often feels uncertain before it feels natural.
+            A new friendship often feels uncertain before it feels natural. Both people wonder
+            whether to reach out, what an awkward moment means, or whether the other person is
+            interested.
+          </Text>
+          {/* The liking gap: after a first conversation, people underestimate
+              how much the other person liked them (Boothby et al., 2018). */}
+          <Text className="text-body text-stone-500 dark:text-stone-400">
+            One thing worth knowing: after a first conversation, most people underestimate how
+            much the other person liked them.
           </Text>
           <Text className="text-body text-stone-500 dark:text-stone-400">
-            Both people may wonder whether to reach out, what an awkward moment means, or whether
-            the other person is interested.
-          </Text>
-          <Text className="text-body text-stone-500 dark:text-stone-400">
-            This app does not remove that uncertainty. It helps make the invisible parts of
-            building friendship easier to understand, and easier to move through with curiosity,
+            Limen doesn&apos;t remove the uncertainty. It helps you move through it with curiosity,
             honesty, and care.
           </Text>
         </View>

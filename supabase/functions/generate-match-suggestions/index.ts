@@ -80,7 +80,11 @@ const MAX_SUGGESTIONS = 5;
 // near a midnight boundary may occasionally see a cached suggestion
 // linger briefly into a new calendar day before this window expires,
 // a pre-existing, minor timing quirk this fix doesn't change.
-const CACHE_FRESHNESS_HOURS = 24;
+// Limen v2: suggestions are weekly, so a batch stays fresh for 7 days.
+const CACHE_FRESHNESS_HOURS = 7 * 24;
+
+// Limen v2: suggestions per rolling week, same for everyone.
+const SUGGESTIONS_PER_WEEK = 3;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -121,7 +125,21 @@ type Candidate = {
   communication_style_openness: string | null;
   location_city: string | null;
   distance_miles: number | null;
+  // From compatible_candidates_for only (2026-10-04). Hidden life
+  // transitions still score, but are never named in suggestion text.
+  show_life_transitions?: boolean | null;
+  interested_in_viewer?: boolean | null;
+  ghosting_penalized?: boolean | null;
 };
+
+// What the viewer is allowed to see of a candidate's life transitions.
+function visibleTransitions(candidate: Candidate): string[] {
+  return candidate.show_life_transitions === false ? [] : candidate.life_transitions ?? [];
+}
+
+function forDisplay(candidate: Candidate): Candidate {
+  return { ...candidate, life_transitions: visibleTransitions(candidate) };
+}
 
 type Viewer = {
   display_name: string | null;
@@ -175,11 +193,14 @@ const TOTAL_HANGOUT_TYPES = 5;
 
 // 1. Life transitions overlap, 25 points max (was 30, rescaled
 // proportionally: 25, 17, 8, 0 keeps the same relative tier shape).
+// 2026-10-04: 30 points max (was 25). Personality similarity no longer
+// scores (docs/DECISIONS.md section 2); its 15 points moved here (+5),
+// to values (+5) and to meeting rhythm (+5).
 function lifeTransitionsScore(viewer: Viewer, candidate: Candidate): number {
   const n = sharedLifeTransitions(viewer, candidate).length;
-  if (n >= 3) return 25;
-  if (n === 2) return 17;
-  if (n === 1) return 8;
+  if (n >= 3) return 30;
+  if (n === 2) return 20;
+  if (n === 1) return 10;
   return 0;
 }
 
@@ -187,10 +208,12 @@ function lifeTransitionsScore(viewer: Viewer, candidate: Candidate): number {
 // arrays are preset-only as of 20260716000000 (free-text additions live
 // in values_other and are never scored).
 function valuesScore(viewer: Viewer, candidate: Candidate): number {
+  // 2026-10-04: 25 points max (was 20). Values are now capped at 5 per
+  // person, so 3+ shared is a strong signal.
   const n = sharedValues(viewer, candidate).length;
-  if (n >= 5) return 20;
-  if (n >= 3) return 14;
-  if (n >= 1) return 8;
+  if (n >= 3) return 25;
+  if (n === 2) return 17;
+  if (n === 1) return 10;
   return 0;
 }
 
@@ -253,10 +276,11 @@ function meetingFreqDistance(viewer: Viewer, candidate: Candidate): number | nul
 
 function meetingFreqScore(viewer: Viewer, candidate: Candidate): number {
   const dist = meetingFreqDistance(viewer, candidate);
+  // 2026-10-04: 13 points max (was 8).
   if (dist === null) return 0;
-  if (dist === 0) return 8;
-  if (dist === 1) return 5;
-  if (dist === 2) return 2;
+  if (dist === 0) return 13;
+  if (dist === 1) return 8;
+  if (dist === 2) return 3;
   return 0;
 }
 
@@ -331,7 +355,9 @@ async function weightedScore(
 ): Promise<ScoreBreakdown> {
   const lifeTransitions = lifeTransitionsScore(viewer, candidate);
   const values = valuesScore(viewer, candidate);
-  const bigFive = await bigFiveScore(supabase, candidate.user_id);
+  // Personality similarity no longer scores (2026-10-04). Kept in the
+  // breakdown as 0 so the shape stays stable.
+  const bigFive = 0;
   const hangout = hangoutScore(viewer, candidate);
   const friendshipType = friendshipTypeScore(viewer, candidate);
   const meetingFreq = meetingFreqScore(viewer, candidate);
@@ -472,14 +498,6 @@ function fallbackReasoning(viewer: Viewer, candidate: Candidate): string {
     sentences.push(
       `${candidateName} tends to want to meet up ${candidate.meeting_freq!.toLowerCase()}, a meaningfully different rhythm than yours, worth discussing if you connect.`
     );
-  } else if (
-    viewer.communication_freq &&
-    candidate.communication_freq &&
-    viewer.communication_freq !== candidate.communication_freq
-  ) {
-    sentences.push(
-      `${candidateName} tends to message ${candidate.communication_freq.toLowerCase()}, worth talking through if you connect.`
-    );
   }
 
   return sentences.join(' ');
@@ -514,7 +532,6 @@ function buildPrompt(viewer: Viewer, candidates: Candidate[]): string {
     hangout_people_preference: viewer.hangout_people_preference,
     hangout_type_preference: viewer.hangout_type_preference,
     meeting_freq: viewer.meeting_freq,
-    communication_freq: viewer.communication_freq,
     personal_statement: viewer.personal_statement,
   });
 
@@ -528,7 +545,6 @@ function buildPrompt(viewer: Viewer, candidates: Candidate[]): string {
       hangout_people_preference: c.hangout_people_preference,
       hangout_type_preference: c.hangout_type_preference,
       meeting_freq: c.meeting_freq,
-      communication_freq: c.communication_freq,
       personal_statement: c.personal_statement,
     })
   );
@@ -594,12 +610,16 @@ async function generateAndCacheSuggestions(
   dailyCap: number
 ): Promise<SuggestionResult[]> {
   const today = new Date().toISOString().slice(0, 10);
+  // Limen v2 (2026-10-03): the cap window is now a rolling 7 days, not a
+  // calendar day. "dailyCap" keeps its parameter name for a smaller diff,
+  // but it's the weekly cap (SUGGESTIONS_PER_WEEK) everywhere it's passed.
+  const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data: todayRows } = await supabase
     .from('match_suggestions')
     .select('candidate_id, reasoning, human_detail')
     .eq('user_id', userId)
-    .eq('suggested_date', today);
+    .gte('suggested_date', weekStart);
   const existingToday = (todayRows ?? []) as { candidate_id: string; reasoning: string; human_detail: string | null }[];
   const todaySuggestedIds = new Set(existingToday.map((r) => r.candidate_id));
   const remaining = Math.max(0, dailyCap - todaySuggestedIds.size);
@@ -608,7 +628,9 @@ async function generateAndCacheSuggestions(
 
   if (remaining > 0) {
     const available = candidatePool.filter(
-      (c) => !alreadySeen.has(c.user_id) && !todaySuggestedIds.has(c.user_id) && !dealbreakerConflict(viewer, c)
+      // Hard nos no longer hide anyone automatically (2026-10-04): the
+      // keyword match wrongly hid real matches. They stay on profiles.
+      (c) => !alreadySeen.has(c.user_id) && !todaySuggestedIds.has(c.user_id)
     );
 
     if (available.length > 0) {
@@ -618,7 +640,11 @@ async function generateAndCacheSuggestions(
       const scored = await Promise.all(
         available.map(async (c) => ({ candidate: c, score: await weightedScore(supabase, viewer, c) }))
       );
-      scored.sort((a, b) => b.score.total - a.score.total);
+      // Order (2026-10-04): someone who already said Interested in the
+      // viewer goes first (never revealed, it just lets the viewer decide
+      // too), anyone under the ghosting rule goes last, then by score.
+      const rank = (c: Candidate) => (c.ghosting_penalized ? 2 : c.interested_in_viewer ? 0 : 1);
+      scored.sort((a, b) => rank(a.candidate) - rank(b.candidate) || b.score.total - a.score.total);
       // Capped by whatever's actually left of today's allowance, not the
       // flat MAX_SUGGESTIONS constant, that constant now only bounds a
       // single Claude call's batch size (kept below for that reason).
@@ -645,7 +671,7 @@ async function generateAndCacheSuggestions(
               // candidates at once, raised well past the original 1200
               // to leave real headroom.
               max_tokens: 2500,
-              messages: [{ role: 'user', content: buildPrompt(viewer, selected) }],
+              messages: [{ role: 'user', content: buildPrompt(viewer, selected.map(forDisplay)) }],
             }),
           });
 
@@ -675,8 +701,8 @@ async function generateAndCacheSuggestions(
 
       newRows = selected.map((c) => ({
         candidate_id: c.user_id,
-        reasoning: reasoningByCandidate.get(c.user_id) ?? fallbackReasoning(viewer, c),
-        human_detail: humanDetailByCandidate.get(c.user_id) ?? fallbackHumanDetail(c),
+        reasoning: reasoningByCandidate.get(c.user_id) ?? fallbackReasoning(viewer, forDisplay(c)),
+        human_detail: humanDetailByCandidate.get(c.user_id) ?? fallbackHumanDetail(forDisplay(c)),
       }));
 
       if (newRows.length > 0) {
@@ -799,8 +825,8 @@ async function runBatchRefresh(): Promise<{ usersProcessed: number }> {
 
       const viewer: Viewer = viewerRows;
       const alreadySeen = new Set((existingConnections ?? []).map((c) => c.user_b_id));
-      // Fix #3: 2/day free, 5/day premium (blueprint Sections 8/9/25).
-      const dailyCap = u.is_premium ? 5 : 2;
+      // Limen v2: one flat weekly cap for everyone, never sold.
+      const dailyCap = SUGGESTIONS_PER_WEEK;
       await generateAndCacheSuggestions(supabase, u.id, viewer, (candidatePool ?? []) as Candidate[], alreadySeen, dailyCap);
       return true;
     })
@@ -924,64 +950,29 @@ Deno.serve(async (req: Request) => {
 
   const viewer: Viewer = viewerRows ?? EMPTY_VIEWER;
 
-  const { data: candidatePool } = await supabase
-    .from('discovery_profiles')
-    .select(
-      'user_id, display_name, age_band, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, languages, friendship_type, communication_style_openness, location_city, distance_miles'
-    );
+  // 2026-10-04: the pool comes from compatible_candidates_for (service
+  // role, scoped to this signed-in user's own id) instead of
+  // discovery_profiles, because the view now hides life transitions a
+  // person chose not to show, and those still count for matching. The
+  // function applies the same hard filters as the view.
+  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: candidatePool } = await serviceClient.rpc('compatible_candidates_for', { p_user_id: user.id });
 
-  // Fix #3: 2/day free, 5/day premium (blueprint Sections 8/9/25).
-  const { data: userRow } = await supabase.from('users').select('is_premium').eq('id', user.id).maybeSingle();
-  const dailyCap = userRow?.is_premium ? 5 : 2;
-
-  // Consumable AI credits (2026-07-29): the only real usage cap anywhere
-  // in this codebase is this one, a daily cap, not the "monthly pool"
-  // this feature was originally scoped against, confirmed absent
-  // (PROGRESS.md's 2026-07-29 discovery). Only the interactive per-user
-  // path spends a credit, deliberately never the batch cron
-  // (runBatchRefresh, service-role, no real user in the loop to have
-  // consented to spending anything for them right now). Checked BEFORE
-  // calling generateAndCacheSuggestions so the credit is only spent when
-  // the cap is genuinely already exhausted, not on every call.
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: todayRows } = await supabase
+  // Limen v2 (2026-10-03): one flat weekly cap for everyone
+  // (SUGGESTIONS_PER_WEEK). No Premium increase and no AI credits: more
+  // options lowers satisfaction and commitment (D'Angelo & Toma 2017), so
+  // capacity is never sold. See docs/LIMEN_V2_DECISIONS.md.
+  const dailyCap = SUGGESTIONS_PER_WEEK;
+  const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { data: weekRows } = await supabase
     .from('match_suggestions')
     .select('candidate_id')
     .eq('user_id', user.id)
-    .eq('suggested_date', today);
-  const todaySuggestedIds = new Set((todayRows ?? []).map((r) => r.candidate_id));
-  const atDailyCap = todaySuggestedIds.size >= dailyCap;
-
-  // Found during testing (2026-07-29): an account with zero remaining
-  // real compatible candidates would still be charged a credit even
-  // though generateAndCacheSuggestions could never produce anything new
-  // for it, spending a paid consumable for zero deliverable value. Check
-  // real candidate availability with the exact same filter
-  // generateAndCacheSuggestions itself applies before ever attempting to
-  // consume a credit, so a credit is only ever spent when it can
-  // actually buy one more suggestion.
-  const hasAvailableCandidate = (candidatePool ?? []).some(
-    (c) =>
-      !alreadySeen.has(c.user_id) &&
-      !todaySuggestedIds.has(c.user_id) &&
-      !dealbreakerConflict(viewer, c as Candidate)
-  );
-
-  let usedCredit = false;
-  let effectiveCap = dailyCap;
-  if (atDailyCap && hasAvailableCandidate) {
-    const { data: consumed } = await supabase.rpc('try_consume_ai_credit', {
-      p_user_id: user.id,
-      p_reason: 'generate-match-suggestions:daily-cap',
-    });
-    usedCredit = Boolean(consumed);
-    // Exactly one credit buys exactly one extra suggestion beyond the
-    // normal cap, reusing generateAndCacheSuggestions' own existing
-    // "remaining" math (dailyCap - todaySuggestedIds.size) rather than a
-    // second, parallel generation path, so caching/scoring/Claude-call
-    // logic isn't duplicated for the credit-funded case.
-    if (usedCredit) effectiveCap = dailyCap + 1;
-  }
+    .gte('suggested_date', weekStart);
+  const atDailyCap = (weekRows ?? []).length >= dailyCap;
+  const effectiveCap = dailyCap;
 
   const suggestions = await generateAndCacheSuggestions(
     supabase,
@@ -998,11 +989,9 @@ Deno.serve(async (req: Request) => {
   // explicit blocked state), what the client's "buy credits" prompt is
   // shown against. Only true when genuinely blocked with zero credits
   // left to spend, never true just because today's cap exists.
-  const capReached = atDailyCap && !usedCredit;
+  const capReached = atDailyCap;
 
-  const { data: creditRow } = await supabase.from('users').select('ai_credits').eq('id', user.id).maybeSingle();
-
-  return new Response(JSON.stringify({ suggestions, capReached, usedCredit, aiCredits: creditRow?.ai_credits ?? 0 }), {
+  return new Response(JSON.stringify({ suggestions, capReached, usedCredit: false, aiCredits: 0 }), {
     headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
   });
 });

@@ -1,3 +1,5 @@
+import { ACTIVITY_CATEGORIES } from '@/lib/activity-categories';
+
 // Shared, closed option sets that both profile-build.tsx (what a user
 // picks about themselves) and browse.tsx (F12, what a user filters other
 // people by) need to stay in sync on. Kept in one place so the two screens
@@ -11,28 +13,35 @@
 // profiles.life_transitions (text[], no length cap, see
 // 20260716000000_profile_field_updates.sql).
 export const LIFE_TRANSITIONS = [
-  'Divorce or separation',
+  // 2026-10-04 (docs/DECISIONS.md section 2): "Divorce or separation" and
+  // "Starting over after a long relationship" merged; "Nothing big, I'd
+  // just like more friends" added so no one has to mislabel themselves.
+  // Choose up to 3 (MAX_LIFE_TRANSITIONS).
+  'Divorce, separation, or the end of a long relationship',
   'Relocation',
   'Bereavement',
   'Career change',
   'Empty nesting',
   'Retirement',
   'Health journey',
-  'Starting over after a long relationship',
   'Becoming a caregiver',
   'Becoming a grandparent',
   'Recovery journey',
   'Finding a new purpose',
+  "Nothing big, I'd just like more friends",
 ];
+
+export const NOTHING_BIG_TRANSITION = "Nothing big, I'd just like more friends";
+export const MAX_LIFE_TRANSITIONS = 3;
 
 export const HANGOUT_PEOPLE = ['1-on-1', 'Small group (3-5)', 'Big group (6+)'];
 
 export const HANGOUT_TYPES = [
   'Spontaneous drop-bys',
   'Planned ahead',
-  'Co-working style',
+  'Side by side (working, reading)',
   'Outdoor activities',
-  'Homebody',
+  'Low-key at home',
 ];
 
 // Blueprint Section 8: general availability, when someone is typically
@@ -85,48 +94,10 @@ export const RESPONSE_TIME = ['Within hours', 'Same day', '1-2 days', 'A few day
 // total to match the stated number would mean silently discarding real
 // requirements to satisfy an arithmetic statement instead, the itemized
 // list is the more specific and more clearly intentional of the two.
-export const ACTIVITY_CATEGORY_OPTIONS: { key: string; label: string }[] = [
-  { key: 'movies', label: 'Movies' },
-  { key: 'music', label: 'Music' },
-  { key: 'food', label: 'Food & dining' },
-  { key: 'sports', label: 'Sports' },
-  { key: 'fitness', label: 'Fitness' },
-  { key: 'travel', label: 'Travel' },
-  { key: 'arts_culture', label: 'Arts & culture' },
-  { key: 'games', label: 'Games' },
-  { key: 'outdoors', label: 'Outdoors' },
-  { key: 'reading', label: 'Reading' },
-  { key: 'cooking', label: 'Cooking' },
-  { key: 'volunteering', label: 'Volunteering' },
-  { key: 'nightlife', label: 'Nightlife' },
-  { key: 'pets', label: 'Pets' },
-  { key: 'technology', label: 'Technology' },
-  { key: 'fashion', label: 'Fashion' },
-  { key: 'photography', label: 'Photography' },
-  { key: 'dancing', label: 'Dancing' },
-  { key: 'yoga_pilates', label: 'Yoga / Pilates' },
-  { key: 'wellness_mindfulness', label: 'Wellness / mindfulness / meditation' },
-  { key: 'running_cycling', label: 'Running / cycling' },
-  { key: 'tennis_pickleball', label: 'Tennis / pickleball' },
-  { key: 'golf', label: 'Golf' },
-  { key: 'martial_arts', label: 'Martial arts' },
-  { key: 'wine_cocktails_beer', label: 'Wine / cocktails / craft beer' },
-  { key: 'coffee_culture', label: 'Coffee culture' },
-  { key: 'bbq_grilling', label: 'BBQ / grilling' },
-  { key: 'writing_journaling', label: 'Writing / journaling' },
-  { key: 'crafts', label: 'Crafts' },
-  { key: 'collecting', label: 'Collecting' },
-  { key: 'live_music', label: 'Live music / concerts' },
-  { key: 'theater_performing_arts', label: 'Theater / performing arts' },
-  { key: 'podcasts_audiobooks', label: 'Podcasts / audiobooks' },
-  { key: 'history_learning', label: 'History / learning' },
-  { key: 'spirituality_faith', label: 'Spirituality / faith' },
-  { key: 'gardening_plants', label: 'Gardening / plants' },
-  { key: 'environmental_activism', label: 'Environmental activism' },
-  { key: 'self_improvement', label: 'Self-improvement / personal development' },
-  { key: 'entrepreneurship', label: 'Entrepreneurship / side projects' },
-  { key: 'comedy_live_shows', label: 'Comedy / live shows' },
-];
+// Derived from the shared category list so the two can never drift.
+export const ACTIVITY_CATEGORY_OPTIONS: { key: string; label: string }[] = ACTIVITY_CATEGORIES.map(
+  ({ key, label }) => ({ key, label })
+);
 
 // AGENTS.md: age filter is free for all users, open to all ages. Also
 // reused as the bounds for the min/max friend age eligibility preference

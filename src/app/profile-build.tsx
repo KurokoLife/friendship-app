@@ -20,22 +20,25 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
+import { CARE_STYLE_EXAMPLES, CARE_STYLE_MAX_LENGTH, CARE_STYLE_PROMPT } from '@/lib/care-style';
+import { StoriesEditor } from '@/components/stories-editor';
+import { normalizeStories, type Story } from '@/lib/stories';
+import { ACTIVITY_CATEGORIES } from '@/lib/activity-categories';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { VoiceTextInput } from '@/components/voice-text-input';
 import {
   AVAILABILITY,
-  COMMUNICATION_FREQ,
-  COMMUNICATION_MODES,
   COMMUNICATION_STYLE_OPENNESS_DESCRIPTIONS,
   COMMUNICATION_STYLE_OPENNESS_OPTIONS,
   DEFAULT_LOCATION_COUNTRY,
   DEFAULT_SEARCH_RADIUS_MILES,
-  ETHNICITY_OPTIONS,
   FRIENDSHIP_TYPE_OPTIONS,
   HANGOUT_PEOPLE,
   HANGOUT_TYPES,
   LANGUAGE_OPTIONS,
   LIFE_TRANSITIONS,
+  MAX_LIFE_TRANSITIONS,
+  NOTHING_BIG_TRANSITION,
   LOCATION_COUNTRIES,
   MAX_SEARCH_RADIUS_MILES,
   MEETING_FREQ,
@@ -46,319 +49,35 @@ import {
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
-const MAX_VALUES = 10;
+// 2026-10-04 (docs/DECISIONS.md section 2): up to 5 of 20.
+const MAX_VALUES = 5;
+// "Right now, I'm..." (stored in personal_statement, docs/DECISIONS.md
+// section 2): one short line instead of an open bio.
+const RIGHT_NOW_MAX_LENGTH = 150;
 
 const VALUES_OPTIONS = [
   'Honesty', 'Humor', 'Family', 'Adventure', 'Stability',
   'Creativity', 'Spirituality', 'Community', 'Growth', 'Ambition',
-  'Loyalty', 'Independence', 'Kindness', 'Authenticity', 'Curiosity',
-  'Resilience', 'Security', 'Simplicity', 'Connection', 'Purpose',
-  'Health', 'Compassion', 'Gratitude', 'Balance', 'Wisdom',
-  'Courage', 'Generosity', 'Patience', 'Openness', 'Playfulness',
+  'Loyalty', 'Independence', 'Kindness', 'Curiosity', 'Purpose',
+  'Health', 'Balance', 'Simplicity', 'Courage', 'Gratitude',
 ];
 
+// Stored values unchanged (activity suggestions filter on them); only the
+// question is reworded (2026-10-04).
 const BAR_PREFERENCE = ['I drink', "I don't drink", 'No preference'];
-const SIXTEEN_TYPES = [
-  'INTJ', 'INTP', 'ENTJ', 'ENTP',
-  'INFJ', 'INFP', 'ENFJ', 'ENFP',
-  'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ',
-  'ISTP', 'ISFP', 'ESTP', 'ESFP',
-];
 
-type CategoryQuestion =
-  | { type: 'chips'; field: string; multi: boolean; label: string; options: string[] }
-  | { type: 'text'; field: string; label: string; placeholder: string };
-
-type ActivityCategory = {
-  key: string;
-  label: string;
-  questions: CategoryQuestion[];
-};
-
-const ACTIVITY_CATEGORIES: ActivityCategory[] = [
-  {
-    key: 'movies', label: 'Movies',
-    questions: [
-      { type: 'chips', field: 'genres', multi: true, label: 'Which genres?', options: ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Documentary', 'Romance', 'Thriller', 'Animation', 'Foreign'] },
-      { type: 'text', field: 'favorites', label: 'A few favorites', placeholder: 'Name a couple you love' },
-    ],
-  },
-  {
-    key: 'music', label: 'Music',
-    questions: [
-      { type: 'chips', field: 'genres', multi: true, label: 'Which genres?', options: ['Pop', 'Rock', 'Hip-Hop', 'Jazz', 'Classical', 'Country', 'Electronic', 'R&B', 'Folk', 'Metal'] },
-      { type: 'text', field: 'favorite_artists', label: 'Favorite artists', placeholder: 'Who do you keep coming back to?' },
-    ],
-  },
-  {
-    key: 'food', label: 'Food & dining',
-    questions: [
-      { type: 'chips', field: 'cuisines', multi: true, label: 'Favorite cuisines?', options: ['Italian', 'Mexican', 'Japanese', 'Thai', 'Indian', 'Chinese', 'Mediterranean', 'American', 'French', 'Korean'] },
-      { type: 'text', field: 'favorite_spots', label: 'Favorite spots', placeholder: 'Any go-to restaurants?' },
-    ],
-  },
-  {
-    key: 'sports', label: 'Sports',
-    questions: [
-      { type: 'chips', field: 'sports', multi: true, label: 'Which sports?', options: ['Basketball', 'Football', 'Soccer', 'Tennis', 'Golf', 'Baseball', 'Running', 'Cycling', 'Swimming', 'Yoga'] },
-      { type: 'chips', field: 'play_or_watch', multi: false, label: 'Play or watch?', options: ['Play', 'Watch', 'Both'] },
-    ],
-  },
-  {
-    key: 'fitness', label: 'Fitness',
-    questions: [
-      { type: 'chips', field: 'types', multi: true, label: 'What kind?', options: ['Weightlifting', 'Running', 'Yoga', 'Pilates', 'HIIT', 'Cycling', 'Swimming', 'Climbing', 'Martial arts', 'Walking'] },
-      { type: 'chips', field: 'frequency', multi: false, label: 'How often?', options: ['Daily', 'A few times a week', 'Weekly', 'Occasionally'] },
-    ],
-  },
-  {
-    key: 'travel', label: 'Travel',
-    questions: [
-      { type: 'chips', field: 'types', multi: true, label: 'What kind of travel?', options: ['Adventure', 'Beach', 'City breaks', 'Road trips', 'Backpacking', 'Luxury', 'Cultural', 'Nature & outdoors'] },
-      { type: 'text', field: 'dream_destination', label: 'Dream destination', placeholder: 'Where would you go tomorrow?' },
-    ],
-  },
-  {
-    key: 'arts_culture', label: 'Arts & culture',
-    questions: [
-      { type: 'chips', field: 'interests', multi: true, label: 'What draws you in?', options: ['Museums', 'Theater', 'Live music', 'Galleries', 'Film festivals', 'Opera', 'Poetry', 'Literature'] },
-      { type: 'text', field: 'favorites', label: 'A favorite', placeholder: 'An artist, show, or exhibit you loved' },
-    ],
-  },
-  {
-    key: 'games', label: 'Games',
-    questions: [
-      { type: 'chips', field: 'types', multi: true, label: 'What kind?', options: ['Video games', 'Board games', 'Card games', 'Puzzle games', 'Trivia', 'Tabletop RPGs'] },
-      { type: 'text', field: 'favorites', label: 'Favorites', placeholder: 'What are you playing lately?' },
-    ],
-  },
-  {
-    key: 'outdoors', label: 'Outdoors',
-    questions: [
-      { type: 'chips', field: 'activities', multi: true, label: 'What do you like doing?', options: ['Hiking', 'Camping', 'Fishing', 'Kayaking', 'Rock climbing', 'Gardening', 'Beach days', 'Birdwatching'] },
-      { type: 'text', field: 'favorite_spot', label: 'Favorite spot', placeholder: 'A trail, park, or place you love' },
-    ],
-  },
-  {
-    key: 'reading', label: 'Reading',
-    questions: [
-      { type: 'chips', field: 'genres', multi: true, label: 'What do you read?', options: ['Fiction', 'Non-fiction', 'Mystery', 'Sci-Fi/Fantasy', 'Biography', 'Self-help', 'History', 'Poetry'] },
-      { type: 'text', field: 'favorites', label: 'Currently reading or a favorite', placeholder: "What's on your shelf?" },
-    ],
-  },
-  {
-    key: 'cooking', label: 'Cooking',
-    questions: [
-      { type: 'chips', field: 'styles', multi: true, label: 'What do you like making?', options: ['Baking', 'Grilling', 'Meal prep', 'Experimental', 'Comfort food', 'Healthy cooking', 'International cuisine'] },
-      { type: 'text', field: 'specialty', label: 'Your specialty', placeholder: 'What do you make best?' },
-    ],
-  },
-  {
-    key: 'volunteering', label: 'Volunteering',
-    questions: [
-      { type: 'chips', field: 'causes', multi: true, label: 'What causes matter to you?', options: ['Animals', 'Environment', 'Community', 'Education', 'Healthcare', 'Food security', 'Elderly care'] },
-      { type: 'text', field: 'where', label: 'Where you volunteer', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'nightlife', label: 'Nightlife',
-    questions: [
-      { type: 'chips', field: 'preferences', multi: true, label: "What's your scene?", options: ['Bars', 'Live music venues', 'Dancing & clubs', 'Comedy shows', 'Quiet lounges', 'Karaoke'] },
-      { type: 'text', field: 'favorite_spot', label: 'Favorite spot', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'pets', label: 'Pets',
-    questions: [
-      { type: 'chips', field: 'types', multi: true, label: 'What kind?', options: ['Dogs', 'Cats', 'Birds', 'Fish', 'Reptiles', 'Small mammals', 'No pets'] },
-      { type: 'text', field: 'about', label: 'Tell us about them', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'technology', label: 'Technology',
-    questions: [
-      { type: 'chips', field: 'interests', multi: true, label: 'What excites you?', options: ['Gadgets', 'Coding', 'AI', 'Gaming hardware', 'Photography tech', 'Home automation', 'Startups'] },
-      { type: 'text', field: 'details', label: 'Tell us more', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'fashion', label: 'Fashion',
-    questions: [
-      { type: 'chips', field: 'style', multi: true, label: 'How would you describe your style?', options: ['Streetwear', 'Vintage', 'Minimalist', 'Sustainable fashion', 'Luxury', 'Casual', 'Thrifting'] },
-      { type: 'text', field: 'favorites', label: 'Favorite brands or eras', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'photography', label: 'Photography',
-    questions: [
-      { type: 'chips', field: 'focus', multi: true, label: 'What do you shoot?', options: ['Portraits', 'Landscape', 'Street', 'Film', 'Travel', 'Wildlife', 'Editing'] },
-      { type: 'text', field: 'gear_style', label: 'Your gear or style', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'dancing', label: 'Dancing',
-    questions: [
-      { type: 'chips', field: 'styles', multi: true, label: 'What styles?', options: ['Salsa', 'Hip-hop', 'Ballroom', 'Contemporary', 'Swing', 'Line dancing', 'Just for fun'] },
-      { type: 'text', field: 'where', label: 'Where you like to dance', placeholder: 'Optional' },
-    ],
-  },
-  // 22 categories added below, expanding from 18 to 40 total, see the
-  // count discrepancy noted in filter-options.ts (the request said "35"
-  // but itemized 22, built all 22 as given).
-  {
-    key: 'yoga_pilates', label: 'Yoga / Pilates',
-    questions: [
-      { type: 'chips', field: 'style', multi: false, label: 'What style?', options: ['Hatha', 'Vinyasa', 'Hot yoga', 'Pilates reformer', 'Other'] },
-      { type: 'text', field: 'favorite_practice', label: 'Favorite studio or practice', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'wellness_mindfulness', label: 'Wellness / mindfulness / meditation',
-    questions: [
-      { type: 'chips', field: 'practices', multi: true, label: 'What practices?', options: ['Meditation', 'Breathwork', 'Journaling', 'Sound baths', 'Other'] },
-      { type: 'text', field: 'frequency', label: 'How often do you practice?', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'running_cycling', label: 'Running / cycling',
-    questions: [
-      { type: 'chips', field: 'which', multi: false, label: 'Which?', options: ['Running', 'Cycling', 'Both'] },
-      { type: 'text', field: 'level', label: 'Casual or training for events?', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'tennis_pickleball', label: 'Tennis / pickleball',
-    questions: [
-      { type: 'chips', field: 'which', multi: false, label: 'Which?', options: ['Tennis', 'Pickleball', 'Both'] },
-      { type: 'chips', field: 'skill_level', multi: false, label: 'Skill level', options: ['Beginner', 'Intermediate', 'Advanced'] },
-    ],
-  },
-  {
-    key: 'golf', label: 'Golf',
-    questions: [
-      { type: 'chips', field: 'style', multi: false, label: 'Casual or serious?', options: ['Casual', 'Serious'] },
-      { type: 'text', field: 'favorite_course', label: 'Favorite type of course', placeholder: 'Optional' },
-    ],
-  },
-  {
-    // Given follow-up options were "Yoga, BJJ, Boxing, Muay Thai, Karate,
-    // Other", Yoga isn't a martial art and the other five options are all
-    // real combat disciplines, almost certainly meant to say Judo. Fixed
-    // rather than shipping a known error, flagged here and in PROGRESS.md.
-    key: 'martial_arts', label: 'Martial arts',
-    questions: [
-      { type: 'chips', field: 'discipline', multi: false, label: 'Which discipline?', options: ['Judo', 'BJJ', 'Boxing', 'Muay Thai', 'Karate', 'Other'] },
-    ],
-  },
-  {
-    key: 'wine_cocktails_beer', label: 'Wine / cocktails / craft beer',
-    questions: [
-      { type: 'chips', field: 'preference', multi: false, label: "What's your preference?", options: ['Wine', 'Cocktails', 'Craft beer', 'All three'] },
-      { type: 'text', field: 'favorites', label: 'Favorite spots or styles', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'coffee_culture', label: 'Coffee culture',
-    questions: [
-      { type: 'chips', field: 'style', multi: false, label: 'Pour over or espresso?', options: ['Pour over', 'Espresso', 'Both'] },
-      { type: 'text', field: 'favorite_spots', label: 'Favorite local spots', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'bbq_grilling', label: 'BBQ / grilling',
-    questions: [
-      { type: 'chips', field: 'role', multi: false, label: 'Backyard cook or restaurant seeker?', options: ['Backyard cook', 'Restaurant seeker', 'Both'] },
-      { type: 'chips', field: 'style', multi: false, label: 'Favorite style', options: ['Texas', 'Korean', 'American', 'Other'] },
-    ],
-  },
-  {
-    key: 'writing_journaling', label: 'Writing / journaling',
-    questions: [
-      { type: 'chips', field: 'kind', multi: true, label: 'What kind?', options: ['Personal journaling', 'Creative writing', 'Blogging', 'Other'] },
-    ],
-  },
-  {
-    key: 'crafts', label: 'Crafts',
-    questions: [
-      { type: 'chips', field: 'type', multi: true, label: 'What type?', options: ['Knitting', 'Crocheting', 'Pottery', 'DIY/home projects', 'Painting', 'Drawing', 'Other'] },
-    ],
-  },
-  {
-    key: 'collecting', label: 'Collecting',
-    questions: [
-      { type: 'chips', field: 'items', multi: true, label: 'What do you collect?', options: ['Vinyl records', 'Art', 'Vintage items', 'Antiques', 'Books', 'Other'] },
-    ],
-  },
-  {
-    key: 'live_music', label: 'Live music / concerts',
-    questions: [
-      { type: 'text', field: 'genres', label: 'What genres?', placeholder: 'Optional' },
-      { type: 'chips', field: 'venues', multi: false, label: 'Venues', options: ['Small clubs', 'Large arenas', 'Outdoor festivals', 'All'] },
-    ],
-  },
-  {
-    key: 'theater_performing_arts', label: 'Theater / performing arts',
-    questions: [
-      { type: 'chips', field: 'type', multi: true, label: 'What type?', options: ['Broadway/musicals', 'Drama', 'Comedy', 'Opera', 'Dance performances', 'All'] },
-    ],
-  },
-  {
-    key: 'podcasts_audiobooks', label: 'Podcasts / audiobooks',
-    questions: [
-      { type: 'chips', field: 'genres', multi: true, label: 'Favorite genres?', options: ['True crime', 'History', 'Self-improvement', 'Comedy', 'Science', 'Fiction', 'Other'] },
-    ],
-  },
-  {
-    key: 'history_learning', label: 'History / learning',
-    questions: [
-      { type: 'chips', field: 'areas', multi: true, label: 'What areas?', options: ['Ancient history', 'Modern history', 'Science', 'Philosophy', 'Politics', 'Other'] },
-    ],
-  },
-  {
-    key: 'spirituality_faith', label: 'Spirituality / faith',
-    questions: [
-      { type: 'text', field: 'tradition', label: 'What tradition or practice?', placeholder: 'Optional, shared only if you want to' },
-    ],
-  },
-  {
-    key: 'gardening_plants', label: 'Gardening / plants',
-    questions: [
-      { type: 'chips', field: 'setting', multi: false, label: 'Indoor plants, outdoor garden, or both?', options: ['Indoor plants', 'Outdoor garden', 'Both'] },
-      { type: 'text', field: 'what_you_grow', label: 'What do you grow?', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'environmental_activism', label: 'Environmental activism',
-    questions: [
-      { type: 'chips', field: 'involvement', multi: true, label: 'How do you get involved?', options: ['Local cleanups', 'Advocacy', 'Sustainable living', 'Conservation', 'Other'] },
-    ],
-  },
-  {
-    key: 'self_improvement', label: 'Self-improvement / personal development',
-    questions: [
-      { type: 'chips', field: 'areas', multi: true, label: 'What areas?', options: ['Books', 'Coaching', 'Therapy', 'Courses', 'Habits', 'Other'] },
-    ],
-  },
-  {
-    key: 'entrepreneurship', label: 'Entrepreneurship / side projects',
-    questions: [
-      { type: 'text', field: 'working_on', label: 'What are you working on?', placeholder: 'Optional' },
-    ],
-  },
-  {
-    key: 'comedy_live_shows', label: 'Comedy / live shows',
-    questions: [
-      { type: 'chips', field: 'type', multi: true, label: 'What type?', options: ['Stand-up comedy', 'Improv', 'Live talk shows', 'Other'] },
-    ],
-  },
-];
 
 type ActivityDetails = Record<string, Record<string, string[] | string>>;
 
 type ProfileFormState = {
   lifeTransitions: string[];
+  showLifeTransitions: boolean;
   lifeTransitionsOther: string;
   personalStatement: string;
+  // Limen v2: "How I like care", the user's own words (optional).
+  careStyle: string;
+  // Limen v2: 2-3 short stories in the user's own words.
+  stories: Story[];
   values: string[];
   valuesOther: string;
   activityCategories: string[];
@@ -373,6 +92,7 @@ type ProfileFormState = {
   dealbreakers: string;
   personality16p: string | null;
   photoUrl: string | null;
+  extraPhotoUrls: string[];
   locationCity: string;
   locationState: string;
   locationCountry: string;
@@ -391,8 +111,11 @@ type ProfileFormState = {
 
 const EMPTY_PROFILE: ProfileFormState = {
   lifeTransitions: [],
+  showLifeTransitions: true,
   lifeTransitionsOther: '',
   personalStatement: '',
+  careStyle: '',
+  stories: [],
   values: [],
   valuesOther: '',
   activityCategories: [],
@@ -407,6 +130,7 @@ const EMPTY_PROFILE: ProfileFormState = {
   dealbreakers: '',
   personality16p: null,
   photoUrl: null,
+  extraPhotoUrls: [],
   locationCity: '',
   locationState: '',
   locationCountry: DEFAULT_LOCATION_COUNTRY,
@@ -433,7 +157,7 @@ function computeCompletionPct(p: ProfileFormState) {
     p.activityCategories.length > 0,
     Boolean(p.hangoutPeoplePreference),
     p.hangoutTypePreference.length > 0,
-    Boolean(p.communicationFreq),
+    p.stories.some((st) => st.text.trim().length > 0),
     Boolean(p.meetingFreq),
     Boolean(p.responseTime),
     Boolean(p.barPreference),
@@ -443,7 +167,6 @@ function computeCompletionPct(p: ProfileFormState) {
     Boolean(p.friendshipType),
     Boolean(p.communicationStyleOpenness),
     p.availability.length > 0,
-    p.communicationModes.length > 0,
   ];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
@@ -475,7 +198,7 @@ const STEP_INTERESTS = 4;
 const STEP_HANGOUT_STYLE = 5;
 const STEP_FRIENDSHIP_TYPE_AND_RHYTHM = 6;
 const STEP_COMMUNICATION_STYLE = 7;
-const STEP_LANGUAGES_ETHNICITY_16P = 8;
+const STEP_LANGUAGES = 8;
 const STEP_PHOTO = 9;
 const TOTAL_STEPS = 10;
 
@@ -492,6 +215,11 @@ const REQUIRED_FIELD_CHECKS: RequiredFieldCheck[] = [
     isMissing: (p) => p.lifeTransitions.length === 0,
   },
   {
+    step: STEP_ABOUT_YOU,
+    message: 'At least one story',
+    isMissing: (p) => !p.stories.some((st) => st.text.trim().length > 0),
+  },
+  {
     step: STEP_HANGOUT_STYLE,
     message: 'How you hang out with a new friend',
     isMissing: (p) => !p.hangoutPeoplePreference,
@@ -506,7 +234,6 @@ const REQUIRED_FIELD_CHECKS: RequiredFieldCheck[] = [
     message: 'What kind of friendship you are hoping to build',
     isMissing: (p) => !p.friendshipType,
   },
-  { step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM, message: 'Check-in frequency', isMissing: (p) => !p.communicationFreq },
   { step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM, message: 'Meeting frequency', isMissing: (p) => !p.meetingFreq },
   { step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM, message: 'Response time', isMissing: (p) => !p.responseTime },
   {
@@ -514,6 +241,9 @@ const REQUIRED_FIELD_CHECKS: RequiredFieldCheck[] = [
     message: 'Communication style',
     isMissing: (p) => !p.communicationStyleOpenness,
   },
+  // 2026-10-04: one clear face photo is required (the selfie check
+  // compares against it).
+  { step: STEP_PHOTO, message: 'A profile photo', isMissing: (p) => !p.photoUrl },
 ];
 
 function getMissingRequiredFields(p: ProfileFormState): string[] {
@@ -593,6 +323,7 @@ export default function ProfileBuildScreen() {
   // matters when !isEditMode, every render/handler below checks
   // isEditMode first.
   const [step, setStep] = useState(0);
+  const [openActivityDetails, setOpenActivityDetails] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -620,8 +351,11 @@ export default function ProfileBuildScreen() {
         }) ?? {};
         const loadedProfile: ProfileFormState = {
           lifeTransitions: data.life_transitions ?? [],
+          showLifeTransitions: data.show_life_transitions ?? true,
           lifeTransitionsOther: data.life_transitions_other ?? '',
           personalStatement: data.personal_statement ?? '',
+          careStyle: data.care_style ?? '',
+          stories: normalizeStories(data.stories),
           values: data.values ?? [],
           valuesOther: data.values_other ?? '',
           activityCategories: activityInterests.categories ?? [],
@@ -636,6 +370,7 @@ export default function ProfileBuildScreen() {
           dealbreakers: data.dealbreakers ?? '',
           personality16p: data.personality_16p,
           photoUrl: data.photo_url,
+          extraPhotoUrls: data.extra_photo_urls ?? [],
           locationCity: data.location_city ?? '',
           locationState: data.location_state ?? '',
           locationCountry: data.location_country ?? DEFAULT_LOCATION_COUNTRY,
@@ -701,7 +436,7 @@ export default function ProfileBuildScreen() {
 
   const handleStepBack = () => {
     if (step === 0) {
-      router.replace('/social-linking');
+      router.replace('/gender-identity');
       return;
     }
     setAttemptedContinue(false);
@@ -722,8 +457,11 @@ export default function ProfileBuildScreen() {
     const { error: saveError } = await supabase.from('profiles').upsert({
       user_id: user.id,
       life_transitions: next.lifeTransitions,
+      show_life_transitions: next.showLifeTransitions,
       life_transitions_other: next.lifeTransitionsOther.trim() || null,
       personal_statement: next.personalStatement || null,
+      care_style: next.careStyle.trim().slice(0, CARE_STYLE_MAX_LENGTH) || null,
+      stories: next.stories.filter((st) => st.text.trim().length > 0 || st.prompt_key),
       values: next.values,
       values_other: next.valuesOther.trim() || null,
       activity_interests: {
@@ -740,6 +478,7 @@ export default function ProfileBuildScreen() {
       dealbreakers: next.dealbreakers || null,
       personality_16p: next.personality16p,
       photo_url: next.photoUrl,
+      extra_photo_urls: next.extraPhotoUrls.slice(0, 2),
       location_city: next.locationCity.trim() || null,
       location_state: next.locationState.trim() || null,
       location_country: next.locationCountry || DEFAULT_LOCATION_COUNTRY,
@@ -757,7 +496,7 @@ export default function ProfileBuildScreen() {
       completion_pct: computeCompletionPct(next),
     });
     setSaving(false);
-    if (saveError) setError(saveError.message);
+    if (saveError) setError('Something went wrong saving that. Try again.');
   };
 
   const updateAndSave = (patch: Partial<ProfileFormState>) => {
@@ -778,12 +517,21 @@ export default function ProfileBuildScreen() {
   // gone from the option list itself, replaced by the separate
   // lifeTransitionsOther free-text field below, display only, never fed
   // into match scoring.
+  // 2026-10-04: choose up to 3. "Nothing big, I'd just like more friends"
+  // stands on its own, like "No pets" below.
   const toggleLifeTransition = (option: string) => {
     const selected = profile.lifeTransitions.includes(option);
-    const next = selected
-      ? profile.lifeTransitions.filter((t) => t !== option)
-      : [...profile.lifeTransitions, option];
-    updateAndSave({ lifeTransitions: next });
+    if (selected) {
+      updateAndSave({ lifeTransitions: profile.lifeTransitions.filter((t) => t !== option) });
+      return;
+    }
+    if (option === NOTHING_BIG_TRANSITION) {
+      updateAndSave({ lifeTransitions: [option] });
+      return;
+    }
+    const withoutNothingBig = profile.lifeTransitions.filter((t) => t !== NOTHING_BIG_TRANSITION);
+    if (withoutNothingBig.length >= MAX_LIFE_TRANSITIONS) return;
+    updateAndSave({ lifeTransitions: [...withoutNothingBig, option] });
   };
 
   const toggleCategory = (key: string) => {
@@ -984,7 +732,7 @@ export default function ProfileBuildScreen() {
     });
   };
 
-  const pickPhoto = async () => {
+  const pickPhoto = async (slot: 'main' | 'extra') => {
     setError(null);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -1020,13 +768,14 @@ export default function ProfileBuildScreen() {
 
     if (uploadError) {
       setUploadingPhoto(false);
-      setError(uploadError.message);
+      setError("That photo didn't upload. Try again.");
       return;
     }
 
     const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
     setUploadingPhoto(false);
-    updateAndSave({ photoUrl: urlData.publicUrl });
+    if (slot === 'main') updateAndSave({ photoUrl: urlData.publicUrl });
+    else updateAndSave({ extraPhotoUrls: [...profile.extraPhotoUrls, urlData.publicUrl].slice(0, 2) });
   };
 
   if (!loaded) {
@@ -1245,7 +994,9 @@ export default function ProfileBuildScreen() {
           )}
 
           {(isEditMode || step === STEP_WHAT_BRINGS_YOU_HERE) && (
-          <Section title="What brings you here?" subtitle="Required for matching. Choose all that apply">
+          <Section
+            title="What brings you here?"
+            subtitle={`Required for matching. Choose up to ${MAX_LIFE_TRANSITIONS}. ${profile.lifeTransitions.length} of ${MAX_LIFE_TRANSITIONS} selected`}>
             <View className="flex-row flex-wrap gap-2">
               {LIFE_TRANSITIONS.map((option) => (
                 <Chip
@@ -1261,6 +1012,29 @@ export default function ProfileBuildScreen() {
                 Please select at least one option that applies to you.
               </Text>
             )}
+            {/* Some of these are personal (grief, recovery, health). Hidden
+                ones still count for matching but are never shown or named
+                in suggestion text (discovery views return them empty). */}
+            <Pressable
+              onPress={() => updateAndSave({ showLifeTransitions: !profile.showLifeTransitions })}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: profile.showLifeTransitions }}
+              className="flex-row items-center justify-between gap-3 rounded-xl border border-stone-200 px-4 py-3 dark:border-stone-700">
+              <View className="flex-1">
+                <Text className="text-body text-stone-900 dark:text-stone-50">Show this on my profile</Text>
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  {profile.showLifeTransitions
+                    ? 'Shown to people you might meet.'
+                    : 'Hidden. Still used to suggest people, never shown or named.'}
+                </Text>
+              </View>
+              <View
+                className={`h-6 w-11 justify-center rounded-full px-0.5 ${
+                  profile.showLifeTransitions ? 'items-end bg-accent-500' : 'items-start bg-stone-300 dark:bg-stone-600'
+                }`}>
+                <View className="h-5 w-5 rounded-full bg-white" />
+              </View>
+            </Pressable>
             <View className="relative">
               <TextInput
                 value={profile.lifeTransitionsOther}
@@ -1276,20 +1050,46 @@ export default function ProfileBuildScreen() {
           )}
 
           {(isEditMode || step === STEP_ABOUT_YOU) && (
-          <Section title="About you" subtitle="What should people know before they meet you?">
+          <Section
+            title="Right now, I'm..."
+            subtitle={`One short, specific line about your life right now. ${profile.personalStatement.length} of ${RIGHT_NOW_MAX_LENGTH}`}>
             <VoiceTextInput
               value={profile.personalStatement}
-              onChangeText={(text) => setProfile((p) => ({ ...p, personalStatement: text }))}
+              onChangeText={(text) => setProfile((p) => ({ ...p, personalStatement: text.slice(0, RIGHT_NOW_MAX_LENGTH) }))}
               onBlur={() => persist(profile)}
-              numberOfLines={4}
-              minHeightClassName="min-h-24"
-              placeholder="A few sentences about who you are right now"
+              numberOfLines={2}
+              minHeightClassName="min-h-16"
+              placeholder="For example: learning to cook for one, and getting surprisingly good at soup"
             />
             <UniversalTextBox
               value={profile.personalStatement}
               onChangeText={(text) => updateAndSave({ personalStatement: text })}
-              draftPurpose="write a few warm, honest sentences for the About You section of their friendship-app profile, introducing who they are right now"
-              situationPrompt="What would you want a new friend to know about you?"
+              context="profile"
+            />
+          </Section>
+          )}
+
+          {(isEditMode || step === STEP_ABOUT_YOU) && (
+          <Section
+            title="Stories"
+            subtitle="At least one short story that shows what you're like, up to three. Not a biography, just a moment.">
+            <StoriesEditor
+              value={profile.stories}
+              onChange={(stories) => setProfile((p) => ({ ...p, stories }))}
+              onCommit={(stories) => updateAndSave({ stories })}
+            />
+          </Section>
+          )}
+
+          {(isEditMode || step === STEP_ABOUT_YOU) && (
+          <Section title="How I like care" subtitle={`${CARE_STYLE_PROMPT} Optional, only people you connect with see this.`}>
+            <VoiceTextInput
+              value={profile.careStyle}
+              onChangeText={(text) => setProfile((p) => ({ ...p, careStyle: text }))}
+              onBlur={() => persist(profile)}
+              numberOfLines={3}
+              minHeightClassName="min-h-20"
+              placeholder={CARE_STYLE_EXAMPLES}
             />
           </Section>
           )}
@@ -1324,7 +1124,7 @@ export default function ProfileBuildScreen() {
 
           {(isEditMode || step === STEP_INTERESTS) && (
           <>
-          <Section title="What do you like doing" subtitle="Pick any that fit. Each opens a couple quick follow-ups">
+          <Section title="What do you like doing" subtitle="Pick any that fit. Details are optional, but they give people something real to ask you about.">
             <View className="flex-row flex-wrap gap-2">
               {ACTIVITY_CATEGORIES.map((category) => (
                 <Chip
@@ -1350,7 +1150,17 @@ export default function ProfileBuildScreen() {
 
           {ACTIVITY_CATEGORIES.filter((c) => profile.activityCategories.includes(c.key)).map((category) => (
             <Section key={category.key} title={category.label} nested>
-              {category.questions.map((question) =>
+              <Pressable
+                onPress={() =>
+                  setOpenActivityDetails((open) =>
+                    open.includes(category.key) ? open.filter((k) => k !== category.key) : [...open, category.key]
+                  )
+                }>
+                <Text className="text-caption font-semibold text-accent-500">
+                  {openActivityDetails.includes(category.key) ? 'Hide details' : 'Add details (optional)'}
+                </Text>
+              </Pressable>
+              {openActivityDetails.includes(category.key) && category.questions.map((question) =>
                 question.type === 'chips' ? (
                   <View key={question.field} className="gap-2">
                     <Text className="text-caption text-stone-500 dark:text-stone-400">
@@ -1452,19 +1262,6 @@ export default function ProfileBuildScreen() {
             </View>
           </Section>
 
-          <Section title="How often you like to check in" subtitle="Required for matching">
-            <View className="flex-row flex-wrap gap-2">
-              {COMMUNICATION_FREQ.map((option) => (
-                <Chip
-                  key={option}
-                  label={option}
-                  selected={profile.communicationFreq === option}
-                  onPress={() => updateAndSave({ communicationFreq: option })}
-                />
-              ))}
-            </View>
-          </Section>
-
           <Section title="How often you like to meet up" subtitle="Required for matching">
             <View className="flex-row flex-wrap gap-2">
               {MEETING_FREQ.map((option) => (
@@ -1542,20 +1339,7 @@ export default function ProfileBuildScreen() {
             </View>
           </Section>
 
-          <Section title="How you like to communicate" subtitle="Choose all that apply">
-            <View className="flex-row flex-wrap gap-2">
-              {COMMUNICATION_MODES.map((option) => (
-                <Chip
-                  key={option}
-                  label={option}
-                  selected={profile.communicationModes.includes(option)}
-                  onPress={() => toggleCommunicationMode(option)}
-                />
-              ))}
-            </View>
-          </Section>
-
-          <Section title="Bar or restaurant preference" subtitle="Helps us suggest the right kind of activity later">
+          <Section title="Are bars or drinks okay for meetups?" subtitle="Helps us suggest the right kind of activity later">
             <View className="flex-row flex-wrap gap-2">
               {BAR_PREFERENCE.map((option) => (
                 <Chip
@@ -1568,7 +1352,7 @@ export default function ProfileBuildScreen() {
             </View>
           </Section>
 
-          <Section title="Dealbreakers" subtitle="Optional. Anything that's a hard no for you?">
+          <Section title="Hard nos" subtitle="Optional. Shown on your profile so people know up front. It never hides anyone automatically.">
             <VoiceTextInput
               value={profile.dealbreakers}
               onChangeText={(text) => setProfile((p) => ({ ...p, dealbreakers: text }))}
@@ -1580,14 +1364,17 @@ export default function ProfileBuildScreen() {
             <UniversalTextBox
               value={profile.dealbreakers}
               onChangeText={(text) => updateAndSave({ dealbreakers: text })}
-              draftPurpose="write a short, direct list of dealbreakers for their friendship-app profile, things that are a hard no for them in a friendship"
-              situationPrompt="What's a hard no for you in a friendship?"
+              context="profile"
+              reflectionQuestions={[
+                "Think of a time a friendship didn't work for you. What was the real reason?",
+                'Is it truly a hard no, or something you could talk about?',
+              ]}
             />
           </Section>
           </>
           )}
 
-          {(isEditMode || step === STEP_LANGUAGES_ETHNICITY_16P) && (
+          {(isEditMode || step === STEP_LANGUAGES) && (
           <>
           <Section
             title="Languages I am comfortable connecting in"
@@ -1617,62 +1404,13 @@ export default function ProfileBuildScreen() {
             )}
           </Section>
 
-          <Section
-            title="Ethnicity / race"
-            subtitle="Optional. Shown on your profile, never used for matching.">
-            <View className="flex-row flex-wrap gap-2">
-              {ETHNICITY_OPTIONS.map((option) => (
-                <Chip
-                  key={option}
-                  label={option}
-                  selected={profile.ethnicity.includes(option)}
-                  onPress={() => toggleEthnicity(option)}
-                />
-              ))}
-            </View>
-            {profile.ethnicity.includes('Other') && (
-              <View className="relative">
-                <TextInput
-                  value={profile.ethnicityOther}
-                  onChangeText={(text) => setProfile((p) => ({ ...p, ethnicityOther: text }))}
-                  onBlur={() => persist(profile)}
-                  placeholder="Tell us more"
-                  placeholderTextColor={MUTED_ICON_COLOR}
-                  className="rounded-xl border border-stone-300 px-3 py-2 pr-12 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                />
-                <MicPlaceholderButton />
-              </View>
-            )}
-          </Section>
-
-          <Section
-            title="16 Personalities"
-            subtitle="Optional. Shown on your profile, but never used for matching.">
-            <View className="flex-row flex-wrap gap-2">
-              {SIXTEEN_TYPES.map((option) => (
-                <Chip
-                  key={option}
-                  label={option}
-                  selected={profile.personality16p === option}
-                  onPress={() =>
-                    updateAndSave({
-                      personality16p: profile.personality16p === option ? null : option,
-                    })
-                  }
-                />
-              ))}
-            </View>
-            <Pressable onPress={() => Linking.openURL('https://www.16personalities.com/free-personality-test')}>
-              <Text className="text-caption text-accent-600 dark:text-accent-400">
-                Take the free test →
-              </Text>
-            </Pressable>
-          </Section>
           </>
           )}
 
           {(isEditMode || step === STEP_PHOTO) && (
-          <Section title="Photo" subtitle="Only shown to a match after they've read your full profile">
+          <Section
+            title="Photos"
+            subtitle="Required: one clear photo of your face. Up to 2 more are optional. Your selfie check is compared with the first one.">
             <View className="flex-row items-center gap-4">
               {profile.photoUrl ? (
                 <Image source={{ uri: profile.photoUrl }} className="h-16 w-16 rounded-full" />
@@ -1682,7 +1420,7 @@ export default function ProfileBuildScreen() {
                 </View>
               )}
               <Pressable
-                onPress={pickPhoto}
+                onPress={() => pickPhoto('main')}
                 disabled={uploadingPhoto}
                 className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
                 {uploadingPhoto ? (
@@ -1702,9 +1440,35 @@ export default function ProfileBuildScreen() {
                 gap someone would only discover by not getting matches. */}
             {!profile.photoUrl && (
               <Text className="text-caption text-amber-600 dark:text-amber-400">
-                Without a photo, you will not appear in Discover or Browse for other people, and you
-                will not be able to send the first message in a new conversation.
+                Without a photo, you won&apos;t appear to anyone, and you can&apos;t say hello.
               </Text>
+            )}
+            {profile.photoUrl && (
+              <View className="gap-2 pt-2">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">More photos (optional)</Text>
+                <View className="flex-row flex-wrap items-center gap-3">
+                  {profile.extraPhotoUrls.map((url) => (
+                    <Pressable
+                      key={url}
+                      onPress={() =>
+                        updateAndSave({ extraPhotoUrls: profile.extraPhotoUrls.filter((u) => u !== url) })
+                      }
+                      accessibilityLabel="Remove this photo"
+                      className="items-center gap-1">
+                      <Image source={{ uri: url }} className="h-16 w-16 rounded-xl" />
+                      <Text className="text-caption text-stone-500 dark:text-stone-400">Remove</Text>
+                    </Pressable>
+                  ))}
+                  {profile.extraPhotoUrls.length < 2 && (
+                    <Pressable
+                      onPress={() => pickPhoto('extra')}
+                      disabled={uploadingPhoto}
+                      className="h-16 w-16 items-center justify-center rounded-xl border border-dashed border-stone-300 dark:border-stone-600">
+                      <Text className="text-title text-stone-400">+</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
             )}
           </Section>
           )}
@@ -1741,7 +1505,7 @@ export default function ProfileBuildScreen() {
           {isEditMode && (
             <Pressable onPress={() => router.push('/big-five-assessment?from=profile')} className="items-center py-1">
               <Text className="text-caption font-semibold text-accent-500">
-                Retake personality assessment
+                Retake "How you connect"
               </Text>
             </Pressable>
           )}

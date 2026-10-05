@@ -7,6 +7,8 @@
 // all three want the identical fragment for the same category.
 const LIFE_TRANSITION_FRAGMENTS: Record<string, string> = {
   'Divorce or separation': 'navigating life after a divorce or separation',
+  'Divorce, separation, or the end of a long relationship': 'navigating life after a divorce, separation, or the end of a long relationship',
+  "Nothing big, I'd just like more friends": 'here to make more friends',
   Relocation: 'settling into a new place after a recent move',
   Bereavement: 'finding their way through grief and loss',
   'Career change': 'figuring out what comes next after a career change',
@@ -31,4 +33,14 @@ export function lifeTransitionFragment(transitions: string[] | null): string | n
   if (!transitions || transitions.length === 0) return null;
   const first = transitions[0];
   return LIFE_TRANSITION_FRAGMENTS[first] ?? first.toLowerCase();
+}
+
+// Every transition someone chose to show, as full sentences, for the full
+// profile view (src/components/public-profile-view.tsx).
+export function lifeTransitionSentences(transitions: string[] | null): string[] {
+  if (!transitions || transitions.length === 0) return [];
+  return transitions.map((t) => {
+    const fragment = LIFE_TRANSITION_FRAGMENTS[t] ?? t.toLowerCase();
+    return `${fragment.charAt(0).toUpperCase()}${fragment.slice(1)}.`;
+  });
 }

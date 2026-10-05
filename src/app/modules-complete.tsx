@@ -2,11 +2,11 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// F8's "All set" screen. Onboarding update (2026-07-26): moved to the end
-// of onboarding, now shown right after the single merged readiness/safety
-// confirmation (readiness-commitment.tsx, F9+F10 combined) and routes
-// straight into the main app, replacing the old order where this screen
-// came before both of those confirmations.
+// Last onboarding screen (docs/DECISIONS.md onboarding screen 10). Sets the
+// "up to 3 a week" expectation so a short list doesn't look broken, and
+// offers the selfie check now: approval is manual and can take up to a
+// day, so starting it here means most people are verified by the time
+// they want to say Interested to someone.
 export default function ModulesCompleteScreen() {
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
@@ -14,19 +14,28 @@ export default function ModulesCompleteScreen() {
         <View className="gap-4 pt-16">
           <Text className="text-display text-stone-900 dark:text-stone-50">You&apos;re all set</Text>
           <Text className="text-body text-stone-600 dark:text-stone-300">
-            You&apos;ll find short guides in your profile when you&apos;re ready, on things like
-            the honest exit, what to do when friendship feels one-sided, and how to show up even
-            when life gets in the way. They&apos;re there when you need them, not homework.
+            Your first suggestions will arrive soon. You&apos;ll get up to 3 a week, so take your time with
+            each one.
+          </Text>
+          <Text className="text-body text-stone-600 dark:text-stone-300">
+            Before you can say hello to anyone, we check that you&apos;re you, with a quick selfie matched to
+            your profile photo. It usually takes less than a day.
+          </Text>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            Short guides live in your Profile whenever you want them.
           </Text>
         </View>
 
-        <Pressable
-          onPress={() => router.replace('/home')}
-          className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-          <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
-            Take me to the app
-          </Text>
-        </Pressable>
+        <View className="gap-2">
+          <Pressable
+            onPress={() => router.replace({ pathname: '/selfie-check', params: { next: 'home' } })}
+            className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
+            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Do my selfie check now</Text>
+          </Pressable>
+          <Pressable onPress={() => router.replace('/home')} className="items-center py-3">
+            <Text className="text-body text-stone-500 dark:text-stone-400">I&apos;ll do it later</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     </View>
   );

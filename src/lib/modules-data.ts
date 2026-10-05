@@ -60,26 +60,31 @@ export const MODULES: ModuleDef[] = [
     description: 'Why friendship starts with curiosity, not evaluation.',
     libraryDescription:
       "A profile is just a glimpse, not a whole person, so curiosity beats a snap judgment every time. A shared interest can open a door, and so can a real difference. You don't need instant chemistry to know something's worth continuing, one conversation is incomplete information on its own. An awkward moment doesn't mean it's not working either, the other person is probably just as unsure as you are.",
+    // 2026-10-04 (docs/DECISIONS.md onboarding screen 8): key points
+    // rewritten to match what the video actually teaches.
     concept: [
-      'A profile is a glimpse, not a complete person. Friendship begins with curiosity rather than evaluation, a shared interest can open a door, and so can a difference.',
-      'You do not need instant certainty or instant chemistry to know something is worth continuing. One interaction is incomplete information, and an awkward moment does not automatically mean you do not click, the other person may be feeling just as nervous or unsure as you are.',
+      "A profile is a glimpse, not a whole person. Everyone carries context you can't see.",
+      'Start with curiosity, not evaluation: what would you genuinely like to understand about them?',
+      'A shared interest can open a door, and so can a difference.',
+      "Pauses and awkward moments are normal. They're probably wondering the same things you are.",
+      "Curiosity doesn't mean ignoring your own comfort. It means you don't have to decide right away.",
     ],
     scenario: {
-      prompt:
-        "You match with someone whose profile doesn't immediately excite you. What's the healthier way to approach the first conversation?",
+      prompt: "A profile doesn't immediately excite you. What's the healthier first move?",
       choices: [
         {
-          label:
-            'Ask a genuine question about something in their profile, curious rather than certain either way.',
+          label: 'Ask a genuine question about something in their profile.',
           correct: true,
           feedback:
             'That is curiosity in action. It gives the conversation somewhere real to go instead of resting on a first impression.',
         },
         {
-          label: 'Assume it probably will not go anywhere and put in minimal effort.',
+          // A tempting wrong answer, not an obviously wrong one, so the
+          // question takes a moment of real thought.
+          label: "Wait to see if they message first, since the profile didn't grab you.",
           correct: false,
           feedback:
-            "Here's what happens: a first read of a profile is incomplete information either way, treating it as a verdict closes a door curiosity might have opened.",
+            "Waiting feels neutral, but it hands the first move to someone who is probably just as unsure as you. A profile is incomplete information either way, a genuine question is how you find out what's actually there.",
         },
       ],
     },
@@ -93,31 +98,41 @@ export const MODULES: ModuleDef[] = [
     id: 'module_show_up',
     order: 2,
     title: 'How We Show Up',
-    description: 'Messaging rhythm, honest closure, and naming awkwardness directly.',
+    description: 'Messaging rhythm, honest endings, and naming awkwardness.',
     libraryDescription:
       "If a connection isn't right for you anymore, say so. A short, honest message is kinder than just disappearing, the other person deserves real clarity, not silence. That doesn't mean you owe anyone continued contact, though. If something feels unsafe, you can leave, block, or report, no explanation required.",
     // Concept and scenario replaced per Scene 7 of the video's own
     // script, matching honest endings rather than the earlier draft's
     // awkward-moment scenario, since the video content itself was built
     // around this instead.
+    // 2026-10-04: the video covers reply rhythm, acknowledging without a
+    // full reply, honest endings, naming awkwardness and safety; the page
+    // now does too. The friendship-only line is page-only (not in the
+    // video), part of the safety plan in docs/DECISIONS.md section 3.
     concept: [
-      'A brief, honest message about ending a connection is kinder than disappearing. The other person deserves clarity, not silence.',
-      "If something feels unsafe, you don't owe continued contact or an explanation. You can leave, block, or report.",
+      "Reply speeds differ. One slow reply isn't a verdict.",
+      'You can acknowledge without a full reply: "Saw this, I\'ll get back to you this weekend."',
+      "If you don't want to continue, say so briefly. Disappearing leaves them guessing.",
+      'Naming awkwardness usually makes it smaller. Once you\'re comfortable, a short call can help.',
+      'If you feel unsafe, you owe no explanation. Leave, block, or report.',
+      "Limen is for friendship only. Romantic advances or asking for money aren't okay here.",
     ],
     scenario: {
       prompt: "You've decided this connection isn't right for you. What's the healthier move?",
       choices: [
         {
-          label: "Send a short, honest message letting them know you're ending the connection.",
+          label: "Send a short, honest message that you're ending it.",
           correct: true,
           feedback:
             "That's honest closure. Even a brief message gives the other person clarity instead of silence, and closes things with the same care you'd want to receive.",
         },
         {
-          label: 'Stop replying and let the conversation quietly fade out.',
+          // The soft-ghosting habit Limen is trying to prevent, written as
+          // the tempting answer it is.
+          label: 'Keep replying politely but less often, so it fades without hurting them.',
           correct: false,
           feedback:
-            "Here's what the other person experiences: silence with no explanation, left wondering what happened. A short, honest message is kinder, even when it's a hard one to send.",
+            "It feels gentler, but from their side it's a slow, confusing silence, left wondering what changed. A short, honest message is kinder, even when it's a hard one to send.",
         },
       ],
     },

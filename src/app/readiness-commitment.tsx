@@ -167,17 +167,28 @@ export default function ReadinessCommitmentScreen() {
               Are you in a place right now where you can do that, even imperfectly?
             </Text>
 
+            {/* Friendship-only norm (docs/DECISIONS.md section 3, item 1).
+                "Removal" is real: users.suspended_at hides the account and
+                blocks messaging (migration 20261004000000). */}
+            <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-title text-stone-900 dark:text-stone-50">Limen is for friendship only</Text>
+              <Text className="text-body text-stone-600 dark:text-stone-300">
+                Romantic or sexual advances, or asking for money, lead to removal.
+              </Text>
+            </View>
+
             <View className="gap-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
               <Text className="text-title text-stone-900 dark:text-stone-50">
                 Keeping this community safe
               </Text>
+              {/* This rule is real now (ghosting_events,
+                  is_ghosting_penalized, migration 20261004000000). */}
               <Text className="text-body text-stone-600 dark:text-stone-300">
                 To keep this community safe for people who genuinely show up, we track
-                follow-through patterns privately. Repeated ghosting without an honest exit
-                affects how you appear in matching, you may appear less frequently in other
-                users&apos; suggestions. This is never shown to other users and never used to
-                publicly label anyone. We do this because everyone here deserves to connect with
-                someone who is actually ready to show up.
+                follow-through privately. If you let 2 or more conversations go silent until they
+                close on their own (7 days with no reply and no honest exit) within 60 days,
+                you&apos;re shown last in other people&apos;s suggestions for the next 30 days. This is
+                never shown to anyone, never used to label you, and it resets on its own.
               </Text>
 
               <Pressable onPress={() => setExpanded((v) => !v)}>
@@ -207,15 +218,20 @@ export default function ReadinessCommitmentScreen() {
                       to rank you. None of this ever appears on your profile, as a badge, or as a
                       score, and it&apos;s never visible to other users.
                     </Text>
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">
+                      One exception: early messages are checked on the receiver&apos;s phone against a
+                      short list of words linked to scams, such as requests for money, so we can show
+                      the receiver a safety note. Nothing is scored or stored.
+                    </Text>
                   </View>
                   <View className="gap-1">
                     <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                       What it affects
                     </Text>
                     <Text className="text-caption text-stone-500 dark:text-stone-400">
-                      Only how often you&apos;re suggested to new people, and only if a real
-                      pattern continues. A single missed reply or a genuinely honest exit is never
-                      held against you.
+                      Only where you appear in new people&apos;s suggestions, and only after a real
+                      pattern (2 or more in 60 days). A single missed reply or an honest exit is
+                      never held against you.
                     </Text>
                   </View>
                 </View>

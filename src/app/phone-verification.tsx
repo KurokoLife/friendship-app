@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { friendlySendCodeError } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -41,7 +42,7 @@ export default function PhoneVerificationScreen() {
     setSending(false);
 
     if (sendError) {
-      setError(sendError.message);
+      setError(friendlySendCodeError(sendError));
       return;
     }
 
@@ -62,6 +63,9 @@ export default function PhoneVerificationScreen() {
             </Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
               We&apos;ll text you a code to make sure it&apos;s really you.
+            </Text>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              New or returning, this is how you sign in.
             </Text>
           </View>
 
@@ -92,6 +96,12 @@ export default function PhoneVerificationScreen() {
               placeholderTextColor={MUTED_ICON_COLOR}
             />
           </View>
+
+          {/* SMS consent line, expected by carriers for A2P 10DLC opt-in
+              where the number is collected. */}
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            We&apos;ll text you a one-time code. Message and data rates may apply.
+          </Text>
 
           {error && (
             <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>

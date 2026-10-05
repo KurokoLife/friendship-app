@@ -31,6 +31,7 @@ type AccountInfo = {
   is_premium: boolean;
   premium_until: string | null;
   referral_code: string | null;
+  is_admin: boolean | null;
 };
 
 const REPORT_CATEGORY_LABELS: Record<string, string> = {
@@ -97,7 +98,7 @@ export default function SettingsScreen() {
       return;
     }
     const [{ data: userRow }, { data: blocks }, { data: reports }] = await Promise.all([
-      supabase.from('users').select('is_premium, premium_until, referral_code').eq('id', user.id).maybeSingle(),
+      supabase.from('users').select('is_premium, premium_until, referral_code, is_admin').eq('id', user.id).maybeSingle(),
       supabase.from('my_blocks').select('id, blocked_id, display_name, created_at').order('created_at', { ascending: false }),
       supabase
         .from('my_reports')
@@ -209,31 +210,33 @@ export default function SettingsScreen() {
               <Text className="text-body text-stone-900 dark:text-stone-50">Preview my public profile</Text>
               <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
             </Pressable>
+            <Pressable
+              onPress={() => router.push('/selfie-check')}
+              className="flex-row items-center justify-between rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-body text-stone-900 dark:text-stone-50">Selfie check</Text>
+              <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
+            </Pressable>
+            {/* Admins only (users.is_admin, set from the Supabase
+                dashboard). The selfie-review function checks again on
+                the server. */}
+            {account?.is_admin && (
+              <Pressable
+                onPress={() => router.push('/admin-selfies')}
+                className="flex-row items-center justify-between rounded-2xl border border-accent-500/40 bg-white p-4 dark:bg-stone-800">
+                <Text className="text-body text-stone-900 dark:text-stone-50">Review selfie checks</Text>
+                <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
+              </Pressable>
+            )}
           </View>
 
-          {/* Premium / billing, read-only. The actual purchase flow lives on
-              /premium, not here. */}
+          {/* Limen v2: no Premium tier. Everyone gets the same app. */}
           <View className="gap-3">
-            <SectionHeader label="Premium" />
+            <SectionHeader label="Membership" />
             <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-body text-stone-900 dark:text-stone-50">
-                {account?.is_premium ? 'Premium' : 'Free'}
-              </Text>
-              {account?.is_premium && account.premium_until && (
-                <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  Renews or expires {dateLabel(account.premium_until)}
-                </Text>
-              )}
-              {account?.is_premium && !account.premium_until && (
-                <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  No expiration on file for your account.
-                </Text>
-              )}
-              {!account?.is_premium && (
-                <Pressable onPress={() => router.push('/premium')}>
-                  <Text className="text-caption font-semibold text-accent-500">See Premium</Text>
-                </Pressable>
-              )}
+              <Text className="text-body text-stone-900 dark:text-stone-50">Free during the pilot</Text>
+              <Pressable onPress={() => router.push('/premium')}>
+                <Text className="text-caption font-semibold text-accent-500">How Limen is paid for</Text>
+              </Pressable>
             </View>
           </View>
 
@@ -251,9 +254,7 @@ export default function SettingsScreen() {
                   Your code: {account.referral_code}
                 </Text>
                 <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
-                  Once your friend joins and opens the app on at least 14 different days within
-                  their first 30 days, you&apos;ll both get 30 days of Premium, free. This applies
-                  to your first successful referral.
+                  Know someone who could use a new friend? Limen is free during the pilot.
                 </Text>
               </Pressable>
             </View>

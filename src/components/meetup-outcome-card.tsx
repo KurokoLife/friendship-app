@@ -53,18 +53,6 @@ export function MeetupOutcomeCard({ connectionId, senderId, otherName, branch, o
     setEdited(true);
   };
 
-  const requestDraft = async (situation: string): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke('generate-reply-draft', {
-      body: {
-        rawInput: situation,
-        recentMessages: [],
-        purpose: `write a short, honest, respectful message to end this connection with ${otherName}`,
-      },
-    });
-    if (error || !data?.draft) throw error ?? new Error('No draft returned');
-    return data.draft as string;
-  };
-
   const handlePause = async () => {
     setBusy(true);
     await pauseConnection(connectionId);
@@ -136,12 +124,7 @@ export function MeetupOutcomeCard({ connectionId, senderId, otherName, branch, o
           />
           <MicPlaceholderButton />
         </View>
-        <UniversalTextBox value={draft} onChangeText={handleDraftChange} onRequestDraft={requestDraft} disabled={busy} />
-        {!edited && draft.trim().length > 0 && (
-          <Text className="text-caption text-stone-400 dark:text-stone-600">
-            Edit the draft before sending, make it your own.
-          </Text>
-        )}
+        <UniversalTextBox value={draft} onChangeText={handleDraftChange} context="exit" checkEnabled={false} disabled={busy} />
         <View className="flex-row items-center gap-3">
           <Pressable
             onPress={handleSendExit}

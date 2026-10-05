@@ -4,16 +4,29 @@
 ## WHAT WE ARE BUILDING
 A native iOS and Android friendship app for adults navigating life transitions (divorce, relocation, bereavement, career change, empty nesting). Both genders. Open to all ages with age filtering. Especially strong fit for 40+ adults.
 
-The app teaches friendship skills, provides AI-powered matching, and supports users through the full friendship formation arc — from first message to graduation (5 in-person meetups + 6 demonstrated behaviors).
+The app teaches friendship skills, provides AI-powered matching, and supports users through the full friendship formation arc — from first message to graduation (see the Limen v2 graduation spec below: earliest at 6 meetups over 8+ weeks, decided by 10 meetups or 6 months, mutual and private).
+
+---
+
+## LIMEN V2 DECISIONS (2026-10-03) — SUPERSEDE ANY CONFLICTING LINE BELOW
+Full rationale and research links: `docs/LIMEN_V2_DECISIONS.md`.
+- **No AI-written messages anywhere.** `generate-reply-draft` is retired (returns 410). `reflection-coach` replaces it (modes `check` and `mirror`). Copy-paste is not policed; the app simply never offers AI writing.
+- **Mirror ("Another way to see it")** offers three readings (their circumstances, how they might see you, your fear), never a verdict about the other person, and always ends by sending the user back to ask them.
+- **Discovery:** Browse tab removed. 3 suggestions per rolling week, for everyone. Flat caps for everyone: 3 active connections, 5 pending hellos.
+- **No Premium, no AI credits, no capacity for sale, no ads, no venue/employer/health-plan deals.** Free pilot first; later a pick-your-price Journey pass (Free / $18 / $30 suggested / $60). See `src/lib/monetization.ts`. Legacy IAP code is left in place but unused.
+- **Graduation:** one mechanism only, the Friendship Journey `graduation_checkpoint` driven by `graduation_stage()`. Ready check at 6+ occurred meetups, first one 8+ weeks ago, each person proposed 2+ meetups, rhythm set. Decision point at 10 meetups or 6 months. Answers private; graduates only on a mutual yes. The old one-sided `graduate_connection` / `GraduationModal` path is disabled.
+- **"How I like care"** profile field (own words, max 400 chars), shown only to connections inside Reflect.
+- **Stories** (2-3, own words, character prompts, no "Ask me about") and private **curiosity notes** ("I wonder...") on profiles.
+- **Read receipts:** unchanged, still never shown to the sender.
 
 ---
 
 ## AI PHILOSOPHY — THE ANCHOR
 *This governs every AI feature. Never violate this. Grounded in Self-Determination Theory (Deci and Ryan).*
 
-**The app articulates what users actually feel. It never fabricates what they don't.**
+**The app helps users reflect on what they feel and how the other person might see it. It never writes, rewrites, or polishes their messages.**
 
-- User's raw honest input always comes first. Claude helps express it more clearly.
+- User's raw honest input always comes first. Claude asks questions and points out what the user might have missed; the words are always the user's own.
 - The app suggests. The user decides and acts. Nothing moves without the human choosing.
 - App never shares a user's private feelings without explicit user choice.
 - Every AI feature must pass: "Is this helping the human do something they chose to do, or replacing a human choice?" If the latter — it doesn't belong.
@@ -23,7 +36,7 @@ The app teaches friendship skills, provides AI-powered matching, and supports us
 2. **Perspective shift** — show the other person's possible experience, not to guilt but to inform. Example: "Sarah may be wondering what she said wrong."
 3. **Identity mirror** — one honest question connecting the moment to who they want to be. Example: "Is hurting someone's feeling something you want to do?" Does NOT require honesty as a stated value — assumes basic human decency from the act of joining the platform.
 4. **Choice** — all options presented equally, no hierarchy, no preferred answer, no nudge. User picks. App respects whatever they choose including choosing not to act.
-5. **Articulation** — if user chooses to act, Claude shapes their own words into clarity. User must describe their feeling first. Claude never invents. Never suggests feelings they did not express.
+5. **Reflection** (changed 2026-10-03, was "Articulation") — if the user chooses to act, they write it themselves. AI may ask reflective questions ("how would you want to be answered?") and point out things in their own draft (a missed question, no question back, nothing of their own shared), but AI NEVER writes, rewrites, or suggests sendable text. Feedback comes back as codes and the server writes fixed observation sentences, so model output can never be pasted as a message. See `supabase/functions/reflection-coach`.
 
 **Scientific foundation:**
 - Self-Determination Theory: autonomous motivation (freely chosen) is more durable than externally pressured behavior. When people feel controlled they resist. When they feel they chose freely they own it.

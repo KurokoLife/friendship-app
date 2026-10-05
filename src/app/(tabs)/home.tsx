@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
 import { purchaseAiCreditPack } from '@/lib/ai-credits';
-import { CAPACITY_ERROR_MESSAGES, getOrCreateConnectionId } from '@/lib/connections';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
+import { expressInterest, fetchMyInterestIds, WAITING_FOR_INTEREST_COPY } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -111,7 +111,8 @@ const DEV_FALLBACK_SUGGESTIONS: Suggestion[] = [
 // always had, just no longer the ONLY path. Freshness is a rolling 24
 // hour window (created_at), matching the Edge Function's own cache
 // check, kept in sync by hand since a Deno function can't import this.
-const CACHE_FRESHNESS_MS = 24 * 60 * 60 * 1000;
+// Limen v2: suggestions are weekly (3 per rolling 7 days, same for everyone).
+const CACHE_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export default function HomeScreen() {
   const [loaded, setLoaded] = useState(false);
@@ -127,6 +128,10 @@ export default function HomeScreen() {
   // failures), a capacity limit is calm, expected app behavior per the
   // blueprint's own "avoid shaming labels" framing, not an error.
   const [capacityNotice, setCapacityNotice] = useState<string | null>(null);
+  // Mutual Interested gate (docs/DECISIONS.md section 3): the people this
+  // member already said Interested to. Only their own outgoing choices,
+  // nobody can see who chose them.
+  const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [usingDevFallback, setUsingDevFallback] = useState(false);
   // Consumable AI credits (2026-07-29): capReached is a new signal from
   // generate-match-suggestions, confirmed absent before this (the cache-
@@ -159,6 +164,7 @@ export default function HomeScreen() {
       return;
     }
     setUsingDevFallback(false);
+    fetchMyInterestIds().then(setInterestedIds);
 
     const freshCutoff = new Date(Date.now() - CACHE_FRESHNESS_MS).toISOString();
     const [{ data: cachedRows }, { data: connections }] = await Promise.all([
@@ -301,20 +307,28 @@ export default function HomeScreen() {
     }
   };
 
-  // F16: unlike Save/Pass, this always navigates into the thread rather
-  // than just recording a one-time status, so a returning user can tap it
-  // again to reopen the conversation. getOrCreateConnectionId resolves an
-  // existing connection in either direction before creating a new one, see
-  // src/lib/connections.ts for why that matters here specifically.
-  const handleSayHello = async (candidateId: string) => {
-    setPendingAction(candidateId + 'pending');
+  // Mutual Interested gate (docs/DECISIONS.md section 3) replaces "Say
+  // hello". Saying Interested is private: the other person is only told if
+  // they choose this member too, and then a chat opens for both. Before the
+  // selfie check is approved, the tap leads to the selfie check instead.
+  const handleInterested = async (candidateId: string) => {
+    setPendingAction(candidateId + 'interested');
     setCapacityNotice(null);
-    const result = await getOrCreateConnectionId(candidateId);
+    const result = await expressInterest(candidateId);
     setPendingAction(null);
-    if (result.ok) {
+    if (result.status === 'mutual') {
       router.push({ pathname: '/thread/[id]', params: { id: result.connectionId } });
+    } else if (result.status === 'waiting') {
+      setInterestedIds((prev) => new Set(prev).add(candidateId));
+      setCapacityNotice(WAITING_FOR_INTEREST_COPY);
+    } else if (result.status === 'not_verified') {
+      router.push('/selfie-check');
+    } else if (result.status === 'ended') {
+      // Starting over after an honest exit needs its own confirmation,
+      // which lives on the profile screen.
+      router.push({ pathname: '/candidate/[id]', params: { id: candidateId } });
     } else {
-      setCapacityNotice(CAPACITY_ERROR_MESSAGES[result.error]);
+      setCapacityNotice(result.message);
     }
   };
 
@@ -365,52 +379,19 @@ export default function HomeScreen() {
 
           {!generating && suggestions.length === 0 && !error && capReached && (
             <View className="gap-3 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
-              <CoachMark
-                markKey="credits_premium"
-                text="Free plans include a daily/weekly cap on AI help. Once you hit it, you can buy a small pack of extra credits, or upgrade to Premium for a much larger monthly allowance."
-                actionLabel="See Premium"
-                onAction={() => router.push('/premium')}
-              />
+              {/* Limen v2: a small, curated set each week, the same for
+                  everyone. No credits or Premium unlock more. */}
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                You&apos;ve used today&apos;s free suggestions. They&apos;ll refresh tomorrow, or you can
-                unlock more right now.
+                That&apos;s this week&apos;s suggestions. A few at a time is on purpose, it leaves room to really get
+                to know someone. New ones arrive later this week.
               </Text>
-              {aiCredits > 0 && (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  You have {aiCredits} AI credit{aiCredits === 1 ? '' : 's'}, this shouldn&apos;t be showing,
-                  pull to refresh.
-                </Text>
-              )}
-              <Pressable
-                onPress={handleBuyCredits}
-                disabled={purchasing}
-                className={`items-center rounded-full bg-stone-900 px-4 py-3 active:opacity-80 dark:bg-stone-50 ${
-                  purchasing ? 'opacity-40' : ''
-                }`}>
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                  {purchasing ? 'Processing...' : 'Get 50 AI credits for $1.99'}
-                </Text>
-              </Pressable>
-              {/* 2026-08-12: this comment used to say no Premium screen
-                  existed yet, stale since /premium.tsx shipped 2026-08-01,
-                  and this line was plain, non-tappable text as a result.
-                  Real link now, offered alongside the credit pack, not
-                  instead of it, matching the original instruction. */}
-              <Pressable onPress={() => router.push('/premium')} className="self-start">
-                <Text className="text-caption font-semibold text-accent-500">
-                  Premium members get 5 suggestions a day instead of 2.
-                </Text>
-              </Pressable>
-              {purchaseMessage && (
-                <Text className="text-caption text-stone-500 dark:text-stone-400">{purchaseMessage}</Text>
-              )}
             </View>
           )}
 
           {!generating && suggestions.length === 0 && !error && !capReached && (
             <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                No new suggestions right now. Check back soon, we look for new matches every day.
+                No new suggestions right now. We look for a few thoughtful matches each week.
               </Text>
             </View>
           )}
@@ -418,6 +399,7 @@ export default function HomeScreen() {
           {!generating && suggestions.map((s) => {
             const state = states[s.userId];
             const isSaved = state?.saved ?? false;
+            const isInterested = interestedIds.has(s.userId);
             const fragment = lifeTransitionFragment(s.lifeTransitions);
             const distanceLabel = formatDistance(s.distanceMiles, s.locationCity);
             return (
@@ -478,11 +460,17 @@ export default function HomeScreen() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={() => handleSayHello(s.userId)}
-                    disabled={pendingAction === s.userId + 'pending'}
-                    className="flex-1 items-center rounded-full bg-stone-900 py-3 active:opacity-80 dark:bg-stone-50">
-                    <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                      Say hello
+                    onPress={() => handleInterested(s.userId)}
+                    disabled={isInterested || pendingAction === s.userId + 'interested'}
+                    className={`flex-1 flex-row items-center justify-center gap-1 rounded-full py-3 active:opacity-80 ${
+                      isInterested ? 'border border-accent-500' : 'bg-stone-900 dark:bg-stone-50'
+                    }`}>
+                    {isInterested && <Ionicons name="checkmark" size={14} color={ACCENT_COLOR} />}
+                    <Text
+                      className={`text-caption font-semibold ${
+                        isInterested ? 'text-accent-500' : 'text-stone-50 dark:text-stone-900'
+                      }`}>
+                      Interested
                     </Text>
                   </Pressable>
                 </View>
