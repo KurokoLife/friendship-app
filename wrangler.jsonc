@@ -1,0 +1,15 @@
+// Cloudflare Workers config for the web version of the app.
+// Cloudflare runs the build command (npx expo export --platform web), which
+// writes the site into ./dist, then serves that folder as static files.
+// "single-page-application" sends any unknown address (like /thread/abc)
+// to the app so it can route it, instead of a "not found" page.
+// "previews" is required for Cloudflare's preview builds of other branches.
+{
+  "name": "friendship-app",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "previews": {}
+}
