@@ -387,6 +387,16 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
 
+          {/* Sign out */}
+          <Pressable
+            onPress={async () => {
+              await supabase.auth.signOut();
+              router.replace('/philosophy-intro');
+            }}
+            className="items-center rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+            <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Sign out</Text>
+          </Pressable>
+
           {/* Danger zone */}
           <View className="gap-3">
             <SectionHeader label="Account deletion" />
