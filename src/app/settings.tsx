@@ -166,7 +166,20 @@ export default function SettingsScreen() {
     const { data, error } = await supabase.functions.invoke('delete-account');
     setDeleting(false);
     if (error || !data?.success) {
-      setDeleteError(data?.error ?? error?.message ?? 'Could not delete your account. Try again.');
+      // A non-2xx reply puts the server's own message in error.context,
+      // not in data, so read it from there before falling back.
+      let serverMessage: string | null = null;
+      try {
+        const body = await (error as { context?: Response } | null)?.context?.json();
+        serverMessage = body?.error ?? null;
+      } catch {
+        serverMessage = null;
+      }
+      setDeleteError(
+        serverMessage
+          ? `Could not delete your account: ${serverMessage}`
+          : 'Could not delete your account. Try again in a moment.'
+      );
       return;
     }
     track('account_deleted');
