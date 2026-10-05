@@ -14,7 +14,15 @@ export type CoachMarkKey =
   | 'meetup_checkin'
   | 'tab_remember'
   | 'tab_profile'
-  | 'credits_premium';
+  | 'credits_premium'
+  // Contextual video offers (migration 20260831000000). Same once-ever,
+  // per-user tracking as the tips above.
+  | 'video_show_up'
+  | 'video_first_meetup'
+  | 'video_friendship_grows'
+  | 'video_restart'
+  | 'video_something_off'
+  | 'video_ending';
 
 // Shared, module-level cache: every CoachMark instance across the whole
 // app reads the same in-memory set, so marking one seen (e.g. the
