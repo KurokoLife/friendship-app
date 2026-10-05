@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
 import { purchaseAiCreditPack } from '@/lib/ai-credits';
-import { CAPACITY_ERROR_MESSAGES, getOrCreateConnectionId } from '@/lib/connections';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
+import { expressInterest, fetchMyInterestIds, WAITING_FOR_INTEREST_COPY } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -128,6 +128,10 @@ export default function HomeScreen() {
   // failures), a capacity limit is calm, expected app behavior per the
   // blueprint's own "avoid shaming labels" framing, not an error.
   const [capacityNotice, setCapacityNotice] = useState<string | null>(null);
+  // Mutual Interested gate (docs/DECISIONS.md section 3): the people this
+  // member already said Interested to. Only their own outgoing choices,
+  // nobody can see who chose them.
+  const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [usingDevFallback, setUsingDevFallback] = useState(false);
   // Consumable AI credits (2026-07-29): capReached is a new signal from
   // generate-match-suggestions, confirmed absent before this (the cache-
@@ -160,6 +164,7 @@ export default function HomeScreen() {
       return;
     }
     setUsingDevFallback(false);
+    fetchMyInterestIds().then(setInterestedIds);
 
     const freshCutoff = new Date(Date.now() - CACHE_FRESHNESS_MS).toISOString();
     const [{ data: cachedRows }, { data: connections }] = await Promise.all([
@@ -302,20 +307,28 @@ export default function HomeScreen() {
     }
   };
 
-  // F16: unlike Save/Pass, this always navigates into the thread rather
-  // than just recording a one-time status, so a returning user can tap it
-  // again to reopen the conversation. getOrCreateConnectionId resolves an
-  // existing connection in either direction before creating a new one, see
-  // src/lib/connections.ts for why that matters here specifically.
-  const handleSayHello = async (candidateId: string) => {
-    setPendingAction(candidateId + 'pending');
+  // Mutual Interested gate (docs/DECISIONS.md section 3) replaces "Say
+  // hello". Saying Interested is private: the other person is only told if
+  // they choose this member too, and then a chat opens for both. Before the
+  // selfie check is approved, the tap leads to the selfie check instead.
+  const handleInterested = async (candidateId: string) => {
+    setPendingAction(candidateId + 'interested');
     setCapacityNotice(null);
-    const result = await getOrCreateConnectionId(candidateId);
+    const result = await expressInterest(candidateId);
     setPendingAction(null);
-    if (result.ok) {
+    if (result.status === 'mutual') {
       router.push({ pathname: '/thread/[id]', params: { id: result.connectionId } });
+    } else if (result.status === 'waiting') {
+      setInterestedIds((prev) => new Set(prev).add(candidateId));
+      setCapacityNotice(WAITING_FOR_INTEREST_COPY);
+    } else if (result.status === 'not_verified') {
+      router.push('/selfie-check');
+    } else if (result.status === 'ended') {
+      // Starting over after an honest exit needs its own confirmation,
+      // which lives on the profile screen.
+      router.push({ pathname: '/candidate/[id]', params: { id: candidateId } });
     } else {
-      setCapacityNotice(CAPACITY_ERROR_MESSAGES[result.error]);
+      setCapacityNotice(result.message);
     }
   };
 
@@ -386,6 +399,7 @@ export default function HomeScreen() {
           {!generating && suggestions.map((s) => {
             const state = states[s.userId];
             const isSaved = state?.saved ?? false;
+            const isInterested = interestedIds.has(s.userId);
             const fragment = lifeTransitionFragment(s.lifeTransitions);
             const distanceLabel = formatDistance(s.distanceMiles, s.locationCity);
             return (
@@ -446,11 +460,17 @@ export default function HomeScreen() {
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={() => handleSayHello(s.userId)}
-                    disabled={pendingAction === s.userId + 'pending'}
-                    className="flex-1 items-center rounded-full bg-stone-900 py-3 active:opacity-80 dark:bg-stone-50">
-                    <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                      Say hello
+                    onPress={() => handleInterested(s.userId)}
+                    disabled={isInterested || pendingAction === s.userId + 'interested'}
+                    className={`flex-1 flex-row items-center justify-center gap-1 rounded-full py-3 active:opacity-80 ${
+                      isInterested ? 'border border-accent-500' : 'bg-stone-900 dark:bg-stone-50'
+                    }`}>
+                    {isInterested && <Ionicons name="checkmark" size={14} color={ACCENT_COLOR} />}
+                    <Text
+                      className={`text-caption font-semibold ${
+                        isInterested ? 'text-accent-500' : 'text-stone-50 dark:text-stone-900'
+                      }`}>
+                      Interested
                     </Text>
                   </Pressable>
                 </View>

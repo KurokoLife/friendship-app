@@ -62,6 +62,8 @@ type OwnProfile = {
 // different screen (the viewer's own profile, not a candidate's).
 const LIFE_TRANSITION_SENTENCES: Record<string, string> = {
   'Divorce or separation': "You're navigating a divorce or separation.",
+  'Divorce, separation, or the end of a long relationship': "You're navigating a divorce, separation, or the end of a long relationship.",
+  "Nothing big, I'd just like more friends": "You're here to make more friends, no big life change needed.",
   Relocation: "You're settling into a new place.",
   Bereavement: "You're carrying a loss right now.",
   'Career change': "You're in the middle of a career change.",

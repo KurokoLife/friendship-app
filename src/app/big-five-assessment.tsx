@@ -4,9 +4,11 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  allExperienceAnswered,
   EMPTY_EXPERIENCE,
-  WHAT_HELPED_PENDING_COPY,
-  WHEN_UNCERTAIN_PENDING_COPY,
+  EXPERIENCE_QUESTIONS,
+  type ExperienceMultiKey,
+  type ExperienceSingleKey,
   type FriendshipExperience,
 } from '@/lib/friendship-experience';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -41,7 +43,7 @@ type BigFiveQuestion = {
 // (big_five_scores.responses only stores {questionId: answerLabel}, not
 // the question text) to regenerate the narrative on demand, without
 // duplicating all 10 questions a second time.
-export const QUESTIONS: BigFiveQuestion[] = [
+const ALL_QUESTIONS: BigFiveQuestion[] = [
   {
     id: 1,
     trait: 'extraversion',
@@ -164,7 +166,20 @@ export const QUESTIONS: BigFiveQuestion[] = [
   },
 ];
 
-// "Your experience with new friendship" no longer lives in this screen.
+// "How you connect" (2026-10-04, docs/DECISIONS.md onboarding screen 7):
+// one screen with 10 questions, these 5 scenarios plus the 5
+// friendship-experience questions, then one reflection. Dropped: "Your
+// ideal Friday night" and "Your approach to your own schedule" (repeat the
+// hangout questions in profile build), "When something stressful comes
+// up", "Your ideal friendship involves" and "When a friend suggests
+// something totally new" (overlap with the experience questions). The
+// answers are used for the reflection only, never for matching. Older
+// stored answers to dropped questions are simply ignored.
+const REFLECTION_QUESTION_IDS = [1, 3, 5, 6, 7];
+export const QUESTIONS: BigFiveQuestion[] = ALL_QUESTIONS.filter((q) => REFLECTION_QUESTION_IDS.includes(q.id));
+
+// Earlier history: "Your experience with new friendship" lived in this
+// screen, then moved out, then into its own route. It is back here now.
 // 2026-07-28: moved from an onboarding-only phase here to a post-first-
 // message trigger. 2026-08-08: moved back into onboarding, as its own real
 // route (src/app/friendship-experience.tsx), reached via this screen's own
@@ -273,7 +288,7 @@ export default function BigFiveAssessmentScreen() {
       if (stored?.responses) {
         const restored: Record<number, string> = {};
         for (const [id, label] of Object.entries(stored.responses)) {
-          restored[Number(id)] = label;
+          if (REFLECTION_QUESTION_IDS.includes(Number(id))) restored[Number(id)] = label;
         }
         setResponses(restored);
       }
@@ -286,8 +301,25 @@ export default function BigFiveAssessmentScreen() {
     })();
   }, []);
 
-  const answeredCount = Object.keys(responses).length;
-  const allAnswered = answeredCount === QUESTIONS.length;
+  const experienceAnsweredCount = EXPERIENCE_QUESTIONS.filter((q) =>
+    q.type === 'multi' ? experience[q.key].length > 0 : experience[q.key] !== null
+  ).length;
+  const answeredCount = Object.keys(responses).length + experienceAnsweredCount;
+  const totalQuestions = QUESTIONS.length + EXPERIENCE_QUESTIONS.length;
+  const allAnswered =
+    Object.keys(responses).length === QUESTIONS.length && allExperienceAnswered(experience);
+
+  const toggleMulti = (key: ExperienceMultiKey, option: string) => {
+    setExperience((prev) => {
+      const current = prev[key];
+      const next = current.includes(option) ? current.filter((o) => o !== option) : [...current, option];
+      return { ...prev, [key]: next };
+    });
+  };
+
+  const setSingle = (key: ExperienceSingleKey, option: string) => {
+    setExperience((prev) => ({ ...prev, [key]: option }));
+  };
 
   // Includes friendshipExperience only when it's genuinely on file already
   // (answered via the post-first-message modal or the 7-day backstop, not
@@ -305,7 +337,7 @@ export default function BigFiveAssessmentScreen() {
         {
           body: {
             answers: QUESTIONS.map((q) => ({ question: q.prompt, answer: responses[q.id] })),
-            ...(hasStoredExperience ? { friendshipExperience: experience } : {}),
+            friendshipExperience: experience,
             // 2026-07-29: retake cap (1/day, both tiers) applies only to
             // the ?from=profile retake path, never the one-time onboarding
             // call, see AGENTS.md's F6/F11 caps entry.
@@ -349,13 +381,14 @@ export default function BigFiveAssessmentScreen() {
     const scores = computeScores(responses);
     const { error: saveError } = await supabase
       .from('profiles')
-      .upsert({ user_id: user.id, big_five_scores: { scores, responses } });
+      .upsert({ user_id: user.id, big_five_scores: { scores, responses }, friendship_experience: experience });
 
     setSaving(false);
     if (saveError) {
-      setError(saveError.message);
+      setError('Something went wrong saving that. Try again.');
       return;
     }
+    setHasStoredExperience(true);
 
     // The "Your experience with new friendship" phase that used to sit
     // directly inside this screen is gone (moved through a post-first-
@@ -411,7 +444,7 @@ export default function BigFiveAssessmentScreen() {
                       What has helped before
                     </Text>
                     <Text className="text-body text-stone-700 dark:text-stone-300">
-                      {hasStoredExperience ? whatHelped : WHAT_HELPED_PENDING_COPY}
+                      {whatHelped}
                     </Text>
                   </View>
                   <View className="gap-2">
@@ -419,7 +452,7 @@ export default function BigFiveAssessmentScreen() {
                       When things feel uncertain
                     </Text>
                     <Text className="text-body text-stone-700 dark:text-stone-300">
-                      {hasStoredExperience ? whenUncertain : WHEN_UNCERTAIN_PENDING_COPY}
+                      {whenUncertain}
                     </Text>
                   </View>
                 </>
@@ -433,7 +466,7 @@ export default function BigFiveAssessmentScreen() {
           </ScrollView>
 
           <Pressable
-            onPress={() => router.replace(isEditMode ? '/profile' : '/friendship-experience')}
+            onPress={() => router.replace(isEditMode ? '/profile' : '/etiquette-modules')}
             className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
             <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
               {isEditMode ? 'Done' : 'Continue'}
@@ -453,16 +486,14 @@ export default function BigFiveAssessmentScreen() {
           </Pressable>
 
           <View className="gap-3">
-            <Text className="text-display text-stone-900 dark:text-stone-50">
-              A few quick reflections
-            </Text>
+            <Text className="text-display text-stone-900 dark:text-stone-50">How you connect</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              There&apos;s no right answer here. Just go with your gut. This helps us get your
-              rhythm right, like how often we check in and how we word things. We&apos;ll never
-              show you a score or a label. This stays behind the scenes.
+              Ten quick questions, no right answers. Go with your gut. Afterward you&apos;ll get a short
+              reflection on how you tend to connect. Your answers are private, never shown to anyone,
+              and never used to pick who you meet.
             </Text>
             <Text className="text-caption text-stone-400 dark:text-stone-600">
-              {answeredCount} of {QUESTIONS.length} answered
+              {answeredCount} of {totalQuestions} answered
             </Text>
           </View>
 
@@ -487,6 +518,36 @@ export default function BigFiveAssessmentScreen() {
               </View>
             </View>
           ))}
+
+          {EXPERIENCE_QUESTIONS.map((question) => (
+            <View
+              key={question.key}
+              className="gap-3 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-title text-stone-900 dark:text-stone-50">{question.prompt}</Text>
+              {question.type === 'multi' && (
+                <Text className="text-caption text-stone-500 dark:text-stone-400">Choose all that apply</Text>
+              )}
+              <View className="gap-2">
+                {question.options.map((option) =>
+                  question.type === 'multi' ? (
+                    <OptionRow
+                      key={option}
+                      label={option}
+                      selected={experience[question.key].includes(option)}
+                      onPress={() => toggleMulti(question.key, option)}
+                    />
+                  ) : (
+                    <OptionRow
+                      key={option}
+                      label={option}
+                      selected={experience[question.key] === option}
+                      onPress={() => setSingle(question.key, option)}
+                    />
+                  )
+                )}
+              </View>
+            </View>
+          ))}
         </ScrollView>
 
         <View className="gap-3 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-4 dark:border-stone-800 dark:bg-stone-900">
@@ -504,7 +565,7 @@ export default function BigFiveAssessmentScreen() {
             }`}>
             {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
             <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
-              {allAnswered ? 'Continue' : `Answer all ${QUESTIONS.length} to continue`}
+              {allAnswered ? 'Continue' : `Answer all ${totalQuestions} to continue`}
             </Text>
           </Pressable>
         </View>

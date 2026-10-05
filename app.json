@@ -40,7 +40,14 @@
           "speechRecognitionPermission": "Allows the app to transcribe what you say into your profile."
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allows you to choose photos for your profile.",
+          "cameraPermission": "Allows you to take a selfie so we can check you match your profile photo."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

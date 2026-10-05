@@ -23,9 +23,12 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 // the reader's curiosity ("is this about a fact, or about them?"), the
 // same rule as the deeper-question coach. Notes are never shared.
 
-type Props = { subjectUserId: string; subjectName: string | null };
+// readOnly: the Public Profile Review preview of your own profile shows
+// your stories exactly as others see them, without the reader's private
+// "I wonder..." notes (those belong to the reader, not the subject).
+type Props = { subjectUserId: string; subjectName: string | null; readOnly?: boolean };
 
-export function ProfileStories({ subjectUserId, subjectName }: Props) {
+export function ProfileStories({ subjectUserId, subjectName, readOnly = false }: Props) {
   const [stories, setStories] = useState<{ item: Story; index: number }[]>([]);
   const [notes, setNotes] = useState<CuriosityNote[]>([]);
   const [openIndex, setOpenIndex] = useState<number | 'general' | null>(null);
@@ -103,7 +106,7 @@ export function ProfileStories({ subjectUserId, subjectName }: Props) {
             {storyPromptLabel(item.prompt_key)}
           </Text>
           <Text className="text-body text-stone-700 dark:text-stone-300">{item.text}</Text>
-          {openIndex === index ? (
+          {readOnly ? null : openIndex === index ? (
             noteInput
           ) : (
             <Pressable onPress={() => setOpenIndex(index)} className="self-start">
@@ -113,14 +116,14 @@ export function ProfileStories({ subjectUserId, subjectName }: Props) {
         </View>
       ))}
 
-      {stories.length === 0 && openIndex !== 'general' && (
+      {!readOnly && stories.length === 0 && openIndex !== 'general' && (
         <Pressable onPress={() => setOpenIndex('general')} className="self-start">
           <Text className="text-caption font-semibold text-accent-500">Something you&apos;re curious about? Note it privately</Text>
         </Pressable>
       )}
       {openIndex === 'general' && noteInput}
 
-      {notes.length > 0 && (
+      {!readOnly && notes.length > 0 && (
         <View className="gap-2 rounded-2xl border border-dashed border-stone-300 p-4 dark:border-stone-700">
           <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
             Your private wonderings, only you see these

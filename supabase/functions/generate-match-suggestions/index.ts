@@ -125,7 +125,21 @@ type Candidate = {
   communication_style_openness: string | null;
   location_city: string | null;
   distance_miles: number | null;
+  // From compatible_candidates_for only (2026-10-04). Hidden life
+  // transitions still score, but are never named in suggestion text.
+  show_life_transitions?: boolean | null;
+  interested_in_viewer?: boolean | null;
+  ghosting_penalized?: boolean | null;
 };
+
+// What the viewer is allowed to see of a candidate's life transitions.
+function visibleTransitions(candidate: Candidate): string[] {
+  return candidate.show_life_transitions === false ? [] : candidate.life_transitions ?? [];
+}
+
+function forDisplay(candidate: Candidate): Candidate {
+  return { ...candidate, life_transitions: visibleTransitions(candidate) };
+}
 
 type Viewer = {
   display_name: string | null;
@@ -179,11 +193,14 @@ const TOTAL_HANGOUT_TYPES = 5;
 
 // 1. Life transitions overlap, 25 points max (was 30, rescaled
 // proportionally: 25, 17, 8, 0 keeps the same relative tier shape).
+// 2026-10-04: 30 points max (was 25). Personality similarity no longer
+// scores (docs/DECISIONS.md section 2); its 15 points moved here (+5),
+// to values (+5) and to meeting rhythm (+5).
 function lifeTransitionsScore(viewer: Viewer, candidate: Candidate): number {
   const n = sharedLifeTransitions(viewer, candidate).length;
-  if (n >= 3) return 25;
-  if (n === 2) return 17;
-  if (n === 1) return 8;
+  if (n >= 3) return 30;
+  if (n === 2) return 20;
+  if (n === 1) return 10;
   return 0;
 }
 
@@ -191,10 +208,12 @@ function lifeTransitionsScore(viewer: Viewer, candidate: Candidate): number {
 // arrays are preset-only as of 20260716000000 (free-text additions live
 // in values_other and are never scored).
 function valuesScore(viewer: Viewer, candidate: Candidate): number {
+  // 2026-10-04: 25 points max (was 20). Values are now capped at 5 per
+  // person, so 3+ shared is a strong signal.
   const n = sharedValues(viewer, candidate).length;
-  if (n >= 5) return 20;
-  if (n >= 3) return 14;
-  if (n >= 1) return 8;
+  if (n >= 3) return 25;
+  if (n === 2) return 17;
+  if (n === 1) return 10;
   return 0;
 }
 
@@ -257,10 +276,11 @@ function meetingFreqDistance(viewer: Viewer, candidate: Candidate): number | nul
 
 function meetingFreqScore(viewer: Viewer, candidate: Candidate): number {
   const dist = meetingFreqDistance(viewer, candidate);
+  // 2026-10-04: 13 points max (was 8).
   if (dist === null) return 0;
-  if (dist === 0) return 8;
-  if (dist === 1) return 5;
-  if (dist === 2) return 2;
+  if (dist === 0) return 13;
+  if (dist === 1) return 8;
+  if (dist === 2) return 3;
   return 0;
 }
 
@@ -335,7 +355,9 @@ async function weightedScore(
 ): Promise<ScoreBreakdown> {
   const lifeTransitions = lifeTransitionsScore(viewer, candidate);
   const values = valuesScore(viewer, candidate);
-  const bigFive = await bigFiveScore(supabase, candidate.user_id);
+  // Personality similarity no longer scores (2026-10-04). Kept in the
+  // breakdown as 0 so the shape stays stable.
+  const bigFive = 0;
   const hangout = hangoutScore(viewer, candidate);
   const friendshipType = friendshipTypeScore(viewer, candidate);
   const meetingFreq = meetingFreqScore(viewer, candidate);
@@ -476,14 +498,6 @@ function fallbackReasoning(viewer: Viewer, candidate: Candidate): string {
     sentences.push(
       `${candidateName} tends to want to meet up ${candidate.meeting_freq!.toLowerCase()}, a meaningfully different rhythm than yours, worth discussing if you connect.`
     );
-  } else if (
-    viewer.communication_freq &&
-    candidate.communication_freq &&
-    viewer.communication_freq !== candidate.communication_freq
-  ) {
-    sentences.push(
-      `${candidateName} tends to message ${candidate.communication_freq.toLowerCase()}, worth talking through if you connect.`
-    );
   }
 
   return sentences.join(' ');
@@ -518,7 +532,6 @@ function buildPrompt(viewer: Viewer, candidates: Candidate[]): string {
     hangout_people_preference: viewer.hangout_people_preference,
     hangout_type_preference: viewer.hangout_type_preference,
     meeting_freq: viewer.meeting_freq,
-    communication_freq: viewer.communication_freq,
     personal_statement: viewer.personal_statement,
   });
 
@@ -532,7 +545,6 @@ function buildPrompt(viewer: Viewer, candidates: Candidate[]): string {
       hangout_people_preference: c.hangout_people_preference,
       hangout_type_preference: c.hangout_type_preference,
       meeting_freq: c.meeting_freq,
-      communication_freq: c.communication_freq,
       personal_statement: c.personal_statement,
     })
   );
@@ -616,7 +628,9 @@ async function generateAndCacheSuggestions(
 
   if (remaining > 0) {
     const available = candidatePool.filter(
-      (c) => !alreadySeen.has(c.user_id) && !todaySuggestedIds.has(c.user_id) && !dealbreakerConflict(viewer, c)
+      // Hard nos no longer hide anyone automatically (2026-10-04): the
+      // keyword match wrongly hid real matches. They stay on profiles.
+      (c) => !alreadySeen.has(c.user_id) && !todaySuggestedIds.has(c.user_id)
     );
 
     if (available.length > 0) {
@@ -626,7 +640,11 @@ async function generateAndCacheSuggestions(
       const scored = await Promise.all(
         available.map(async (c) => ({ candidate: c, score: await weightedScore(supabase, viewer, c) }))
       );
-      scored.sort((a, b) => b.score.total - a.score.total);
+      // Order (2026-10-04): someone who already said Interested in the
+      // viewer goes first (never revealed, it just lets the viewer decide
+      // too), anyone under the ghosting rule goes last, then by score.
+      const rank = (c: Candidate) => (c.ghosting_penalized ? 2 : c.interested_in_viewer ? 0 : 1);
+      scored.sort((a, b) => rank(a.candidate) - rank(b.candidate) || b.score.total - a.score.total);
       // Capped by whatever's actually left of today's allowance, not the
       // flat MAX_SUGGESTIONS constant, that constant now only bounds a
       // single Claude call's batch size (kept below for that reason).
@@ -653,7 +671,7 @@ async function generateAndCacheSuggestions(
               // candidates at once, raised well past the original 1200
               // to leave real headroom.
               max_tokens: 2500,
-              messages: [{ role: 'user', content: buildPrompt(viewer, selected) }],
+              messages: [{ role: 'user', content: buildPrompt(viewer, selected.map(forDisplay)) }],
             }),
           });
 
@@ -683,8 +701,8 @@ async function generateAndCacheSuggestions(
 
       newRows = selected.map((c) => ({
         candidate_id: c.user_id,
-        reasoning: reasoningByCandidate.get(c.user_id) ?? fallbackReasoning(viewer, c),
-        human_detail: humanDetailByCandidate.get(c.user_id) ?? fallbackHumanDetail(c),
+        reasoning: reasoningByCandidate.get(c.user_id) ?? fallbackReasoning(viewer, forDisplay(c)),
+        human_detail: humanDetailByCandidate.get(c.user_id) ?? fallbackHumanDetail(forDisplay(c)),
       }));
 
       if (newRows.length > 0) {
@@ -932,11 +950,15 @@ Deno.serve(async (req: Request) => {
 
   const viewer: Viewer = viewerRows ?? EMPTY_VIEWER;
 
-  const { data: candidatePool } = await supabase
-    .from('discovery_profiles')
-    .select(
-      'user_id, display_name, age_band, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, languages, friendship_type, communication_style_openness, location_city, distance_miles'
-    );
+  // 2026-10-04: the pool comes from compatible_candidates_for (service
+  // role, scoped to this signed-in user's own id) instead of
+  // discovery_profiles, because the view now hides life transitions a
+  // person chose not to show, and those still count for matching. The
+  // function applies the same hard filters as the view.
+  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: candidatePool } = await serviceClient.rpc('compatible_candidates_for', { p_user_id: user.id });
 
   // Limen v2 (2026-10-03): one flat weekly cap for everyone
   // (SUGGESTIONS_PER_WEEK). No Premium increase and no AI credits: more

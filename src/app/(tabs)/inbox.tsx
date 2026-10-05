@@ -15,6 +15,16 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
+// Mutual Interested gate (docs/DECISIONS.md section 3): both people said
+// Interested, the chat is open, but nobody has written yet, so
+// inbox_conversations (which needs a message) can't list it.
+type NewMutual = {
+  connection_id: string;
+  other_user_id: string;
+  display_name: string | null;
+  created_at: string;
+};
+
 type Conversation = {
   connection_id: string;
   other_user_id: string;
@@ -63,6 +73,7 @@ export default function InboxScreen() {
   const [noGhostByConnection, setNoGhostByConnection] = useState<Map<string, NoGhostPrompt>>(new Map());
   const [reflectionsByConnection, setReflectionsByConnection] = useState<Map<string, FollowUpReflection>>(new Map());
   const [capacity, setCapacity] = useState<CapacityStatus | null>(null);
+  const [newMutual, setNewMutual] = useState<NewMutual[]>([]);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -76,7 +87,7 @@ export default function InboxScreen() {
       setLoaded(true);
       return;
     }
-    const [{ data }, activePrompts, activeReflections, { data: capacityRows }] = await Promise.all([
+    const [{ data }, activePrompts, activeReflections, { data: capacityRows }, { data: mutualRows }] = await Promise.all([
       supabase.from('inbox_conversations').select('*').order('last_message_at', { ascending: false }),
       fetchActivePrompts(),
       fetchActiveReflections(),
@@ -84,7 +95,12 @@ export default function InboxScreen() {
       // Inbox spec). Read-only, own data only (my_connection_capacity has
       // no parameters, always operates on auth.uid()).
       supabase.rpc('my_connection_capacity'),
+      supabase
+        .from('new_mutual_connections')
+        .select('connection_id, other_user_id, display_name, created_at')
+        .order('created_at', { ascending: false }),
     ]);
+    setNewMutual((mutualRows ?? []) as NewMutual[]);
     const loadedConversations = (data ?? []) as Conversation[];
     setConversations(loadedConversations);
     setNoGhostByConnection(bestPromptPerConnection(activePrompts));
@@ -294,12 +310,32 @@ export default function InboxScreen() {
             </Text>
           )}
 
-          {conversations.length === 0 && isSupabaseConfigured && (
+          {conversations.length === 0 && newMutual.length === 0 && isSupabaseConfigured && (
             <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                When you say hello to someone and they write back, your conversations will appear
-                here.
+                When you and someone both say Interested, your conversation opens here.
               </Text>
+            </View>
+          )}
+
+          {newMutual.length > 0 && (
+            <View className="gap-3">
+              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                You both chose to connect
+              </Text>
+              {newMutual.map((m) => (
+                <Pressable
+                  key={m.connection_id}
+                  onPress={() => router.push({ pathname: '/thread/[id]', params: { id: m.connection_id } })}
+                  className="gap-1 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4 active:opacity-80">
+                  <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+                    {m.display_name ?? 'A member'}
+                  </Text>
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    You both said Interested. Say hello when you&apos;re ready.
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           )}
 

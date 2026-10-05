@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { friendlySendCodeError, friendlyVerifyCodeError } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -46,7 +47,7 @@ export default function VerifyCodeScreen() {
     setVerifying(false);
 
     if (verifyError) {
-      setError(verifyError.message);
+      setError(friendlyVerifyCodeError(verifyError));
       return;
     }
 
@@ -55,7 +56,10 @@ export default function VerifyCodeScreen() {
     // Preferences (gender-identity.tsx), instead of jumping straight
     // there. See email-verification.tsx for why email is skippable while
     // profile-basics.tsx's name/birthdate are not.
-    router.replace('/email-verification');
+    // The root route decides where to go: a returning member lands on Home
+    // or Inbox, a new one continues to Basics (docs/DECISIONS.md, the
+    // account-recovery screen now comes after Basics).
+    router.replace('/');
   };
 
   const handleResend = async () => {
@@ -65,7 +69,7 @@ export default function VerifyCodeScreen() {
     setResending(false);
 
     if (resendError) {
-      setError(resendError.message);
+      setError(friendlySendCodeError(resendError));
       return;
     }
 
@@ -114,6 +118,12 @@ export default function VerifyCodeScreen() {
                 : resending
                   ? 'Resending...'
                   : 'Resend code'}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={() => router.replace('/phone-verification')}>
+            <Text className="text-caption text-stone-500 underline dark:text-stone-400">
+              Wrong number?
             </Text>
           </Pressable>
         </View>

@@ -210,6 +210,35 @@ export default function DevScreen() {
     loadConversations();
   };
 
+  // Safety plan testing (docs/DECISIONS.md section 3). Seed accounts only,
+  // enforced in the database (dev_mark_selfie_verified,
+  // dev_force_mutual_interest, migration 20261004000000).
+  const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
+  const handleMarkSelfieVerified = async (verified: boolean) => {
+    setSafetyStatus(null);
+    const { error: rpcError } = await supabase.rpc('dev_mark_selfie_verified', { p_verified: verified });
+    setSafetyStatus(
+      rpcError
+        ? rpcError.message
+        : verified
+          ? 'This account is now selfie-verified. It can say Interested and send first messages.'
+          : 'Selfie verification removed for this account.'
+    );
+  };
+  const handleForceMutualInterest = async () => {
+    setSafetyStatus(null);
+    if (!selectedConnectionId) {
+      setSafetyStatus('Pick a conversation in No-ghost testing first.');
+      return;
+    }
+    const { error: rpcError } = await supabase.rpc('dev_force_mutual_interest', {
+      p_connection_id: selectedConnectionId,
+    });
+    setSafetyStatus(
+      rpcError ? rpcError.message : 'Both people in the selected conversation are now marked Interested in each other.'
+    );
+  };
+
   // "Reset ALL seed accounts", distinct from handleResetMyMatches above,
   // which only ever touches the currently signed-in account. This clears
   // real, wide-reaching state across all 9 seed accounts at once
@@ -236,6 +265,8 @@ export default function DevScreen() {
     setResetAllConfirming(false);
     setResetAllStatus(null);
     const { data, error: rpcError } = await supabase.rpc('dev_reset_all_seed_matches');
+    // Interested choices live outside connections, cleared separately.
+    const { data: interestsCleared } = await supabase.rpc('dev_clear_seed_interests');
     setResetAllBusy(false);
     if (rpcError) {
       setResetAllStatus(rpcError.message);
@@ -257,7 +288,7 @@ export default function DevScreen() {
       return;
     }
     setResetAllStatus(
-      `Cleared across all ${r.seed_accounts} seed accounts: ${r.connections_deleted} connection(s) (and everything tied to them: messages, no-ghost prompts, meetup checkins/log/confirmations, follow-up reflections, Remember entries, and more), ${r.match_suggestions_deleted} match suggestion(s), ${r.reports_deleted} report(s), ${r.blocks_deleted} block(s), ${r.coach_marks_deleted} coach mark(s) seen, ${r.friendship_experience_cleared} friendship_experience answer(s), ${r.ai_usage_events_deleted} AI usage event(s).`
+      `Cleared across all ${r.seed_accounts} seed accounts: ${r.connections_deleted} connection(s) (and everything tied to them: messages, no-ghost prompts, meetup checkins/log/confirmations, follow-up reflections, Remember entries, and more), ${r.match_suggestions_deleted} match suggestion(s), ${r.reports_deleted} report(s), ${r.blocks_deleted} block(s), ${r.coach_marks_deleted} coach mark(s) seen, ${r.friendship_experience_cleared} friendship_experience answer(s), ${r.ai_usage_events_deleted} AI usage event(s), ${interestsCleared ?? 0} Interested choice(s).`
     );
     loadConversations();
   };
@@ -967,6 +998,41 @@ export default function DevScreen() {
           </View>
 
           <View className="gap-2 border-t border-stone-200 pt-6 dark:border-stone-800">
+            <Text className="text-title text-stone-900 dark:text-stone-50">Safety testing</Text>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              A first message needs a passed selfie check and both people saying Interested. These
+              shortcuts skip the manual review and the second account, seed accounts only.
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <Pressable
+                onPress={() => handleMarkSelfieVerified(true)}
+                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
+                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Mark me verified</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleMarkSelfieVerified(false)}
+                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
+                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Remove my verification</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleForceMutualInterest}
+                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
+                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
+                  Make selected conversation mutual
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push('/selfie-check')}
+                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
+                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Open selfie check</Text>
+              </Pressable>
+            </View>
+            {safetyStatus && (
+              <Text className="text-caption text-stone-500 dark:text-stone-400">{safetyStatus}</Text>
+            )}
+          </View>
+
+          <View className="gap-2 border-t border-stone-200 pt-6 dark:border-stone-800">
             <Text className="text-title text-stone-900 dark:text-stone-50">Match testing</Text>
             <Text className="text-caption text-stone-500 dark:text-stone-400">
               Deletes all connections, messages, and match suggestions for the currently
@@ -992,7 +1058,7 @@ export default function DevScreen() {
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
                 Clears connections, messages, match suggestions, reports, blocks, coach marks
-                seen, friendship_experience answers, and AI usage caps for every seed account at
+                seen, friendship_experience answers, AI usage caps, and Interested choices for every seed account at
                 once (Maria, David, Aisha, Robert, Priya, Marcus, Jordan, Sam, and Elena), not
                 just whoever is currently signed in.
               </Text>

@@ -86,6 +86,12 @@ import {
   rhythmMismatchNote,
 } from '@/lib/rhythm-mismatch';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import {
+  connectionHasMutualInterest,
+  containsScamSignal,
+  SCAM_CHECK_EARLY_MESSAGE_COUNT,
+  SCAM_NOTE_COPY,
+} from '@/lib/safety';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -264,6 +270,12 @@ export default function ThreadScreen() {
   // own messaging_preference comes from `other` (connection_participant_
   // profiles) instead, fetched in the same initial batch.
   const [myGenderIdentity, setMyGenderIdentity] = useState<string | null>(null);
+  // Safety plan (docs/DECISIONS.md section 3): a conversation's first
+  // message needs mutual Interested and a passed selfie check. Default to
+  // true so the gates never flash before the real values load; the real
+  // enforcement is the messages INSERT RLS policy (20261004000000).
+  const [mySelfieVerified, setMySelfieVerified] = useState(true);
+  const [hasMutualInterest, setHasMutualInterest] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
   // Friendship Journey rebuild (Phase 3): the new priority-queue-driven
   // system's single active intervention. __DEV__-gated only, per this
@@ -555,8 +567,14 @@ export default function ThreadScreen() {
       setOtherId(otherUserId);
       setConnectionStatus(connection.status);
 
-      const [{ data: otherProfile }, { data: existingMessages }, dismissed, { data: myProfile }, { data: myUserRow }] =
-        await Promise.all([
+      const [
+        { data: otherProfile },
+        { data: existingMessages },
+        dismissed,
+        { data: myProfile },
+        { data: myUserRow },
+        mutual,
+      ] = await Promise.all([
           // 2026-08-11 fix: was discovery_profiles, keyed by user_id, whose
           // WHERE clause hard-filters on gender/pause compatibility, a
           // real photo, mutual age range, radius, and block status. Any of
@@ -581,9 +599,13 @@ export default function ThreadScreen() {
             .order('created_at', { ascending: true }),
           hasDismissedRhythmMismatch(connectionId, user.id),
           supabase.from('profiles').select('photo_url').eq('user_id', user.id).maybeSingle(),
-          supabase.from('users').select('gender_identity').eq('id', user.id).maybeSingle(),
+          supabase.from('users').select('gender_identity, selfie_verified_at').eq('id', user.id).maybeSingle(),
+          connectionHasMutualInterest(connectionId),
         ]);
       if (cancelled) return;
+
+      setMySelfieVerified(Boolean(myUserRow?.selfie_verified_at));
+      setHasMutualInterest(mutual);
 
       setOther(otherProfile ?? null);
       setMessages((existingMessages ?? []) as Message[]);
@@ -891,6 +913,21 @@ export default function ThreadScreen() {
   // proactive UI half.
   const blockedByPreference =
     messages.length === 0 && !firstMessageAllowedByPreference(other?.messaging_preference ?? null, myGenderIdentity);
+
+  // Safety plan gates for a brand-new conversation, checked before the
+  // photo gate: without mutual Interested there's nothing to send yet,
+  // and without a passed selfie check the database will refuse the
+  // first message anyway.
+  const waitingForMutualInterest = messages.length === 0 && !hasMutualInterest;
+  const needsSelfieForFirstMessage = messages.length === 0 && !mySelfieVerified;
+
+  // Scam-signal note (section 3, item 4): checked on this phone only,
+  // nothing scored or stored. Shown once, under the first early message
+  // from the other person that mentions money or moving off the app.
+  const scamNoteMessageId =
+    messages
+      .slice(0, SCAM_CHECK_EARLY_MESSAGE_COUNT)
+      .find((m) => m.sender_id !== myId && containsScamSignal(m.content))?.id ?? null;
 
   let lastDateLabel = '';
 
@@ -1359,6 +1396,11 @@ export default function ThreadScreen() {
                       in the prompt card at send time, this is the
                       receiver's side of it, exact wording from AGENTS.md,
                       shown once per message, right where they'd see it. */}
+                  {m.id === scamNoteMessageId && (
+                    <View className="mt-2 max-w-[80%] flex-row gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950">
+                      <Text className="flex-1 text-caption text-amber-800 dark:text-amber-200">{SCAM_NOTE_COPY}</Text>
+                    </View>
+                  )}
                   {m.type === 'honest_exit' && !isMine && (
                     <Text className="mt-1 max-w-[80%] text-caption text-stone-400 dark:text-stone-600">
                       {HONEST_EXIT_RECEIVER_TEXT}
@@ -1382,7 +1424,7 @@ export default function ThreadScreen() {
         ) : connectionStatus === 'inactive' ? (
           <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
             <Text className="text-body text-stone-600 dark:text-stone-400">
-              This conversation has ended. Say hello again from their profile to start a new one.
+              This conversation has ended. You can reconnect from their profile.
             </Text>
             <Pressable
               onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
@@ -1407,6 +1449,28 @@ export default function ThreadScreen() {
               onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
               className="self-start">
               <Text className="text-caption font-semibold text-accent-500">View profile</Text>
+            </Pressable>
+          </View>
+        ) : waitingForMutualInterest ? (
+          <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+            <Text className="text-body text-stone-600 dark:text-stone-400">
+              This chat opens once you both say Interested. If you haven&apos;t yet, you can from their
+              profile. They won&apos;t be told unless they choose you too.
+            </Text>
+            <Pressable
+              onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
+              className="self-start">
+              <Text className="text-caption font-semibold text-accent-500">View profile</Text>
+            </Pressable>
+          </View>
+        ) : needsSelfieForFirstMessage ? (
+          <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+            <Text className="text-body text-stone-600 dark:text-stone-400">
+              Before you send a first message, finish your selfie check. It confirms you&apos;re the person in
+              your photo and usually takes less than a day.
+            </Text>
+            <Pressable onPress={() => router.push('/selfie-check')} className="self-start">
+              <Text className="text-caption font-semibold text-accent-500">Do my selfie check</Text>
             </Pressable>
           </View>
         ) : needsPhotoForFirstMessage ? (

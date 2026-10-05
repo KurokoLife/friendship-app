@@ -15,27 +15,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { calculateAge } from '@/lib/age';
 import { track } from '@/lib/analytics';
+import { FRIENDLY_SAVE_ERROR } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
-// Plain YYYY-MM-DD text input rather than a native date picker: this
-// project has hit the same stale-Metro-bundle failure repeatedly after a
-// native dependency change (documented across several PROGRESS.md
-// sessions), and the meetups/F21 session made the same deliberate call
-// for its own date input, for the same reason. Consistent with that
-// established precedent rather than a fresh decision.
-function parseBirthdate(text: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text.trim());
-  if (!match) return null;
-  const [, y, m, d] = match;
-  const date = new Date(Number(y), Number(m) - 1, Number(d));
+// Three plain number boxes, Month / Day / Year (docs/DECISIONS.md,
+// onboarding screen 3): typing 1985-06-15 was unnatural for the 40+
+// members Limen is built for. Still no native date picker, for the same
+// stale-Metro-bundle reason earlier sessions documented. US order for the
+// pilot; country-specific order comes later when Limen expands.
+function parseBirthdate(monthText: string, dayText: string, yearText: string): Date | null {
+  const m = Number(monthText.trim());
+  const d = Number(dayText.trim());
+  const y = Number(yearText.trim());
+  if (!Number.isInteger(m) || !Number.isInteger(d) || !Number.isInteger(y)) return null;
+  if (yearText.trim().length !== 4 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const date = new Date(y, m - 1, d);
   if (Number.isNaN(date.getTime())) return null;
   // Guards against a technically-parseable but nonexistent date (e.g.
   // 2020-02-30 silently rolling over to March 1st), Date's own
   // constructor accepts that, this catches it by checking the fields
   // round-trip exactly.
-  if (date.getFullYear() !== Number(y) || date.getMonth() !== Number(m) - 1 || date.getDate() !== Number(d)) {
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
     return null;
   }
   return date;
@@ -50,7 +52,9 @@ function parseBirthdate(text: string): Date | null {
 export default function ProfileBasicsScreen() {
   const colorScheme = useColorScheme();
   const [displayName, setDisplayName] = useState('');
-  const [birthdateText, setBirthdateText] = useState('');
+  const [birthMonth, setBirthMonth] = useState('');
+  const [birthDay, setBirthDay] = useState('');
+  const [birthYear, setBirthYear] = useState('');
   const [referralCode, setReferralCode] = useState('');
   // 2026-08-01: real, explicit acceptance step (a required tap, not just
   // implied by continuing), confirmed genuinely missing from onboarding
@@ -72,9 +76,9 @@ export default function ProfileBasicsScreen() {
       return;
     }
 
-    const birthdate = parseBirthdate(birthdateText);
+    const birthdate = parseBirthdate(birthMonth, birthDay, birthYear);
     if (!birthdate) {
-      setError('Enter your birthdate as YYYY-MM-DD.');
+      setError('Enter your birthdate as month, day, and a 4-digit year.');
       return;
     }
 
@@ -134,11 +138,13 @@ export default function ProfileBasicsScreen() {
     setSaving(false);
 
     if (saveError) {
-      setError(saveError.message);
+      setError(FRIENDLY_SAVE_ERROR);
       return;
     }
 
-    router.replace('/gender-identity');
+    // New order (docs/DECISIONS.md): Basics, then the optional
+    // account-recovery screen, then Identity.
+    router.replace('/account-recovery');
   };
 
   return (
@@ -146,7 +152,7 @@ export default function ProfileBasicsScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <SafeAreaView className="flex-1 justify-between px-6 py-10">
-        <Pressable onPress={() => router.replace('/email-verification')}>
+        <Pressable onPress={() => router.replace('/phone-verification')}>
           <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
         </Pressable>
 
@@ -178,15 +184,39 @@ export default function ProfileBasicsScreen() {
           </View>
 
           <View className="gap-1">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Birthdate (YYYY-MM-DD)</Text>
-            <TextInput
-              value={birthdateText}
-              onChangeText={setBirthdateText}
-              keyboardType="number-pad"
-              className="rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-              placeholder="1985-06-15"
-              placeholderTextColor={MUTED_ICON_COLOR}
-            />
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Birthdate</Text>
+            <View className="flex-row gap-3">
+              <TextInput
+                value={birthMonth}
+                onChangeText={(t) => setBirthMonth(t.replace(/\D/g, '').slice(0, 2))}
+                keyboardType="number-pad"
+                maxLength={2}
+                accessibilityLabel="Birth month"
+                className="w-20 rounded-xl border border-stone-300 px-3 py-3 text-center text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                placeholder="MM"
+                placeholderTextColor={MUTED_ICON_COLOR}
+              />
+              <TextInput
+                value={birthDay}
+                onChangeText={(t) => setBirthDay(t.replace(/\D/g, '').slice(0, 2))}
+                keyboardType="number-pad"
+                maxLength={2}
+                accessibilityLabel="Birth day"
+                className="w-20 rounded-xl border border-stone-300 px-3 py-3 text-center text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                placeholder="DD"
+                placeholderTextColor={MUTED_ICON_COLOR}
+              />
+              <TextInput
+                value={birthYear}
+                onChangeText={(t) => setBirthYear(t.replace(/\D/g, '').slice(0, 4))}
+                keyboardType="number-pad"
+                maxLength={4}
+                accessibilityLabel="Birth year"
+                className="flex-1 rounded-xl border border-stone-300 px-3 py-3 text-center text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                placeholder="YYYY"
+                placeholderTextColor={MUTED_ICON_COLOR}
+              />
+            </View>
           </View>
 
           <View className="gap-1">
@@ -199,14 +229,9 @@ export default function ProfileBasicsScreen() {
               placeholder="Have a code from a friend?"
               placeholderTextColor={MUTED_ICON_COLOR}
             />
-            {/* 2026-07-31 rebuild: referral_reward_qualifies() (migration
-                20260808000000) no longer checks a single last-sign-in
-                snapshot, it counts distinct real-use days recorded in
-                referral_signin_days and requires at least 14 of them
-                within the 30 days since signup. Wording below describes
-                exactly that, not the word "active" standing in for it. */}
+            {/* No reward is promised: Premium no longer exists (docs/DECISIONS.md). */}
             <Text className="text-caption text-stone-400 dark:text-stone-600">
-              Limen is free during the pilot, for you and for anyone you invite.
+              If a friend invited you, add their code. It helps us see how people find Limen.
             </Text>
           </View>
 

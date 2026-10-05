@@ -31,6 +31,7 @@ type AccountInfo = {
   is_premium: boolean;
   premium_until: string | null;
   referral_code: string | null;
+  is_admin: boolean | null;
 };
 
 const REPORT_CATEGORY_LABELS: Record<string, string> = {
@@ -97,7 +98,7 @@ export default function SettingsScreen() {
       return;
     }
     const [{ data: userRow }, { data: blocks }, { data: reports }] = await Promise.all([
-      supabase.from('users').select('is_premium, premium_until, referral_code').eq('id', user.id).maybeSingle(),
+      supabase.from('users').select('is_premium, premium_until, referral_code, is_admin').eq('id', user.id).maybeSingle(),
       supabase.from('my_blocks').select('id, blocked_id, display_name, created_at').order('created_at', { ascending: false }),
       supabase
         .from('my_reports')
@@ -209,6 +210,23 @@ export default function SettingsScreen() {
               <Text className="text-body text-stone-900 dark:text-stone-50">Preview my public profile</Text>
               <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
             </Pressable>
+            <Pressable
+              onPress={() => router.push('/selfie-check')}
+              className="flex-row items-center justify-between rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-body text-stone-900 dark:text-stone-50">Selfie check</Text>
+              <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
+            </Pressable>
+            {/* Admins only (users.is_admin, set from the Supabase
+                dashboard). The selfie-review function checks again on
+                the server. */}
+            {account?.is_admin && (
+              <Pressable
+                onPress={() => router.push('/admin-selfies')}
+                className="flex-row items-center justify-between rounded-2xl border border-accent-500/40 bg-white p-4 dark:bg-stone-800">
+                <Text className="text-body text-stone-900 dark:text-stone-50">Review selfie checks</Text>
+                <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
+              </Pressable>
+            )}
           </View>
 
           {/* Limen v2: no Premium tier. Everyone gets the same app. */}
