@@ -303,7 +303,7 @@ export default function SettingsScreen() {
                 <Text className="text-caption text-stone-500 dark:text-stone-400">
                   {tipsReset
                     ? 'Done, the first-time tips will show again as you visit each screen.'
-                    : 'Resets the first-time tips across the app (tabs, no-ghost prompts, check-ins, and more).'}
+                    : 'Resets the first-time tips across the app (tabs, reminders, check-ins, and more).'}
                 </Text>
               </View>
               {resettingTips && <ActivityIndicator color={MUTED_ICON_COLOR} />}

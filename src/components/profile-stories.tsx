@@ -76,7 +76,7 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
         maxLength={300}
         className="min-h-16 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
       />
-      <Text className="text-caption text-stone-400 dark:text-stone-600">
+      <Text className="text-caption text-stone-400 dark:text-stone-400">
         Is this about a fact, or about {name}? What would the answer tell you about who they are?
       </Text>
       <View className="flex-row gap-3">
@@ -136,7 +136,7 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
                   await deleteCuriosityNote(n.id);
                   setNotes((prev) => prev.filter((x) => x.id !== n.id));
                 }}>
-                <Text className="text-caption text-stone-400 dark:text-stone-600">Remove</Text>
+                <Text className="text-caption text-stone-400 dark:text-stone-400">Remove</Text>
               </Pressable>
             </View>
           ))}

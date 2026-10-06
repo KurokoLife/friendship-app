@@ -74,7 +74,7 @@ function ConnectRow({ label, value }: { label: string; value: string | null | un
   if (!value) return null;
   return (
     <View className="gap-0.5">
-      <Text className="text-caption text-stone-400 dark:text-stone-600">{label}</Text>
+      <Text className="text-caption text-stone-400 dark:text-stone-400">{label}</Text>
       <Text className="text-body text-stone-700 dark:text-stone-300">{value}</Text>
     </View>
   );
@@ -123,9 +123,9 @@ export function PublicProfileView({
       {/* Photos */}
       <View className="gap-3">
         {profile.photo_url ? (
-          <Image source={{ uri: profile.photo_url }} className="aspect-square w-full rounded-3xl bg-stone-200" />
+          <Image source={{ uri: profile.photo_url }} className="aspect-square w-full max-w-xs self-center rounded-3xl bg-stone-200" />
         ) : (
-          <View className="aspect-square w-full items-center justify-center rounded-3xl bg-stone-200 dark:bg-stone-700">
+          <View className="aspect-square w-full max-w-xs items-center justify-center self-center rounded-3xl bg-stone-200 dark:bg-stone-700">
             <Text className="text-display text-stone-500 dark:text-stone-400">{initials(profile.display_name)}</Text>
           </View>
         )}
@@ -158,7 +158,7 @@ export function PublicProfileView({
       {/* Right now, I'm... */}
       {profile.personal_statement && (
         <View className="gap-1 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-          <Text className="text-caption text-stone-400 dark:text-stone-600">Right now, I&apos;m...</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">Right now, I&apos;m...</Text>
           <Text className="text-body text-stone-700 dark:text-stone-300">{profile.personal_statement}</Text>
         </View>
       )}
@@ -169,7 +169,7 @@ export function PublicProfileView({
       {/* What brings them here, only when they chose to show it */}
       {(transitions.length > 0 || profile.life_transitions_other) && (
         <View className="gap-1">
-          <Text className="text-caption text-stone-400 dark:text-stone-600">What brings them here</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">What brings them here</Text>
           {transitions.map((sentence) => (
             <Text key={sentence} className="text-body text-accent-500">
               {sentence}
@@ -184,7 +184,7 @@ export function PublicProfileView({
       {/* Hidden from others: shown only on your own Profile tab */}
       {showHiddenTransitions && (
         <View className="gap-1 rounded-2xl border border-dashed border-stone-300 p-4 opacity-70 dark:border-stone-600">
-          <Text className="text-caption text-stone-400 dark:text-stone-600">What brings them here</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">What brings them here</Text>
           {hiddenTransitions.map((sentence) => (
             <Text key={sentence} className="text-body text-stone-500 dark:text-stone-400">
               {sentence}
@@ -200,7 +200,7 @@ export function PublicProfileView({
       {/* Values */}
       {((profile.values?.length ?? 0) > 0 || profile.values_other) && (
         <View className="gap-2">
-          <Text className="text-caption text-stone-400 dark:text-stone-600">What matters to them</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">What matters to them</Text>
           <View className="flex-row flex-wrap gap-2">
             {profile.values?.map((v) => (
               <View
@@ -219,7 +219,7 @@ export function PublicProfileView({
       {/* Activities, with whatever details they filled in */}
       {(activityCategories.length > 0 || profile.activity_interests?.other) && (
         <View className="gap-2">
-          <Text className="text-caption text-stone-400 dark:text-stone-600">Into these lately</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">Into these lately</Text>
           {activityCategories.map((key) => {
             const lines = activityDetailLines(key, profile.activity_interests?.details?.[key]);
             return (
@@ -248,7 +248,7 @@ export function PublicProfileView({
       {/* What kind of friendship */}
       {friendshipTypes.length > 0 && (
         <View className="gap-1">
-          <Text className="text-caption text-stone-400 dark:text-stone-600">Looking for</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">Looking for</Text>
           <Text className="text-body text-stone-700 dark:text-stone-300">{friendshipTypes.join(', ')}</Text>
         </View>
       )}

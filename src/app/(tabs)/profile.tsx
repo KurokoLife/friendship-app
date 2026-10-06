@@ -34,7 +34,7 @@ type OwnProfile = {
 function PrivateRow({ label, value, note }: { label: string; value: string; note: string }) {
   return (
     <View className="gap-0.5">
-      <Text className="text-caption text-stone-400 dark:text-stone-600">{label}</Text>
+      <Text className="text-caption text-stone-400 dark:text-stone-400">{label}</Text>
       <Text className="text-body text-stone-700 dark:text-stone-300">{value}</Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">{note}</Text>
     </View>
@@ -241,7 +241,7 @@ export default function ProfileScreen() {
               note="Shown only to people you're already connected with."
             />
             <View className="gap-1">
-              <Text className="text-caption text-stone-400 dark:text-stone-600">Your personality reflection</Text>
+              <Text className="text-caption text-stone-400 dark:text-stone-400">Your personality reflection</Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
                 Private, and used only to help you.
               </Text>
