@@ -7,6 +7,7 @@ import { formatDistance } from '@/lib/distance';
 import { lifeTransitionSentences } from '@/lib/life-transition';
 
 const ACCENT_COLOR = '#B5643B'; // accent-500
+const MUTED_COLOR = '#a8a29e'; // stone-400
 
 // What other people see (docs/DECISIONS.md section 2). One shared view so
 // Other User Profile (candidate/[id].tsx) and your own Public Profile
@@ -79,7 +80,34 @@ function ConnectRow({ label, value }: { label: string; value: string | null | un
   );
 }
 
-export function PublicProfileView({ profile, readOnly = false }: { profile: PublicProfile; readOnly?: boolean }) {
+// Only for your own Profile tab: things you chose to hide, shown in place
+// but dimmed and labelled, so you can see what others can't.
+export type OwnerHiddenItems = {
+  lifeTransitions: string[];
+  lifeTransitionsOther: string | null;
+};
+
+function OnlyYouLabel() {
+  return (
+    <View className="flex-row items-center gap-1">
+      <Ionicons name="lock-closed" size={12} color={MUTED_COLOR} />
+      <Text className="text-caption text-stone-500 dark:text-stone-400">Only you can see this. Change in Edit.</Text>
+    </View>
+  );
+}
+
+export function PublicProfileView({
+  profile,
+  readOnly = false,
+  ownerHidden,
+}: {
+  profile: PublicProfile;
+  readOnly?: boolean;
+  ownerHidden?: OwnerHiddenItems;
+}) {
+  const hiddenTransitions = ownerHidden ? lifeTransitionSentences(ownerHidden.lifeTransitions) : [];
+  const showHiddenTransitions =
+    Boolean(ownerHidden) && (hiddenTransitions.length > 0 || Boolean(ownerHidden?.lifeTransitionsOther));
   const extraPhotos = (profile.extra_photo_urls ?? []).filter(Boolean);
   const distance = formatDistance(profile.distance_miles ?? null, profile.location_city);
   const activityCategories = profile.activity_interests?.categories ?? [];
@@ -150,6 +178,22 @@ export function PublicProfileView({ profile, readOnly = false }: { profile: Publ
           {profile.life_transitions_other && (
             <Text className="text-body text-accent-500">{profile.life_transitions_other}</Text>
           )}
+        </View>
+      )}
+
+      {/* Hidden from others: shown only on your own Profile tab */}
+      {showHiddenTransitions && (
+        <View className="gap-1 rounded-2xl border border-dashed border-stone-300 p-4 opacity-70 dark:border-stone-600">
+          <Text className="text-caption text-stone-400 dark:text-stone-600">What brings them here</Text>
+          {hiddenTransitions.map((sentence) => (
+            <Text key={sentence} className="text-body text-stone-500 dark:text-stone-400">
+              {sentence}
+            </Text>
+          ))}
+          {ownerHidden?.lifeTransitionsOther && (
+            <Text className="text-body text-stone-500 dark:text-stone-400">{ownerHidden.lifeTransitionsOther}</Text>
+          )}
+          <OnlyYouLabel />
         </View>
       )}
 
