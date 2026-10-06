@@ -40,6 +40,7 @@ type OwnProfile = {
   meeting_freq: string | null;
   response_time: string | null;
   friendship_type: string | null;
+  friendship_types?: string[] | null;
   communication_style_openness: string | null;
   availability: string[] | null;
   communication_modes: string[] | null;
@@ -128,7 +129,7 @@ export default function ProfileScreen() {
     const { data } = await supabase
       .from('profiles')
       .select(
-        'display_name, birthdate, location_city, location_state, life_transitions, life_transitions_other, personal_statement, values, values_other, activity_interests, hangout_people_preference, hangout_type_preference, communication_freq, meeting_freq, response_time, friendship_type, communication_style_openness, availability, communication_modes, languages, languages_other, ethnicity, ethnicity_other, personality_16p, bar_preference, dealbreakers, photo_url, completion_pct, big_five_scores, friendship_experience'
+        'display_name, birthdate, location_city, location_state, life_transitions, life_transitions_other, personal_statement, values, values_other, activity_interests, hangout_people_preference, hangout_type_preference, communication_freq, meeting_freq, response_time, friendship_type, friendship_types, communication_style_openness, availability, communication_modes, languages, languages_other, ethnicity, ethnicity_other, personality_16p, bar_preference, dealbreakers, photo_url, completion_pct, big_five_scores, friendship_experience'
       )
       .eq('user_id', user.id)
       .maybeSingle();
@@ -327,17 +328,18 @@ export default function ProfileScreen() {
             <Row
               label="Hangout style"
               value={
-                profile.hangout_people_preference || (profile.hangout_type_preference?.length ?? 0) > 0
-                  ? [profile.hangout_people_preference, ...(profile.hangout_type_preference ?? [])]
-                      .filter(Boolean)
-                      .join(', ')
+                (profile.hangout_type_preference?.length ?? 0) > 0
+                  ? (profile.hangout_type_preference ?? []).join(', ')
                   : null
               }
             />
             <Row label="Check-in frequency" value={profile.communication_freq} />
             <Row label="Meeting frequency" value={profile.meeting_freq} />
             <Row label="Response time" value={profile.response_time} />
-            <Row label="Friendship type" value={profile.friendship_type} />
+            <Row
+              label="Friendship type"
+              value={(profile.friendship_types?.length ? profile.friendship_types : [profile.friendship_type]).filter(Boolean).join(', ') || null}
+            />
             <Row label="Communication style" value={profile.communication_style_openness} />
             <Row
               label="How you like to communicate"

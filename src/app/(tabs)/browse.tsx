@@ -14,7 +14,6 @@ import {
   AGE_BANDS,
   COMMUNICATION_FREQ,
   ETHNICITY_OPTIONS,
-  HANGOUT_PEOPLE,
   HANGOUT_TYPES,
   LANGUAGE_OPTIONS,
   LIFE_TRANSITIONS,
@@ -464,16 +463,6 @@ export default function BrowseScreen() {
       case 'hangout_style':
         return (
           <>
-            <Text className="text-caption text-stone-400 dark:text-stone-600">Who</Text>
-            {HANGOUT_PEOPLE.map((option) => (
-              <ToggleChip
-                key={option}
-                label={option}
-                selected={hangoutPeople.includes(option)}
-                onPress={() => setHangoutPeople((prev) => toggleInList(prev, option))}
-              />
-            ))}
-            <Text className="pt-2 text-caption text-stone-400 dark:text-stone-600">How</Text>
             {HANGOUT_TYPES.map((option) => (
               <ToggleChip
                 key={option}
@@ -548,7 +537,6 @@ export default function BrowseScreen() {
         setMeetingFreqs([...MEETING_FREQ]);
         break;
       case 'hangout_style':
-        setHangoutPeople([...HANGOUT_PEOPLE]);
         setHangoutTypes([...HANGOUT_TYPES]);
         break;
       case 'response_time':

@@ -22,7 +22,7 @@ const ACCENT_COLOR = '#B5643B'; // accent-500
 // check-in frequency (still in the database, no longer asked or shown).
 
 export const PUBLIC_PROFILE_COLUMNS =
-  'user_id, display_name, age_band, location_city, distance_miles, life_transitions, life_transitions_other, values, values_other, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, response_time, friendship_type, communication_style_openness, availability, languages, languages_other, personal_statement, bar_preference, dealbreakers, photo_url, extra_photo_urls, selfie_verified';
+  'user_id, display_name, age_band, location_city, distance_miles, life_transitions, life_transitions_other, values, values_other, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, response_time, friendship_type, friendship_types, communication_style_openness, availability, languages, languages_other, personal_statement, bar_preference, dealbreakers, photo_url, extra_photo_urls, selfie_verified';
 
 type ActivityInterests = {
   categories?: string[];
@@ -46,6 +46,7 @@ export type PublicProfile = {
   meeting_freq: string | null;
   response_time: string | null;
   friendship_type: string | null;
+  friendship_types?: string[] | null;
   communication_style_openness: string | null;
   availability: string[] | null;
   languages: string[] | null;
@@ -84,12 +85,10 @@ export function PublicProfileView({ profile, readOnly = false }: { profile: Publ
   const activityCategories = profile.activity_interests?.categories ?? [];
   const transitions = lifeTransitionSentences(profile.life_transitions);
   const languages = [...(profile.languages ?? []), profile.languages_other].filter(Boolean).join(', ');
-  const hangout = [
-    profile.hangout_people_preference ? `Prefers ${profile.hangout_people_preference} hangouts` : null,
-    (profile.hangout_type_preference?.length ?? 0) > 0 ? profile.hangout_type_preference!.join(', ') : null,
-  ]
-    .filter(Boolean)
-    .join('. ');
+  const hangout = (profile.hangout_type_preference ?? []).join(', ');
+  const friendshipTypes = (
+    profile.friendship_types?.length ? profile.friendship_types : [profile.friendship_type]
+  ).filter(Boolean) as string[];
 
   return (
     <View className="gap-5">
@@ -203,10 +202,10 @@ export function PublicProfileView({ profile, readOnly = false }: { profile: Publ
       )}
 
       {/* What kind of friendship */}
-      {profile.friendship_type && (
+      {friendshipTypes.length > 0 && (
         <View className="gap-1">
           <Text className="text-caption text-stone-400 dark:text-stone-600">Looking for</Text>
-          <Text className="text-body text-stone-700 dark:text-stone-300">{profile.friendship_type}</Text>
+          <Text className="text-body text-stone-700 dark:text-stone-300">{friendshipTypes.join(', ')}</Text>
         </View>
       )}
 

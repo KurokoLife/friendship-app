@@ -27,6 +27,11 @@ export default function PhilosophyIntroScreen() {
             Limen doesn&apos;t remove the uncertainty. It helps you move through it with curiosity,
             honesty, and care.
           </Text>
+          {/* 2026-10-05: the premise, stated up front instead of asked as a
+              group-size question later. */}
+          <Text className="text-body text-stone-500 dark:text-stone-400">
+            Limen introduces you to one person at a time, and first meetups are one on one.
+          </Text>
         </View>
 
         <View className="gap-3">

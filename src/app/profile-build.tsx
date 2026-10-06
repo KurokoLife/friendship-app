@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { decode } from 'base64-arraybuffer';
-import * as ImagePicker from 'expo-image-picker';
+import { PHOTO_RULES_TEXT, pickProfilePhoto } from '@/lib/photo-picker';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -32,11 +32,12 @@ import {
   COMMUNICATION_STYLE_OPENNESS_OPTIONS,
   DEFAULT_LOCATION_COUNTRY,
   DEFAULT_SEARCH_RADIUS_MILES,
+  FRIENDSHIP_TYPE_DESCRIPTIONS,
   FRIENDSHIP_TYPE_OPTIONS,
-  HANGOUT_PEOPLE,
   HANGOUT_TYPES,
   LANGUAGE_OPTIONS,
   LIFE_TRANSITIONS,
+  MAX_FRIENDSHIP_TYPES,
   MAX_LIFE_TRANSITIONS,
   NOTHING_BIG_TRANSITION,
   LOCATION_COUNTRIES,
@@ -104,6 +105,7 @@ type ProfileFormState = {
   languages: string[];
   languagesOther: string;
   friendshipType: string | null;
+  friendshipTypes: string[];
   communicationStyleOpenness: string | null;
   availability: string[];
   communicationModes: string[];
@@ -142,10 +144,15 @@ const EMPTY_PROFILE: ProfileFormState = {
   languages: [],
   languagesOther: '',
   friendshipType: null,
+  friendshipTypes: [],
   communicationStyleOpenness: null,
   availability: [],
   communicationModes: [],
 };
+
+// Set when the profile loads: true once migration 20261005000001 has
+// added profiles.friendship_types.
+let hasFriendshipTypesColumn = false;
 
 const COMPLETION_THRESHOLD = 60;
 
@@ -155,7 +162,6 @@ function computeCompletionPct(p: ProfileFormState) {
     p.personalStatement.trim().length > 0,
     p.values.length > 0,
     p.activityCategories.length > 0,
-    Boolean(p.hangoutPeoplePreference),
     p.hangoutTypePreference.length > 0,
     p.stories.some((st) => st.text.trim().length > 0),
     Boolean(p.meetingFreq),
@@ -164,7 +170,7 @@ function computeCompletionPct(p: ProfileFormState) {
     p.dealbreakers.trim().length > 0,
     Boolean(p.photoUrl),
     Boolean(p.locationLat && p.locationLng),
-    Boolean(p.friendshipType),
+    p.friendshipTypes.length > 0,
     Boolean(p.communicationStyleOpenness),
     p.availability.length > 0,
   ];
@@ -221,18 +227,13 @@ const REQUIRED_FIELD_CHECKS: RequiredFieldCheck[] = [
   },
   {
     step: STEP_HANGOUT_STYLE,
-    message: 'How you hang out with a new friend',
-    isMissing: (p) => !p.hangoutPeoplePreference,
-  },
-  {
-    step: STEP_HANGOUT_STYLE,
     message: 'How you hang out',
     isMissing: (p) => p.hangoutTypePreference.length === 0,
   },
   {
     step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM,
     message: 'What kind of friendship you are hoping to build',
-    isMissing: (p) => !p.friendshipType,
+    isMissing: (p) => p.friendshipTypes.length === 0,
   },
   { step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM, message: 'Meeting frequency', isMissing: (p) => !p.meetingFreq },
   { step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM, message: 'Response time', isMissing: (p) => !p.responseTime },
@@ -343,6 +344,7 @@ export default function ProfileBuildScreen() {
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
+      hasFriendshipTypesColumn = Boolean(data && 'friendship_types' in data);
       if (data) {
         const activityInterests = (data.activity_interests as {
           categories?: string[];
@@ -382,6 +384,9 @@ export default function ProfileBuildScreen() {
           languages: data.languages ?? [],
           languagesOther: data.languages_other ?? '',
           friendshipType: data.friendship_type,
+          friendshipTypes:
+            data.friendship_types ??
+            (data.friendship_type && data.friendship_type !== 'A social circle' ? [data.friendship_type] : []),
           communicationStyleOpenness: data.communication_style_openness,
           availability: data.availability ?? [],
           communicationModes: data.communication_modes ?? [],
@@ -489,7 +494,10 @@ export default function ProfileBuildScreen() {
       ethnicity_other: next.ethnicityOther.trim() || null,
       languages: next.languages,
       languages_other: next.languagesOther.trim() || null,
-      friendship_type: next.friendshipType,
+      friendship_type: next.friendshipTypes[0] ?? null,
+      // Only sent once the friendship_types column exists (migration
+      // 20261005000001), so saving keeps working before it is applied.
+      ...(hasFriendshipTypesColumn ? { friendship_types: next.friendshipTypes.length > 0 ? next.friendshipTypes : null } : {}),
       communication_style_openness: next.communicationStyleOpenness,
       availability: next.availability,
       communication_modes: next.communicationModes,
@@ -580,6 +588,20 @@ export default function ProfileBuildScreen() {
 
   // Selection limit removed entirely (2026-07-16), any number of the
   // hangout type options can be selected.
+  const [friendshipTypeNotice, setFriendshipTypeNotice] = useState<string | null>(null);
+  const toggleFriendshipType = (option: string) => {
+    setFriendshipTypeNotice(null);
+    const selected = profile.friendshipTypes.includes(option);
+    if (!selected && profile.friendshipTypes.length >= MAX_FRIENDSHIP_TYPES) {
+      setFriendshipTypeNotice(`You can choose up to ${MAX_FRIENDSHIP_TYPES}. Unselect one to pick another.`);
+      return;
+    }
+    const next = selected
+      ? profile.friendshipTypes.filter((v) => v !== option)
+      : [...profile.friendshipTypes, option];
+    updateAndSave({ friendshipTypes: next, friendshipType: next[0] ?? null });
+  };
+
   const toggleHangoutType = (option: string) => {
     const selected = profile.hangoutTypePreference.includes(option);
     const next = selected
@@ -645,7 +667,6 @@ export default function ProfileBuildScreen() {
   // its own. locationZip is deliberately not part of ProfileFormState,
   // it's never stored, only city/state/country/lat/lng are, per explicit
   // instruction that both paths resolve to the same stored fields.
-  const [locationEntryMode, setLocationEntryMode] = useState<'state_city' | 'zip'>('state_city');
   const [locationZip, setLocationZip] = useState('');
 
   const pickerOptions = activePicker === 'country' ? LOCATION_COUNTRIES : activePicker === 'state' ? US_STATES : [];
@@ -672,84 +693,70 @@ export default function ProfileBuildScreen() {
     closePicker();
   };
 
-  // Switching entry mode without re-confirming would otherwise leave a
-  // stale lat/lng sitting under whichever fields are now showing, same
-  // reasoning as clearing it on any city/state/country edit above.
-  const selectEntryMode = (mode: 'state_city' | 'zip') => {
-    setLocationEntryMode(mode);
-    setProfile((p) => ({ ...p, locationLat: null, locationLng: null }));
-    setLocationError(null);
-  };
-
+  // 2026-10-05: ZIP code only (US). Typing a city ("Los Angeles, CA")
+  // was easy to get wrong, and a ZIP is more precise for distance. The
+  // server lookup (geocode-city, which uses Zippopotam for US ZIPs) is
+  // tried first; if it fails, the app asks Zippopotam directly.
   const confirmLocation = async () => {
     setLocationError(null);
-
-    if (locationEntryMode === 'zip') {
-      const zip = locationZip.trim();
-      if (!zip) {
-        setLocationError('Enter a zip code first.');
-        return;
-      }
-      setGeocoding(true);
-      const { data, error: fnError } = await supabase.functions.invoke('geocode-city', {
-        body: { zip, country: profile.locationCountry },
-      });
-      setGeocoding(false);
-      if (fnError || !data?.lat || !data?.lng) {
-        setLocationError("We couldn't find that zip code. Double check it and try again.");
-        return;
-      }
-      updateAndSave({
-        locationCity: data.city || '',
-        locationState: data.state || '',
-        locationCountry: data.country || profile.locationCountry,
-        locationLat: data.lat,
-        locationLng: data.lng,
-      });
-      return;
-    }
-
-    const city = profile.locationCity.trim();
-    if (!city) {
-      setLocationError('Enter a city first.');
+    const zip = locationZip.trim();
+    if (!/^[0-9]{5}$/.test(zip)) {
+      setLocationError('Enter a 5-digit ZIP code.');
       return;
     }
     setGeocoding(true);
-    const { data, error: fnError } = await supabase.functions.invoke('geocode-city', {
-      body: { city, state: profile.locationState.trim() || undefined, country: profile.locationCountry },
-    });
+    let found: { city: string; state: string; lat: number; lng: number } | null = null;
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('geocode-city', {
+        body: { zip, country: DEFAULT_LOCATION_COUNTRY },
+      });
+      if (!fnError && data?.lat && data?.lng) {
+        found = { city: data.city || '', state: data.state || '', lat: data.lat, lng: data.lng };
+      }
+    } catch {
+      found = null;
+    }
+    if (!found) {
+      try {
+        const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
+        if (res.ok) {
+          const body = await res.json();
+          const place = body?.places?.[0];
+          if (place) {
+            found = {
+              city: place['place name'] ?? '',
+              state: place.state ?? '',
+              lat: Number(place.latitude),
+              lng: Number(place.longitude),
+            };
+          }
+        }
+      } catch {
+        found = null;
+      }
+    }
     setGeocoding(false);
-    if (fnError || !data?.lat || !data?.lng) {
-      setLocationError("We couldn't find that city. Try a more specific spelling.");
+    if (!found || !found.lat || !found.lng) {
+      setLocationError("We couldn't find that ZIP code. Double check it and try again.");
       return;
     }
     updateAndSave({
-      locationCity: data.city || city,
-      locationState: data.state || profile.locationState,
-      locationCountry: data.country || profile.locationCountry,
-      locationLat: data.lat,
-      locationLng: data.lng,
+      locationCity: found.city,
+      locationState: found.state,
+      locationCountry: DEFAULT_LOCATION_COUNTRY,
+      locationLat: found.lat,
+      locationLng: found.lng,
     });
   };
 
   const pickPhoto = async (slot: 'main' | 'extra') => {
     setError(null);
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError('We need permission to access your photos to set a profile photo.');
+    const picked = await pickProfilePhoto();
+    if (!picked.ok) {
+      if ('message' in picked) setError(picked.message);
       return;
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-      base64: true,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-    const asset = result.assets?.[0];
-    if (result.canceled || !asset?.base64) return;
-    const base64 = asset.base64;
+    const { base64, contentType, ext: fileExt } = picked.photo;
 
     const {
       data: { user },
@@ -760,11 +767,10 @@ export default function ProfileBuildScreen() {
     }
 
     setUploadingPhoto(true);
-    const fileExt = asset.uri.split('.').pop()?.split('?')[0] || 'jpg';
     const filePath = `${user.id}/${Date.now()}.${fileExt}`;
     const { error: uploadError } = await supabase.storage
       .from('profile-photos')
-      .upload(filePath, decode(base64), { contentType: `image/${fileExt}`, upsert: true });
+      .upload(filePath, decode(base64), { contentType, upsert: true });
 
     if (uploadError) {
       setUploadingPhoto(false);
@@ -836,127 +842,30 @@ export default function ProfileBuildScreen() {
           <Section title="Where you're based" subtitle="Required. Used to find people near you">
             <View className="gap-3">
               <View className="gap-1">
-                <Text className="text-caption text-stone-500 dark:text-stone-400">Country</Text>
-                <Pressable
-                  onPress={() => setActivePicker('country')}
-                  className="flex-row items-center justify-between rounded-xl border border-stone-300 px-3 py-3 dark:border-stone-700">
-                  <Text className="text-body text-stone-900 dark:text-stone-50">{profile.locationCountry}</Text>
-                  <Ionicons name="chevron-down" size={16} color={MUTED_ICON_COLOR} />
-                </Pressable>
-              </View>
-
-              <View className="gap-1">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">Your ZIP code (US)</Text>
+                <TextInput
+                  value={locationZip}
+                  onChangeText={(text) => {
+                    setLocationZip(text.replace(/[^0-9]/g, '').slice(0, 5));
+                    setProfile((p) => ({ ...p, locationLat: null, locationLng: null }));
+                    setLocationError(null);
+                  }}
+                  placeholder="e.g. 90012"
+                  keyboardType="number-pad"
+                  maxLength={5}
+                  placeholderTextColor={MUTED_ICON_COLOR}
+                  className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                />
                 <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  How would you like to enter your location?
+                  We only show your city to others, never your ZIP code.
                 </Text>
-                <View className="flex-row gap-2">
-                  <Pressable
-                    onPress={() => selectEntryMode('state_city')}
-                    className={`flex-1 items-center rounded-full border px-3 py-2 ${
-                      locationEntryMode === 'state_city'
-                        ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50'
-                        : 'border-stone-300 dark:border-stone-700'
-                    }`}>
-                    <Text
-                      className={`text-caption font-medium ${
-                        locationEntryMode === 'state_city'
-                          ? 'text-stone-50 dark:text-stone-900'
-                          : 'text-stone-700 dark:text-stone-300'
-                      }`}>
-                      Enter state and city
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => selectEntryMode('zip')}
-                    className={`flex-1 items-center rounded-full border px-3 py-2 ${
-                      locationEntryMode === 'zip'
-                        ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50'
-                        : 'border-stone-300 dark:border-stone-700'
-                    }`}>
-                    <Text
-                      className={`text-caption font-medium ${
-                        locationEntryMode === 'zip'
-                          ? 'text-stone-50 dark:text-stone-900'
-                          : 'text-stone-700 dark:text-stone-300'
-                      }`}>
-                      Enter zip code
-                    </Text>
-                  </Pressable>
-                </View>
               </View>
-
-              {locationEntryMode === 'state_city' ? (
-                <>
-                  <View className="gap-1">
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">State / Province</Text>
-                    {profile.locationCountry === DEFAULT_LOCATION_COUNTRY ? (
-                      <Pressable
-                        onPress={() => setActivePicker('state')}
-                        className="flex-row items-center justify-between rounded-xl border border-stone-300 px-3 py-3 dark:border-stone-700">
-                        <Text className="text-body text-stone-900 dark:text-stone-50">
-                          {profile.locationState || 'Select a state'}
-                        </Text>
-                        <Ionicons name="chevron-down" size={16} color={MUTED_ICON_COLOR} />
-                      </Pressable>
-                    ) : (
-                      <View className="relative">
-                        <TextInput
-                          value={profile.locationState}
-                          onChangeText={(text) => {
-                            setProfile((p) => ({ ...p, locationState: text, locationLat: null, locationLng: null }));
-                            setLocationError(null);
-                          }}
-                          placeholder="State or province"
-                          placeholderTextColor={MUTED_ICON_COLOR}
-                          className="rounded-xl border border-stone-300 px-3 py-2 pr-12 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                        />
-                        <MicPlaceholderButton />
-                      </View>
-                    )}
-                  </View>
-
-                  <View className="gap-1">
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">City</Text>
-                    <View className="relative">
-                      <TextInput
-                        value={profile.locationCity}
-                        onChangeText={(text) => {
-                          setProfile((p) => ({ ...p, locationCity: text, locationLat: null, locationLng: null }));
-                          setLocationError(null);
-                        }}
-                        placeholder="City"
-                        placeholderTextColor={MUTED_ICON_COLOR}
-                        className="rounded-xl border border-stone-300 px-3 py-2 pr-12 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                      />
-                      <MicPlaceholderButton />
-                    </View>
-                  </View>
-                </>
-              ) : (
-                <View className="gap-1">
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">Zip code</Text>
-                  <TextInput
-                    value={locationZip}
-                    onChangeText={(text) => {
-                      setLocationZip(text);
-                      setProfile((p) => ({ ...p, locationLat: null, locationLng: null }));
-                      setLocationError(null);
-                    }}
-                    placeholder="Zip code"
-                    keyboardType="number-pad"
-                    placeholderTextColor={MUTED_ICON_COLOR}
-                    className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                  />
-                </View>
-              )}
 
               <Pressable
                 onPress={confirmLocation}
-                disabled={geocoding || (locationEntryMode === 'zip' ? !locationZip.trim() : !profile.locationCity.trim())}
+                disabled={geocoding || locationZip.length !== 5}
                 className={`items-center rounded-full border border-stone-300 px-4 py-3 dark:border-stone-700 ${
-                  geocoding || (locationEntryMode === 'zip' ? !locationZip.trim() : !profile.locationCity.trim())
-                    ? 'opacity-40'
-                    : ''
+                  geocoding || locationZip.length !== 5 ? 'opacity-40' : ''
                 }`}>
                 {geocoding ? (
                   <ActivityIndicator color={MUTED_ICON_COLOR} />
@@ -972,7 +881,7 @@ export default function ProfileBuildScreen() {
               )}
               {profile.locationLat && profile.locationLng && !locationError && (
                 <Text className="text-caption text-accent-500">
-                  Location confirmed: {[profile.locationCity, profile.locationState].filter(Boolean).join(', ')}
+                  Found: {[profile.locationCity, profile.locationState].filter(Boolean).join(', ')}
                 </Text>
               )}
 
@@ -1217,19 +1126,6 @@ export default function ProfileBuildScreen() {
 
           {(isEditMode || step === STEP_HANGOUT_STYLE) && (
           <>
-          <Section title="How you like to hang out with a new friend" subtitle="Required for matching. One that best fits">
-            <View className="flex-row flex-wrap gap-2">
-              {HANGOUT_PEOPLE.map((option) => (
-                <Chip
-                  key={option}
-                  label={option}
-                  selected={profile.hangoutPeoplePreference === option}
-                  onPress={() => updateAndSave({ hangoutPeoplePreference: option })}
-                />
-              ))}
-            </View>
-          </Section>
-
           <Section title="How you like to hang out" subtitle="Required for matching. Choose all that apply">
             <View className="flex-row flex-wrap gap-2">
               {HANGOUT_TYPES.map((option) => (
@@ -1249,17 +1145,41 @@ export default function ProfileBuildScreen() {
           <>
           <Section
             title="What kind of friendship are you hoping to build?"
-            subtitle="Required for matching. One that best fits">
-            <View className="flex-row flex-wrap gap-2">
-              {FRIENDSHIP_TYPE_OPTIONS.map((option) => (
-                <Chip
-                  key={option}
-                  label={option}
-                  selected={profile.friendshipType === option}
-                  onPress={() => updateAndSave({ friendshipType: option })}
-                />
-              ))}
+            subtitle={`Required for matching. Choose up to ${MAX_FRIENDSHIP_TYPES}. ${profile.friendshipTypes.length} of ${MAX_FRIENDSHIP_TYPES} selected`}>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              Limen introduces you to one person at a time, and first meetups are one on one.
+            </Text>
+            <View className="gap-2">
+              {FRIENDSHIP_TYPE_OPTIONS.map((option) => {
+                const selected = profile.friendshipTypes.includes(option);
+                return (
+                  <Pressable
+                    key={option}
+                    onPress={() => toggleFriendshipType(option)}
+                    className={`gap-0.5 rounded-2xl border p-3 ${
+                      selected
+                        ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50'
+                        : 'border-stone-300 dark:border-stone-700'
+                    }`}>
+                    <Text
+                      className={`text-body font-medium ${
+                        selected ? 'text-stone-50 dark:text-stone-900' : 'text-stone-900 dark:text-stone-50'
+                      }`}>
+                      {option}
+                    </Text>
+                    <Text
+                      className={`text-caption ${
+                        selected ? 'text-stone-300 dark:text-stone-600' : 'text-stone-500 dark:text-stone-400'
+                      }`}>
+                      {FRIENDSHIP_TYPE_DESCRIPTIONS[option]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
+            {friendshipTypeNotice && (
+              <Text className="text-caption text-amber-600 dark:text-amber-400">{friendshipTypeNotice}</Text>
+            )}
           </Section>
 
           <Section title="How often you like to meet up" subtitle="Required for matching">
@@ -1432,6 +1352,7 @@ export default function ProfileBuildScreen() {
                 )}
               </Pressable>
             </View>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">{PHOTO_RULES_TEXT}</Text>
             {/* Trust and safety gate: a profile with no photo cannot
                 appear in Discover or Browse at all (enforced server-side,
                 discovery_profiles/browse_profiles both require

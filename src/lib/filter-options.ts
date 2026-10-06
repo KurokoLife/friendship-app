@@ -159,14 +159,22 @@ export const LANGUAGE_OPTIONS = [
   'Other',
 ];
 
-// Fix 2e: friendship type, single select, required for matching.
+// What kind of friendship (2026-10-05): pick up to 2. "A social circle"
+// was removed, Limen introduces one person at a time. Stored as
+// profiles.friendship_types (text[]); friendship_type keeps the first pick.
+export const MAX_FRIENDSHIP_TYPES = 2;
 export const FRIENDSHIP_TYPE_OPTIONS = [
   'Deep 1-on-1 connection',
   'Activity partner',
   'Someone to navigate this life stage with',
-  'A social circle',
   'Open to whatever forms naturally',
 ];
+export const FRIENDSHIP_TYPE_DESCRIPTIONS: Record<string, string> = {
+  'Deep 1-on-1 connection': 'Long talks, someone who really knows you.',
+  'Activity partner': 'Someone to do things with: hikes, games, shows, classes.',
+  'Someone to navigate this life stage with': 'A friend who gets what you are going through right now.',
+  'Open to whatever forms naturally': 'No set shape, see where it goes.',
+};
 
 // Fix 2f: communication style, two required scenario questions. Each
 // option here is the short, storable label; the fuller description (the

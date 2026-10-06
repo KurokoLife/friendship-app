@@ -122,6 +122,7 @@ type Candidate = {
   personal_statement: string | null;
   languages: string[] | null;
   friendship_type: string | null;
+  friendship_types?: string[] | null;
   communication_style_openness: string | null;
   location_city: string | null;
   distance_miles: number | null;
@@ -154,6 +155,7 @@ type Viewer = {
   dealbreakers: string | null;
   languages: string[] | null;
   friendship_type: string | null;
+  friendship_types?: string[] | null;
   communication_style_openness: string | null;
 }
 
@@ -176,7 +178,6 @@ function sharedActivityCategories(viewer: Viewer, candidate: Candidate): string[
 // filter-options.ts's own HANGOUT_PEOPLE and MEETING_FREQ exactly. Deno
 // edge functions can't import from src/lib, duplicated here rather than
 // shared, kept in sync by hand.
-const HANGOUT_PEOPLE_ORDER = ['1-on-1', 'Small group (3-5)', 'Big group (6+)'];
 const MEETING_FREQ_ORDER = ['Weekly', 'A few times a week', 'Every 2 weeks', 'Monthly', 'Every few months'];
 // hangout_type_preference's selection cap was removed entirely (2026-07-16,
 // see filter-options.ts's HANGOUT_TYPES), so the scaling below is now
@@ -217,22 +218,14 @@ function valuesScore(viewer: Viewer, candidate: Candidate): number {
   return 0;
 }
 
-// 4. Hangout style compatibility, 10 points max (was 15, split evenly
-// 5/5 between people preference and type overlap instead of 8/7).
+// 4. Hangout style compatibility, 10 points max, from shared hangout
+// types only. 2026-10-05: the group-size question (1-on-1 / small / big
+// group) was removed. Limen introduces one person at a time and first
+// meetups are one on one, so group size is the premise, not a preference.
 function hangoutScore(viewer: Viewer, candidate: Candidate): number {
-  let score = 0;
-  if (viewer.hangout_people_preference && candidate.hangout_people_preference) {
-    const vi = HANGOUT_PEOPLE_ORDER.indexOf(viewer.hangout_people_preference);
-    const ci = HANGOUT_PEOPLE_ORDER.indexOf(candidate.hangout_people_preference);
-    if (vi >= 0 && ci >= 0) {
-      const dist = Math.abs(vi - ci);
-      score += dist === 0 ? 5 : dist === 1 ? 2.5 : 0;
-    }
-  }
   const viewerTypes = new Set(viewer.hangout_type_preference ?? []);
   const sharedTypes = (candidate.hangout_type_preference ?? []).filter((t) => viewerTypes.has(t));
-  score += Math.min(5, sharedTypes.length * (5 / TOTAL_HANGOUT_TYPES));
-  return score;
+  return Math.min(10, sharedTypes.length * (10 / TOTAL_HANGOUT_TYPES) * 2);
 }
 
 // 5 (new). Friendship type compatibility, 10 points max: exact match = 10,
@@ -245,19 +238,27 @@ function hangoutScore(viewer: Viewer, candidate: Candidate): number {
 // commitment/more group-oriented. Worth revisiting if it feels off in
 // practice, same caveat this app already applies to its other hand-picked
 // heuristics.
+// 2026-10-05: people pick up to 2 friendship types (friendship_types).
+// "A social circle" was removed (Limen is one person at a time). Older
+// profiles only have the single friendship_type, used as a fallback.
 const FRIENDSHIP_TYPE_COMPATIBLE_GROUPS: string[][] = [
   ['Deep 1-on-1 connection', 'Someone to navigate this life stage with'],
-  ['Activity partner', 'A social circle'],
 ];
+const OPEN_FRIENDSHIP_TYPE = 'Open to whatever forms naturally';
+
+function friendshipTypesOf(person: { friendship_type: string | null; friendship_types?: string[] | null }): string[] {
+  if (person.friendship_types && person.friendship_types.length > 0) return person.friendship_types;
+  return person.friendship_type ? [person.friendship_type] : [];
+}
 
 function friendshipTypeScore(viewer: Viewer, candidate: Candidate): number {
-  if (!viewer.friendship_type || !candidate.friendship_type) return 0;
-  if (viewer.friendship_type === candidate.friendship_type) return 10;
-  if (viewer.friendship_type === 'Open to whatever forms naturally' || candidate.friendship_type === 'Open to whatever forms naturally') {
-    return 5;
-  }
+  const mine = friendshipTypesOf(viewer);
+  const theirs = friendshipTypesOf(candidate);
+  if (mine.length === 0 || theirs.length === 0) return 0;
+  if (mine.some((t) => theirs.includes(t))) return 10;
+  if (mine.includes(OPEN_FRIENDSHIP_TYPE) || theirs.includes(OPEN_FRIENDSHIP_TYPE)) return 5;
   const compatible = FRIENDSHIP_TYPE_COMPATIBLE_GROUPS.some(
-    (group) => group.includes(viewer.friendship_type!) && group.includes(candidate.friendship_type!)
+    (group) => mine.some((t) => group.includes(t)) && theirs.some((t) => group.includes(t))
   );
   return compatible ? 5 : 0;
 }
@@ -476,12 +477,6 @@ function fallbackReasoning(viewer: Viewer, candidate: Candidate): string {
   const rhythmMatches: string[] = [];
   if (viewer.meeting_freq && viewer.meeting_freq === candidate.meeting_freq) {
     rhythmMatches.push(`you both tend to want to meet up ${candidate.meeting_freq.toLowerCase()}`);
-  }
-  if (
-    viewer.hangout_people_preference &&
-    viewer.hangout_people_preference === candidate.hangout_people_preference
-  ) {
-    rhythmMatches.push(`you both prefer ${candidate.hangout_people_preference.toLowerCase()} hangouts`);
   }
   if (rhythmMatches.length > 0) {
     sentences.push(`Your rhythms line up too, ${rhythmMatches.join(', and ')}.`);
@@ -764,6 +759,7 @@ const EMPTY_VIEWER: Viewer = {
   dealbreakers: null,
   languages: null,
   friendship_type: null,
+  friendship_types: null,
   communication_style_openness: null,
 };
 
@@ -811,7 +807,7 @@ async function runBatchRefresh(): Promise<{ usersProcessed: number }> {
         supabase
           .from('profiles')
           .select(
-            'display_name, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, dealbreakers, languages, friendship_type, communication_style_openness'
+            'display_name, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, dealbreakers, languages, friendship_type, friendship_types, communication_style_openness'
           )
           .eq('user_id', u.id)
           .maybeSingle(),
@@ -943,7 +939,7 @@ Deno.serve(async (req: Request) => {
   const { data: viewerRows } = await supabase
     .from('profiles')
     .select(
-      'display_name, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, dealbreakers, languages, friendship_type, communication_style_openness'
+      'display_name, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, dealbreakers, languages, friendship_type, friendship_types, communication_style_openness'
     )
     .eq('user_id', user.id)
     .maybeSingle();
