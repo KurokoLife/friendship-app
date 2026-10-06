@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -75,6 +75,10 @@ function OptionButton({
 }
 
 export default function GenderIdentityScreen() {
+  // ?from=profile: opened from Edit profile. Loads current answers, and
+  // Back / Done return to Edit profile instead of continuing sign-up.
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const isEditMode = from === 'profile';
   const [step, setStep] = useState(0);
   const [gender, setGender] = useState<string | null>(null);
   const [meet, setMeet] = useState<string[]>([]);
@@ -82,6 +86,24 @@ export default function GenderIdentityScreen() {
   const [maxFriendAge, setMaxFriendAge] = useState(String(MAX_AGE));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEditMode) return;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const [{ data: userRow }, { data: profile }] = await Promise.all([
+        supabase.from('users').select('gender_identity, meet_genders').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('min_friend_age, max_friend_age').eq('user_id', user.id).maybeSingle(),
+      ]);
+      if (userRow?.gender_identity) setGender(userRow.gender_identity);
+      if (userRow?.meet_genders) setMeet(userRow.meet_genders as string[]);
+      if (profile?.min_friend_age != null) setMinFriendAge(String(profile.min_friend_age));
+      if (profile?.max_friend_age != null) setMaxFriendAge(String(profile.max_friend_age));
+    })();
+  }, [isEditMode]);
 
   const canContinue =
     step === 0 ? gender !== null : meet.length > 0 && minFriendAge.trim() !== '' && maxFriendAge.trim() !== '';
@@ -100,7 +122,8 @@ export default function GenderIdentityScreen() {
   const handleBack = () => {
     setError(null);
     if (step === 0) {
-      router.replace('/account-recovery');
+      if (isEditMode) router.back();
+      else router.replace('/account-recovery');
       return;
     }
     setStep(0);
@@ -158,7 +181,8 @@ export default function GenderIdentityScreen() {
       return;
     }
 
-    router.replace('/profile-build');
+    if (isEditMode) router.back();
+    else router.replace('/profile-build');
   };
 
   return (

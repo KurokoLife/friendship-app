@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { decode } from 'base64-arraybuffer';
 import { PHOTO_RULES_TEXT, pickProfilePhoto } from '@/lib/photo-picker';
+import { ProfileBasicsCard } from '@/components/profile-basics-card';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -837,6 +838,8 @@ export default function ProfileBuildScreen() {
               {completionPct}% complete. {completionMessage(completionPct)}
             </Text>
           </View>
+
+          {isEditMode && <ProfileBasicsCard />}
 
           {(isEditMode || step === STEP_LOCATION) && (
           <Section title="Where you're based" subtitle="Required. Used to find people near you">

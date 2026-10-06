@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { WebCamera } from '@/components/web-camera';
 import { fetchSelfieState, randomSelfiePose, submitSelfieCheck, type SelfieState } from '@/lib/safety';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -27,6 +28,7 @@ export default function SelfieCheckScreen() {
   const [preview, setPreview] = useState<{ uri: string; base64: string; ext: string } | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [webCameraOpen, setWebCameraOpen] = useState(false);
 
   useEffect(() => {
     fetchSelfieState().then(setState);
@@ -40,14 +42,17 @@ export default function SelfieCheckScreen() {
 
   const takeSelfie = async () => {
     setError(null);
-    // On the web preview there is no camera API, the browser offers a file
-    // or camera chooser instead.
-    if (Platform.OS !== 'web') {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        setError('We need camera access to take your selfie. You can allow it in your phone settings.');
-        return;
-      }
+    // Web: a live camera in the page (WebCamera), never a file chooser,
+    // so a saved photo can't be uploaded instead of a new selfie.
+    if (Platform.OS === 'web') {
+      setPreview(null);
+      setWebCameraOpen(true);
+      return;
+    }
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setError('We need camera access to take your selfie. You can allow it in your phone settings.');
+      return;
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
@@ -130,7 +135,17 @@ export default function SelfieCheckScreen() {
                 </Pressable>
               </View>
 
-              {preview && (
+              {webCameraOpen && (
+                <WebCamera
+                  onCancel={() => setWebCameraOpen(false)}
+                  onCapture={(shot) => {
+                    setWebCameraOpen(false);
+                    setPreview(shot);
+                  }}
+                />
+              )}
+
+              {preview && !webCameraOpen && (
                 <Image source={{ uri: preview.uri }} className="h-64 w-48 self-center rounded-2xl" />
               )}
 
@@ -157,7 +172,7 @@ export default function SelfieCheckScreen() {
         </ScrollView>
 
         <View className="gap-2 pt-4">
-          {!state.verified && state.status !== 'pending' && (
+          {!state.verified && state.status !== 'pending' && !webCameraOpen && (
             <>
               <Pressable
                 onPress={preview ? send : takeSelfie}

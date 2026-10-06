@@ -11,8 +11,10 @@
 // depending on city-name strings being formatted identically.
 export function formatDistance(distanceMiles: number | null, locationCity: string | null): string | null {
   if (distanceMiles !== null && distanceMiles !== undefined) {
-    if (distanceMiles < 1) return 'Nearby';
-    return `${Math.round(distanceMiles)} miles away`;
+    // 2026-10-06: the city is shown next to the distance, so people can
+    // tell where someone actually is, not just how far.
+    const distance = distanceMiles < 1 ? 'Nearby' : `${Math.round(distanceMiles)} miles away`;
+    return locationCity ? `${distance} · ${locationCity}` : distance;
   }
   // Distance couldn't be computed (the viewer or candidate lacks a real
   // geocode), fall back to showing the candidate's own city name if they

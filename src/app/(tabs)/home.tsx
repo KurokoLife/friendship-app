@@ -43,6 +43,7 @@ type Suggestion = {
   humanDetail: string | null;
   locationCity: string | null;
   distanceMiles: number | null;
+  selfieVerified?: boolean;
 };
 
 type ConnectionStatus = 'pending' | 'active' | 'passed';
@@ -188,11 +189,11 @@ export default function HomeScreen() {
       const candidateIds = cachedRows.map((r) => r.candidate_id);
       const { data: candidateProfiles } = await supabase
         .from('discovery_profiles')
-        .select('user_id, display_name, age_band, life_transitions, location_city, distance_miles')
+        .select('user_id, display_name, age_band, life_transitions, location_city, distance_miles, selfie_verified')
         .in('user_id', candidateIds);
 
       const visible = cachedRows
-        .map((row) => {
+        .map((row): Suggestion | null => {
           const profile = candidateProfiles?.find((p) => p.user_id === row.candidate_id);
           if (!profile) return null;
           return {
@@ -204,6 +205,7 @@ export default function HomeScreen() {
             humanDetail: row.human_detail ?? null,
             locationCity: profile.location_city,
             distanceMiles: profile.distance_miles,
+            selfieVerified: Boolean(profile.selfie_verified),
           };
         })
         .filter((s): s is Suggestion => s !== null)
@@ -229,10 +231,19 @@ export default function HomeScreen() {
       return;
     }
 
-    const visible = ((fnData?.suggestions ?? []) as Suggestion[]).filter(
+    const fresh = ((fnData?.suggestions ?? []) as Suggestion[]).filter(
       (s) => stateMap[s.userId]?.status !== 'passed'
     );
-    setSuggestions(visible);
+    // The suggestion function doesn't return the verified flag; look it up.
+    let verifiedIds = new Set<string>();
+    if (fresh.length > 0) {
+      const { data: flags } = await supabase
+        .from('discovery_profiles')
+        .select('user_id, selfie_verified')
+        .in('user_id', fresh.map((s) => s.userId));
+      verifiedIds = new Set((flags ?? []).filter((f) => f.selfie_verified).map((f) => f.user_id as string));
+    }
+    setSuggestions(fresh.map((s) => ({ ...s, selfieVerified: verifiedIds.has(s.userId) })));
     setCapReached(Boolean(fnData?.capReached));
     setAiCredits(typeof fnData?.aiCredits === 'number' ? fnData.aiCredits : 0);
   }, []);
@@ -411,17 +422,23 @@ export default function HomeScreen() {
                     router.push({ pathname: '/candidate/[id]', params: { id: s.userId } })
                   }>
                   <View className="gap-3">
-                    <View className="flex-row items-baseline gap-2">
+                    <View className="flex-row flex-wrap items-center gap-2">
                       <Text className="text-title text-stone-900 dark:text-stone-50">
                         {s.displayName ?? 'A member'}
                         {s.ageBand ? `, ${s.ageBand}` : ''}
                       </Text>
+                      {s.selfieVerified && (
+                        <View className="flex-row items-center gap-1 rounded-full border border-accent-500 px-2 py-0.5">
+                          <Ionicons name="checkmark-circle" size={12} color="#B5643B" />
+                          <Text className="text-caption text-accent-500">Photo verified</Text>
+                        </View>
+                      )}
                     </View>
                     {fragment && (
                       <Text className="text-caption text-accent-500">{fragment}</Text>
                     )}
                     {distanceLabel && (
-                      <Text className="text-caption text-stone-400 dark:text-stone-600">
+                      <Text className="text-caption text-stone-500 dark:text-stone-400">
                         {distanceLabel}
                       </Text>
                     )}
