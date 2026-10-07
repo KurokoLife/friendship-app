@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type CoachMarkKey, resetCoachMark, resetCoachMarks } from '@/lib/coach-marks';
@@ -164,7 +164,19 @@ export default function DevScreen() {
     }, [loadConversations])
   );
 
-  if (!testTools.allowed) return null;
+  if (!testTools.allowed) {
+    return (
+      <View className="flex-1 items-center justify-center bg-stone-50 px-6 dark:bg-stone-900">
+        {testTools.checked ? (
+          <Text className="text-center text-body text-stone-500 dark:text-stone-400">
+            Test tools are only available to admins.
+          </Text>
+        ) : (
+          <ActivityIndicator color="#a8a29e" />
+        )}
+      </View>
+    );
+  }
 
   const handleSwitch = async (phone: string) => {
     setSigningInAs(phone);

@@ -92,36 +92,49 @@ export async function returnToMyAccount(): Promise<{ error: string | null }> {
 
 // Who may see the Test tab: developers running locally, admins, and an
 // admin who is currently acting as a test account.
-export function useTestTools(): { allowed: boolean; actingAs: string | null } {
-  const [allowed, setAllowed] = useState<boolean>(__DEV__);
-  const [actingAs, setActingAs] = useState<string | null>(null);
+//
+// One shared state for every screen that asks (the tab bar, the Test
+// screen, the banner), refreshed on each sign-in change. Uses the locally
+// stored session (getSession) rather than a network call, and a sequence
+// number so an older, slower check can never overwrite a newer one.
+type TestToolsState = { allowed: boolean; actingAs: string | null; checked: boolean };
+let sharedState: TestToolsState = { allowed: __DEV__, actingAs: null, checked: false };
+const listeners = new Set<(s: TestToolsState) => void>();
+let refreshSeq = 0;
+let authSubscribed = false;
+
+async function refreshTestTools() {
+  const seq = ++refreshSeq;
+  const acting = await getActingAs();
+  let isAdmin = false;
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
+  if (userId) {
+    const { data: row } = await supabase.from('users').select('is_admin').eq('id', userId).maybeSingle();
+    isAdmin = Boolean(row?.is_admin);
+  }
+  if (seq !== refreshSeq) return;
+  sharedState = { allowed: __DEV__ || isAdmin || Boolean(acting), actingAs: acting, checked: true };
+  listeners.forEach((l) => l(sharedState));
+}
+
+export function useTestTools(): TestToolsState {
+  const [state, setState] = useState<TestToolsState>(sharedState);
 
   useEffect(() => {
-    let alive = true;
-    const refresh = async () => {
-      const acting = await getActingAs();
-      let isAdmin = false;
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('users').select('is_admin').eq('id', user.id).maybeSingle();
-        isAdmin = Boolean(data?.is_admin);
-      }
-      if (!alive) return;
-      setActingAs(acting);
-      setAllowed(__DEV__ || isAdmin || Boolean(acting));
-    };
-    refresh();
-    // setTimeout: supabase calls must not run inside the auth callback itself.
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      setTimeout(refresh, 0);
-    });
+    listeners.add(setState);
+    if (!authSubscribed) {
+      authSubscribed = true;
+      // setTimeout: supabase calls must not run inside the auth callback itself.
+      supabase.auth.onAuthStateChange(() => {
+        setTimeout(refreshTestTools, 0);
+      });
+    }
+    refreshTestTools();
     return () => {
-      alive = false;
-      sub.subscription.unsubscribe();
+      listeners.delete(setState);
     };
   }, []);
 
-  return { allowed, actingAs };
+  return state;
 }
