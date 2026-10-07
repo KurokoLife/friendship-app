@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { SpotlightHost } from '@/components/spotlight-host';
+import { TestModeBanner } from '@/components/test-mode-banner';
 import { initAnalytics } from '@/lib/analytics';
 import { clearCoachMarksCache } from '@/lib/coach-marks';
 import { recordActiveDayIfSignedIn } from '@/lib/referral';
@@ -85,6 +86,7 @@ export default function RootLayout() {
         <AnimatedSplashOverlay />
         <Stack screenOptions={{ headerShown: false }} />
         <SpotlightHost />
+        <TestModeBanner />
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 
 // Dev-only account switcher (src/app/(tabs)/dev.tsx). Signs in as one of
 // the accounts from supabase/seed/seed-test-profiles.sql, plus Elena
@@ -19,7 +18,9 @@ import { supabase } from '@/lib/supabase';
 // writeup) to get a one-time token via Supabase's officially supported
 // magic-link mechanism, then exchanges it here with verifyOtp, exactly
 // the same client-side call a real magic-link flow would make.
-const DEV_SESSION_SECRET = '2c1cc374d7a5291b9c7e564eb867850fcfbaef8845c87a90';
+// 2026-10-07: the shared secret is gone from the app. dev-create-session
+// now checks on the server that the caller is signed in as an admin or as
+// a test account (see src/lib/test-mode.ts).
 
 export const DEV_SEED_USERS = [
   { phone: '+15555500101', displayName: 'Maria Santos' },
@@ -34,27 +35,8 @@ export const DEV_SEED_USERS = [
 ];
 
 export async function devSignInAs(phone: string): Promise<{ error: { message: string } | null }> {
-  await supabase.auth.signOut();
-
-  const { data, error: fnError } = await supabase.functions.invoke('dev-create-session', {
-    body: { phone },
-    headers: { 'x-dev-secret': DEV_SESSION_SECRET },
-  });
-
-  if (fnError) {
-    return { error: { message: fnError.message ?? 'Could not reach dev-create-session.' } };
-  }
-  if (!data?.tokenHash) {
-    return { error: { message: data?.error ?? 'dev-create-session did not return a session token.' } };
-  }
-
-  const { error: verifyError } = await supabase.auth.verifyOtp({
-    type: 'magiclink',
-    token_hash: data.tokenHash,
-  });
-
-  if (verifyError) {
-    return { error: { message: verifyError.message } };
-  }
-  return { error: null };
+  // Lazy import avoids a circular import (test-mode imports this file).
+  const { actAsTestAccount } = await import('@/lib/test-mode');
+  const { error } = await actAsTestAccount(phone);
+  return { error: error ? { message: error } : null };
 }

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type CoachMarkKey, resetCoachMark, resetCoachMarks } from '@/lib/coach-marks';
 import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
+import { returnToMyAccount, useTestTools } from '@/lib/test-mode';
 import { type GraduationEligibility, shouldShowGraduationPrompt } from '@/lib/graduation';
 import { type NoGhostTriggerId } from '@/lib/no-ghost';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -86,6 +87,8 @@ const NO_GHOST_TRIGGERS: NoGhostTrigger[] = [
 // independent guard so a direct deep link to /dev in a real build still
 // renders nothing.
 export default function DevScreen() {
+  const testTools = useTestTools();
+  const [freshStatus, setFreshStatus] = useState<string | null>(null);
   const [signingInAs, setSigningInAs] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<DevConversation[]>([]);
@@ -161,7 +164,7 @@ export default function DevScreen() {
     }, [loadConversations])
   );
 
-  if (!__DEV__) return null;
+  if (!testTools.allowed) return null;
 
   const handleSwitch = async (phone: string) => {
     setSigningInAs(phone);
@@ -906,14 +909,71 @@ export default function DevScreen() {
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerClassName="gap-4 px-6 pb-10 pt-10">
           <View className="gap-2">
-            <Text className="text-display text-stone-900 dark:text-stone-50">Dev</Text>
+            <Text className="text-display text-stone-900 dark:text-stone-50">Test tools</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              Sign in as a seed test account. Requires
-              supabase/seed/seed-dev-passwords.sql to have been run in Studio first.
+              Only admins see this tab. Act as one of the fake test accounts to try the other side of
+              a conversation, then come back to your own account.
             </Text>
           </View>
 
+          {testTools.actingAs && (
+            <View className="gap-2 rounded-2xl border border-accent-500 bg-accent-500/10 p-4">
+              <Text className="text-body text-stone-900 dark:text-stone-50">
+                You are testing as {testTools.actingAs}.
+              </Text>
+              <Pressable
+                onPress={async () => {
+                  const { error: backError } = await returnToMyAccount();
+                  if (backError) setError(backError);
+                  else router.replace('/home');
+                }}
+                className="self-start rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
+                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Back to my account</Text>
+              </Pressable>
+            </View>
+          )}
+
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+
+          <View className="gap-2">
+            <Pressable
+              onPress={async () => {
+                setFreshStatus('Clearing...');
+                const { data, error: rpcError } = await supabase.rpc('dev_clear_my_suggestions');
+                setFreshStatus(
+                  rpcError
+                    ? `Could not clear: ${rpcError.message}`
+                    : `Cleared ${data ?? 0} suggestion(s). Open Discover to get new ones.`
+                );
+              }}
+              className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
+                Get fresh suggestions for this account
+              </Text>
+            </Pressable>
+            {freshStatus && <Text className="text-caption text-stone-500 dark:text-stone-400">{freshStatus}</Text>}
+          </View>
+
+          <View className="gap-2">
+            <Text className="text-title text-stone-900 dark:text-stone-50">Act as a test account</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {DEV_SEED_USERS.map((u) => (
+                <Pressable
+                  key={u.phone}
+                  onPress={() => handleSwitch(u.phone)}
+                  disabled={signingInAs !== null}
+                  className={`rounded-full border px-4 py-2 ${
+                    testTools.actingAs === u.displayName
+                      ? 'border-accent-500 bg-accent-500/10'
+                      : 'border-stone-300 dark:border-stone-700'
+                  }`}>
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
+                    {signingInAs === u.phone ? 'Switching...' : u.displayName}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
           <View className="gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
             <View className="gap-1">
@@ -983,19 +1043,6 @@ export default function DevScreen() {
             </View>
           </View>
 
-          <View className="gap-2">
-            {DEV_SEED_USERS.map((u) => (
-              <Pressable
-                key={u.phone}
-                onPress={() => handleSwitch(u.phone)}
-                disabled={signingInAs === u.phone}
-                className="rounded-2xl border border-stone-200 bg-white p-4 active:opacity-70 dark:border-stone-700 dark:bg-stone-800">
-                <Text className="text-body text-stone-900 dark:text-stone-50">
-                  {signingInAs === u.phone ? 'Signing in...' : u.displayName}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
 
           <View className="gap-2 border-t border-stone-200 pt-6 dark:border-stone-800">
             <Text className="text-title text-stone-900 dark:text-stone-50">Safety testing</Text>

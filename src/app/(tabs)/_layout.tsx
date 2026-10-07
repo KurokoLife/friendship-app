@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import { SpotlightTarget } from '@/components/spotlight-target';
+import { useTestTools } from '@/lib/test-mode';
 
 const ACCENT_COLOR = '#B5643B'; // accent-500
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -19,6 +20,7 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { allowed: showTestTab } = useTestTools();
 
   return (
     <Tabs
@@ -103,9 +105,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="dev"
         options={
-          __DEV__
+          showTestTab
             ? {
-                title: 'Dev',
+                title: 'Test',
                 tabBarIcon: ({ color, size }) => (
                   <Ionicons name="build-outline" size={size} color={color} />
                 ),

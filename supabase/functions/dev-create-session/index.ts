@@ -47,6 +47,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const DEV_SESSION_SECRET = Deno.env.get('DEV_SESSION_SECRET');
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -115,8 +116,35 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
-  if (!DEV_SESSION_SECRET || req.headers.get('x-dev-secret') !== DEV_SESSION_SECRET) {
-    return jsonResponse({ error: 'Not authorized' }, 403);
+  // 2026-10-07: who may ask. Either the old shared secret (local scripts),
+  // or a signed-in caller who is an admin (users.is_admin) or is already
+  // one of the test accounts (switching between test accounts). The app
+  // no longer ships the secret, so on the live site only admins can start.
+  const secretOk = Boolean(DEV_SESSION_SECRET) && req.headers.get('x-dev-secret') === DEV_SESSION_SECRET;
+  if (!secretOk) {
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const {
+      data: { user: caller },
+    } = await callerClient.auth.getUser();
+    if (!caller) {
+      return jsonResponse({ error: 'Sign in as an admin first.' }, 403);
+    }
+    const callerIsSeed = Boolean(caller.phone && ALLOWED_SEED_PHONES.has(`+${caller.phone.replace(/^\+/, '')}`));
+    let callerIsAdmin = false;
+    if (!callerIsSeed) {
+      const service = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: row } = await service.from('users').select('is_admin').eq('id', caller.id).maybeSingle();
+      callerIsAdmin = Boolean(row?.is_admin);
+    }
+    if (!callerIsSeed && !callerIsAdmin) {
+      return jsonResponse({ error: 'Only admins can use test accounts.' }, 403);
+    }
   }
 
   let body: { phone?: string };
