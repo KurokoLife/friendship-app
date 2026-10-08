@@ -12,19 +12,24 @@ export function TestModeBanner() {
   if (!actingAs) return null;
 
   return (
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 72, alignItems: 'center', pointerEvents: 'box-none' }}>
-      <View className="flex-row items-center gap-3 rounded-full bg-accent-500 px-4 py-2 shadow">
+    // At the top of the screen (2026-10-08): at the bottom it sat exactly
+    // where first-time tips appear above the tab bar, and a tip could cover
+    // the "Back to my account" button.
+    <View style={{ position: 'absolute', left: 0, right: 0, top: 6, alignItems: 'center', pointerEvents: 'box-none', zIndex: 1000 }}>
+      <View className="flex-row items-center gap-2 rounded-full bg-accent-500 py-1 pl-3 pr-1 shadow">
         <Text className="text-caption font-semibold text-white">Testing as {actingAs}</Text>
         <Pressable
           disabled={busy}
           onPress={async () => {
             setBusy(true);
-            await returnToMyAccount();
+            const { error } = await returnToMyAccount();
             setBusy(false);
-            router.replace('/home');
+            // If the saved session couldn't be restored, go to the start so
+            // the person can sign in, instead of a blank Home.
+            router.replace(error ? '/' : '/home');
           }}
           className="rounded-full bg-white px-3 py-1">
-          <Text className="text-caption font-semibold text-accent-500">{busy ? 'Switching...' : 'Back to my account'}</Text>
+          <Text className="text-caption font-semibold text-accent-500">{busy ? 'Switching...' : 'Back to me'}</Text>
         </Pressable>
       </View>
     </View>

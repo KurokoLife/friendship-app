@@ -5,6 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import {
   cancelMeetup,
   confirmMeetup,
+  dismissIntervention,
   pauseConnectionWithDuration,
   proposeMeetupDateResolution,
   reportMeetupOccurrence,
@@ -18,12 +19,14 @@ import {
   type ActiveIntervention,
   type MeetupCancellationReason,
   type PauseDuration,
+  type PostMeetupReflectionResponse,
 } from '@/lib/friendship-journey';
 import { supabase } from '@/lib/supabase';
 import { formatMeetupTime, formatWhen } from '@/lib/meetup-format';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { UniversalTextBox } from '@/components/universal-text-box';
+import { nameThenPeriod } from '@/lib/names';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -77,13 +80,39 @@ export function PrimaryInterventionCard({
 }: Props) {
   switch (intervention.intervention_type) {
     case 'no_ghost_r1':
-      return <NoGhostR1 connectionId={connectionId} onResolved={onResolved} />;
+      return <NoGhostR1 connectionId={connectionId} intervention={intervention} otherName={otherName} onResolved={onResolved} />;
     case 'no_ghost_r2':
-      return <NoGhostR2R3 connectionId={connectionId} intervention={intervention} escalation="perspective" onResolved={onResolved} />;
+      return (
+        <NoGhostR2R3
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          escalation="perspective"
+          onResolved={onResolved}
+          onEndConnection={onEndConnection}
+        />
+      );
     case 'no_ghost_r3':
-      return <NoGhostR2R3 connectionId={connectionId} intervention={intervention} escalation="accountability" onResolved={onResolved} />;
+      return (
+        <NoGhostR2R3
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          escalation="accountability"
+          onResolved={onResolved}
+          onEndConnection={onEndConnection}
+        />
+      );
     case 'no_ghost_s1':
-      return <NoGhostS1 connectionId={connectionId} onResolved={onResolved} />;
+      return (
+        <NoGhostS1
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          onResolved={onResolved}
+          onEndConnection={onEndConnection}
+        />
+      );
     case 'meetup_confirm_needed':
       return <MeetupConfirmNeeded intervention={intervention} otherName={otherName} onResolved={onResolved} />;
     case 'meetup_still_on':
@@ -121,13 +150,36 @@ export function PrimaryInterventionCard({
         />
       );
     case 'post_meetup_reflection':
-      return <PostMeetupReflectionPrompt intervention={intervention} otherName={otherName} onResolved={onResolved} />;
+      return (
+        <PostMeetupReflectionPrompt
+          intervention={intervention}
+          otherName={otherName}
+          onResolved={onResolved}
+          onPlanNext={onRequestPlanEditor ? () => onRequestPlanEditor('change') : undefined}
+          onEndConnection={onEndConnection}
+        />
+      );
     case 'second_look_prompt':
       return <SecondLookPrompt connectionId={connectionId} otherName={otherName} onResolved={onResolved} />;
     case 'conversation_restart_prompt':
-      return <ConversationRestartPrompt onResolved={onResolved} />;
+      return (
+        <ConversationRestartPrompt
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          onResolved={onResolved}
+          onEndConnection={onEndConnection}
+        />
+      );
     case 'rhythm_reminder':
-      return <RhythmReminder connectionId={connectionId} intervention={intervention} onResolved={onResolved} />;
+      return (
+        <RhythmReminder
+          connectionId={connectionId}
+          intervention={intervention}
+          onResolved={onResolved}
+          onPlanMeetup={onRequestPlanEditor ? () => onRequestPlanEditor('change') : undefined}
+        />
+      );
     case 'graduation_checkpoint':
       return (
         <GraduationCheckpoint
@@ -161,219 +213,223 @@ function OptionPill({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-// ---- R1 (SUPPORT), design doc §8 ----
-// Part 1 of tonight's consolidated build: "Help me reply" now actually
-// does something once the user has typed. Both "Reply" and "Help me
-// reply" reveal the identical compose box (there's only one field to type
-// into either way); the real fix is that UniversalTextBox is now wired in
-// underneath it with no onRequestDraft/draftPurpose supplied, which means
-// its own "Help me write" (generate from nothing) branch never renders --
-// only the "Clean up" branch, gated on hasContent, ever shows. Relabeled
-// to "Help me reply" via the new cleanupActionLabel prop, so what the
-// user sees matches what actually happens: this polishes what they've
-// already written, it never invents a reply from an empty box.
-function NoGhostR1({ connectionId, onResolved }: { connectionId: string; onResolved: () => void }) {
-  const [showCompose, setShowCompose] = useState(false);
-  const [draft, setDraft] = useState('');
+// ---- No-reply reminders (rebuilt 2026-10-08) ----
+// R1 (24h), R2 (72h), R3 (120h) go to the person who hasn't replied; S1
+// (125h) to the person waiting. Fixed in this rebuild: "I'll come back to
+// this" and "Give it more time" now actually put the card away (they only
+// reloaded the screen, so the card came straight back), "I don't want to
+// continue" opens the kind way to end things (it used to open the reply
+// box), and replies can start from a short starter the person finishes in
+// their own words.
+const REPLY_STEMS = ['Sorry for the slow reply, ', 'Good to hear from you, ', "It's been a busy few days, "];
+const BACK_IN_STEMS = ["Sorry I went quiet, ", "I've been meaning to reply, ", 'Life got busy, but '];
+const ONE_MORE_STEMS = ['Just checking in, ', 'No pressure at all, ', 'Hope things are okay, '];
 
-  const send = async () => {
-    if (!draft.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('messages').insert({ connection_id: connectionId, sender_id: user.id, content: draft.trim(), type: 'text' });
-    onResolved();
+function useCardAction() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch {
+      setError("That didn't go through. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
+  const errorText = error ? <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text> : null;
+  return { busy, run, errorText };
+}
+
+function NoGhostR1({
+  connectionId,
+  intervention,
+  otherName,
+  onResolved,
+}: {
+  connectionId: string;
+  intervention: ActiveIntervention;
+  otherName: string;
+  onResolved: () => void;
+}) {
+  const [replying, setReplying] = useState(false);
+  const { busy, run, errorText } = useCardAction();
 
   return (
     <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">Still meaning to reply?</Text>
-      {showCompose ? (
-        <View className="gap-2">
-          {/* Copy adapted from the old system's own R1 awareness text
-              ("You do not need a perfect reply. A short, honest response
-              helps the other person know where things stand."), per
-              explicit instruction to use it as a starting point rather
-              than inventing new copy. */}
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            You don&apos;t need a perfect reply. A short, honest response helps the other person know where
-            things stand. Write what you&apos;re thinking, in your own words.
-          </Text>
-          <View className="relative">
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Write your reply"
-              placeholderTextColor={MUTED_ICON_COLOR}
-              multiline
-              className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 pr-12 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-            />
-            <MicPlaceholderButton />
-          </View>
-          <UniversalTextBox value={draft} onChangeText={setDraft} />
-          <Pressable onPress={send} disabled={!draft.trim()} className="self-start rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
-          </Pressable>
-        </View>
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        {otherName} is waiting to hear back. Still meaning to reply?
+      </Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        You don&apos;t need a perfect reply. A short, honest one helps {otherName} know where things stand.
+      </Text>
+      {errorText}
+      {replying ? (
+        <StemMessageBox
+          stems={REPLY_STEMS}
+          onCancel={() => setReplying(false)}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) onResolved();
+            return ok;
+          }}
+        />
       ) : (
         <View className="flex-row flex-wrap gap-2">
-          <OptionPill label="Reply" onPress={() => setShowCompose(true)} />
-          <OptionPill label="Reflect, then reply" onPress={() => setShowCompose(true)} />
-          <OptionPill label="I'll come back to this" onPress={onResolved} />
+          <OptionPill label="Reply" onPress={() => setReplying(true)} />
+          <OptionPill
+            label="I'll come back to this"
+            onPress={() =>
+              !busy &&
+              run(async () => {
+                if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id, 12);
+                onResolved();
+              })
+            }
+          />
         </View>
       )}
     </Card>
   );
 }
 
-// ---- R2 (PERSPECTIVE) / R3 (ACCOUNTABILITY), design doc §8 ----
 function NoGhostR2R3({
   connectionId,
   intervention,
+  otherName,
   escalation,
   onResolved,
+  onEndConnection,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
+  otherName: string;
   escalation: 'perspective' | 'accountability';
   onResolved: () => void;
+  onEndConnection?: () => void;
 }) {
   const [mode, setMode] = useState<'none' | 'reply' | 'defer'>('none');
-  const [draft, setDraft] = useState('');
+  const { busy, run, errorText } = useCardAction();
 
   const awareness =
     escalation === 'perspective'
-      ? "They're still waiting to know where things stand."
-      : "You don't have to continue this connection. But leaving someone without an answer can leave them unsure about what happened.";
+      ? `${otherName} is still waiting to know where things stand.`
+      : `You don't have to continue this connection. But leaving ${otherName} without an answer can leave them unsure about what happened.`;
   const supporting =
     escalation === 'perspective'
-      ? 'Sometimes life gets busy, or it becomes harder to know what to say after some time has passed.'
+      ? 'Sometimes life gets busy, or it gets harder to know what to say after some time has passed.'
       : null;
 
-  const send = async () => {
-    if (!draft.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('messages').insert({ connection_id: connectionId, sender_id: user.id, content: draft.trim(), type: 'text' });
-    onResolved();
-  };
-
-  const pause = async (duration: PauseDuration) => {
-    await pauseConnectionWithDuration(connectionId, duration);
-    onResolved();
-  };
-
-  const endConnection = async () => {
-    if (!draft.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.rpc('end_connection_with_message', { p_connection_id: connectionId, p_content: draft.trim() });
-    onResolved();
-  };
+  const pause = (duration: PauseDuration) =>
+    !busy &&
+    run(async () => {
+      await pauseConnectionWithDuration(connectionId, duration);
+      onResolved();
+    });
 
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">{awareness}</Text>
       {supporting && <Text className="text-body text-stone-600 dark:text-stone-400">{supporting}</Text>}
+      {errorText}
       {mode === 'none' && (
         <View className="flex-row flex-wrap gap-2">
           <OptionPill label="Reply" onPress={() => setMode('reply')} />
-          <OptionPill label="Help me get back into the conversation" onPress={() => setMode('reply')} />
           <OptionPill label="I need more time" onPress={() => setMode('defer')} />
-          <OptionPill label="I don't want to continue" onPress={() => setMode('reply')} />
+          {onEndConnection && <OptionPill label="I don't want to continue" onPress={onEndConnection} />}
         </View>
       )}
       {mode === 'defer' && (
         <View className="gap-2">
           <Text className="text-caption text-stone-500 dark:text-stone-400">
-            The other participant will never see which of these you picked.
+            Reminders pause for this chat. {otherName} won&apos;t see which of these you picked.
           </Text>
           <OptionPill label="A couple of days" onPress={() => pause('couple_days')} />
           <OptionPill label="About a week" onPress={() => pause('about_a_week')} />
           <OptionPill label="I'll come back when I'm ready" onPress={() => pause('indefinite')} />
+          <Pressable onPress={() => setMode('none')} className="self-start">
+            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Back</Text>
+          </Pressable>
         </View>
       )}
       {mode === 'reply' && (
-        <View className="gap-2">
-          {/* Same adapted old-system framing as R1, "write first" rather
-              than offering to generate something from nothing. */}
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            You don&apos;t need a perfect reply. Write what you&apos;re thinking, in your own words.
-            {/* Limen v2: AI no longer cleans up or rewrites messages. */}
-          </Text>
-          <View className="relative">
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Write what you want to say"
-              placeholderTextColor={MUTED_ICON_COLOR}
-              multiline
-              className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 pr-12 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-            />
-            <MicPlaceholderButton />
-          </View>
-          <UniversalTextBox value={draft} onChangeText={setDraft} />
-          <View className="flex-row gap-2">
-            <Pressable onPress={send} disabled={!draft.trim()} className="rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
-              <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
-            </Pressable>
-            <Pressable onPress={endConnection} disabled={!draft.trim()} className="rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-              <Text className="text-caption font-semibold text-red-600 dark:text-red-400">End connection instead</Text>
-            </Pressable>
-          </View>
-        </View>
+        <StemMessageBox
+          stems={BACK_IN_STEMS}
+          onCancel={() => setMode('none')}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) onResolved();
+            return ok;
+          }}
+        />
       )}
     </Card>
   );
 }
 
-// ---- S1 (AGENCY), sender-only, design doc §8 ----
-function NoGhostS1({ connectionId, onResolved }: { connectionId: string; onResolved: () => void }) {
-  const [showCompose, setShowCompose] = useState(false);
-  const [draft, setDraft] = useState('');
-
-  const send = async () => {
-    if (!draft.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('messages').insert({ connection_id: connectionId, sender_id: user.id, content: draft.trim(), type: 'text' });
-    onResolved();
-  };
-
-  const closeAndMakeRoom = async () => {
-    await supabase.rpc('set_connection_inactive', { p_connection_id: connectionId });
-    onResolved();
-  };
+function NoGhostS1({
+  connectionId,
+  intervention,
+  otherName,
+  onResolved,
+  onEndConnection,
+}: {
+  connectionId: string;
+  intervention: ActiveIntervention;
+  otherName: string;
+  onResolved: () => void;
+  onEndConnection?: () => void;
+}) {
+  const [writing, setWriting] = useState(false);
+  const { busy, run, errorText } = useCardAction();
 
   return (
     <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">It's been quiet for a while. What would feel right for you?</Text>
-      {showCompose ? (
-        <View className="gap-2">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            You don&apos;t need a perfect message. Write what you&apos;re thinking, in your own words.
-            {/* Limen v2: AI no longer cleans up or rewrites messages. */}
-          </Text>
-          <View className="relative">
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Write your message"
-              placeholderTextColor={MUTED_ICON_COLOR}
-              multiline
-              className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 pr-12 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-            />
-            <MicPlaceholderButton />
-          </View>
-          <UniversalTextBox value={draft} onChangeText={setDraft} />
-          <Pressable onPress={send} disabled={!draft.trim()} className="self-start rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
-          </Pressable>
-        </View>
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        It&apos;s been quiet for a while since your last message to {nameThenPeriod(otherName)} What would feel right for you?
+      </Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        Silence usually isn&apos;t about you. If nothing changes, this chat closes by itself after 7 days, with no
+        penalty for you.
+      </Text>
+      {errorText}
+      {writing ? (
+        <StemMessageBox
+          stems={ONE_MORE_STEMS}
+          onCancel={() => setWriting(false)}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) onResolved();
+            return ok;
+          }}
+        />
       ) : (
         <View className="flex-row flex-wrap gap-2">
-          <OptionPill label="Send one more message" onPress={() => setShowCompose(true)} />
-          <OptionPill label="Give it more time" onPress={onResolved} />
-          <OptionPill label="Close and make room" onPress={closeAndMakeRoom} />
+          <OptionPill label="Send one more message" onPress={() => setWriting(true)} />
+          <OptionPill
+            label="Give it more time"
+            onPress={() =>
+              !busy &&
+              run(async () => {
+                if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id, 48);
+                onResolved();
+              })
+            }
+          />
+          <OptionPill
+            label="Close and make room"
+            onPress={() =>
+              !busy &&
+              run(async () => {
+                const { error } = await supabase.rpc('set_connection_inactive', { p_connection_id: connectionId });
+                if (error) throw error;
+                onResolved();
+              })
+            }
+          />
+          {onEndConnection && <OptionPill label="End kindly" onPress={onEndConnection} />}
         </View>
       )}
     </Card>
@@ -493,7 +549,7 @@ function MeetupStillOn({
 
   return (
     <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">Tomorrow with {otherName}. Still on?</Text>
+      <Text className="text-body text-stone-700 dark:text-stone-300">Tomorrow with {nameThenPeriod(otherName)} Still on?</Text>
       {line && <Text className="text-caption text-stone-500 dark:text-stone-400">{line}</Text>}
       {missingDetails && (
         <Text className="text-caption text-stone-500 dark:text-stone-400">
@@ -738,7 +794,8 @@ type OccurrenceMode =
   | 'cancelled_reschedule_compose'
   | 'rescheduled_done'
   | 'cancelled_done'
-  | 'no_show';
+  | 'no_show'
+  | 'yes_waiting';
 
 // Part 3 of tonight's consolidated build: replaces the old plain
 // Yes/No-plus-re-asked-date card with a real branching post-meetup flow.
@@ -789,6 +846,20 @@ function MeetupOccurrenceCheck({
   const [reason, setReason] = useState<MeetupCancellationReason | null>(null);
   const [draft, setDraft] = useState('');
   const [draftEdited, setDraftEdited] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Any failed step shows a message instead of silently doing nothing
+  // (2026-10-08: "didn't show up" failed silently).
+  const attempt = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch {
+      setError("That didn't go through. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleDraftChange = (text: string) => {
     setDraft(text);
@@ -796,13 +867,11 @@ function MeetupOccurrenceCheck({
   };
 
   const answerYes = async () => {
-    setBusy(true);
-    try {
-      await reportMeetupOccurrence(meetupId, true, confirmedDate ?? null);
-      onResolved();
-    } finally {
-      setBusy(false);
-    }
+    await attempt(async () => {
+      const result = await reportMeetupOccurrence(meetupId, true, confirmedDate ?? null);
+      if (result.resolved) onResolved();
+      else setMode('yes_waiting');
+    });
   };
 
   // Real bug found and fixed during this session's own live verification,
@@ -824,13 +893,10 @@ function MeetupOccurrenceCheck({
   };
 
   const pickRescheduled = async () => {
-    setBusy(true);
-    try {
+    await attempt(async () => {
       await reportMeetupOccurrence(meetupId, false);
       setMode('rescheduled_done');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const pickCancelled = () => setMode('cancelled_reason');
@@ -838,14 +904,11 @@ function MeetupOccurrenceCheck({
   // 2026-10-08: "They didn't show up". Recorded privately, nobody is
   // accused, and the person who waited gets a kind note and real choices.
   const pickNoShow = async () => {
-    setBusy(true);
-    try {
+    await attempt(async () => {
       await submitMeetupCancellationReason(meetupId, 'no_show');
       await reportMeetupOccurrence(meetupId, false);
       setMode('no_show');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const submitReason = (r: MeetupCancellationReason) => {
@@ -855,32 +918,30 @@ function MeetupOccurrenceCheck({
 
   const answerRescheduleWanted = async (wants: boolean) => {
     if (!reason) return;
-    setBusy(true);
-    try {
+    await attempt(async () => {
       await submitMeetupCancellationReason(meetupId, reason, wants);
       await reportMeetupOccurrence(meetupId, false);
       setMode(wants ? 'cancelled_reschedule_compose' : 'cancelled_done');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const sendRescheduleMessage = async () => {
     if (!draft.trim()) return;
-    setBusy(true);
-    try {
+    await attempt(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      await supabase.from('messages').insert({ connection_id: connectionId, sender_id: user.id, content: draft.trim(), type: 'text' });
+      const { error: sendError } = await supabase
+        .from('messages')
+        .insert({ connection_id: connectionId, sender_id: user.id, content: draft.trim(), type: 'text' });
+      if (sendError) throw sendError;
       setMode('cancelled_done');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   if (mode === 'ask') {
     return (
       <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">
           {dateLabel ? `Did you meet ${otherName} on ${dateLabel}?` : `Did you meet with ${otherName}?`}
         </Text>
@@ -892,9 +953,21 @@ function MeetupOccurrenceCheck({
     );
   }
 
+  if (mode === 'yes_waiting') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Thanks. Once {otherName} says yes too, it&apos;s added to your meetup history.
+        </Text>
+        <OptionPill label="Close" onPress={onResolved} />
+      </Card>
+    );
+  }
+
   if (mode === 'no_followup') {
     return (
       <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">What happened?</Text>
         <View className="flex-row flex-wrap gap-2">
           <OptionPill label="We moved it" onPress={pickRescheduled} />
@@ -908,6 +981,7 @@ function MeetupOccurrenceCheck({
   if (mode === 'no_show') {
     return (
       <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">
           That&apos;s disappointing, and it isn&apos;t on you. Sometimes people get overwhelmed or something comes
           up. You can suggest another day, or end things kindly.
@@ -933,6 +1007,7 @@ function MeetupOccurrenceCheck({
   if (mode === 'rescheduled_done') {
     return (
       <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">
           No problem. Add the new day to the plan so your reminders follow it.
         </Text>
@@ -955,6 +1030,7 @@ function MeetupOccurrenceCheck({
   if (mode === 'cancelled_reason') {
     return (
       <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">Why was it cancelled?</Text>
         <View className="gap-2">
           {CANCELLATION_REASON_OPTIONS.map((o) => (
@@ -974,6 +1050,7 @@ function MeetupOccurrenceCheck({
   if (mode === 'cancelled_reschedule_ask') {
     return (
       <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">Do you want to propose rescheduling?</Text>
         <View className="flex-row gap-2">
           <OptionPill label="Yes" onPress={() => answerRescheduleWanted(true)} />
@@ -986,6 +1063,7 @@ function MeetupOccurrenceCheck({
   if (mode === 'cancelled_reschedule_compose') {
     return (
       <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">
           You don&apos;t need a perfect message. Write what you&apos;re thinking, in your own words.
           {/* Limen v2: AI no longer cleans up or rewrites messages. */}
@@ -1031,6 +1109,7 @@ function MeetupOccurrenceCheck({
   // cancelled_done
   return (
     <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
       <Text className="text-body text-stone-700 dark:text-stone-300">
         Thanks for letting us know. No further action needed.
       </Text>
@@ -1041,34 +1120,104 @@ function MeetupOccurrenceCheck({
   );
 }
 
+// "How did it go?" (rebuilt 2026-10-08). Shown to each person once both
+// said the meetup happened. Private. Used to be followed by a second card
+// ("Would you be open to giving this connection a little more time?") that
+// asked the same thing again; that question is gone. Now a good answer
+// leads straight to planning the next meetup while it's fresh, and "I
+// don't think we'll continue" offers the kind way to end things.
 function PostMeetupReflectionPrompt({
   intervention,
   otherName,
   onResolved,
+  onPlanNext,
+  onEndConnection,
 }: {
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
+  onPlanNext?: () => void;
+  onEndConnection?: () => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
-  const options: { key: 'know_better' | 'open_to_another' | 'still_figuring' | 'dont_continue'; label: string }[] = [
-    { key: 'know_better', label: `I'd like to know ${otherName} better` },
-    { key: 'open_to_another', label: "I'd be open to another meetup" },
-    { key: 'still_figuring', label: "I'm still figuring it out" },
-    { key: 'dont_continue', label: "I don't want to continue" },
+  const [after, setAfter] = useState<'none' | 'plan_next' | 'thanks' | 'ending'>('none');
+  const [busy, setBusy] = useState(false);
+  const options: { key: PostMeetupReflectionResponse; label: string }[] = [
+    { key: 'know_better', label: `Really good, I'd like to see ${otherName} again` },
+    { key: 'open_to_another', label: 'Good, I\'m open to another meetup' },
+    { key: 'still_figuring', label: "I'm not sure yet" },
+    { key: 'dont_continue', label: "I don't think we'll continue" },
   ];
+
+  const pick = async (key: PostMeetupReflectionResponse) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await submitPostMeetupReflection(meetupId, key);
+      setAfter(key === 'know_better' || key === 'open_to_another' ? 'plan_next' : key === 'dont_continue' ? 'ending' : 'thanks');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (after === 'plan_next') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Glad it went well. Friendships grow fastest when the next meetup is on the calendar while it&apos;s fresh.
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {onPlanNext && (
+            <OptionPill
+              label="Plan the next one"
+              onPress={() => {
+                onPlanNext();
+                onResolved();
+              }}
+            />
+          )}
+          <OptionPill label="Not yet" onPress={onResolved} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (after === 'ending') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          That&apos;s okay. Not every meetup turns into a friendship. If you&apos;re ready, a short, kind message is
+          better than going quiet.
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {onEndConnection && <OptionPill label="End kindly" onPress={onEndConnection} />}
+          <OptionPill label="Not now" onPress={onResolved} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (after === 'thanks') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          That&apos;s normal after a first meetup. There&apos;s no rush. You can plan another whenever it feels right.
+        </Text>
+        <OptionPill label="Close" onPress={onResolved} />
+      </Card>
+    );
+  }
+
   return (
     <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">How are you feeling about getting to know {otherName}?</Text>
-      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you will ever see this answer.</Text>
+      <Text className="text-body text-stone-700 dark:text-stone-300">How did it go with {otherName}?</Text>
+      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this answer.</Text>
       <View className="gap-2">
         {options.map((o) => (
           <Pressable
             key={o.key}
-            onPress={async () => {
-              await submitPostMeetupReflection(meetupId, o.key);
-              onResolved();
-            }}
+            onPress={() => pick(o.key)}
+            disabled={busy}
             className="rounded-xl border border-stone-300 px-4 py-3 dark:border-stone-700">
             <Text className="text-body text-stone-900 dark:text-stone-50">{o.label}</Text>
           </Pressable>
@@ -1105,16 +1254,57 @@ function SecondLookPrompt({
   );
 }
 
-function ConversationRestartPrompt({ onResolved }: { onResolved: () => void }) {
+// "Pick it back up?" (rebuilt 2026-10-08): shown to both people after a
+// two-sided chat goes quiet (5 days, or 10 once the friendship is going on
+// its own). Before, all four buttons only reloaded the screen, so the card
+// never went away.
+const RESTART_STEMS = ["It's been a while! ", "I've been thinking about our chat, ", 'Sorry I went quiet, '];
+
+function ConversationRestartPrompt({
+  connectionId,
+  intervention,
+  otherName,
+  onResolved,
+  onEndConnection,
+}: {
+  connectionId: string;
+  intervention: ActiveIntervention;
+  otherName: string;
+  onResolved: () => void;
+  onEndConnection?: () => void;
+}) {
+  const [writing, setWriting] = useState(false);
+  const { busy, run, errorText } = useCardAction();
+  const putAway = (hours?: number) =>
+    !busy &&
+    run(async () => {
+      if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id, hours);
+      onResolved();
+    });
+
   return (
     <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">It's been a little while. Want help picking the conversation back up?</Text>
-      <View className="flex-row flex-wrap gap-2">
-        <OptionPill label="Help me restart" onPress={onResolved} />
-        <OptionPill label="I'll reach out myself" onPress={onResolved} />
-        <OptionPill label="Not right now" onPress={onResolved} />
-        <OptionPill label="I don't want to continue" onPress={onResolved} />
-      </View>
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        It&apos;s been a little while since you and {otherName} talked. Want to pick it back up?
+      </Text>
+      {errorText}
+      {writing ? (
+        <StemMessageBox
+          stems={RESTART_STEMS}
+          onCancel={() => setWriting(false)}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) onResolved();
+            return ok;
+          }}
+        />
+      ) : (
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill label="Send a message" onPress={() => setWriting(true)} />
+          <OptionPill label="Not right now" onPress={() => putAway(72)} />
+          {onEndConnection && <OptionPill label="I don't want to continue" onPress={onEndConnection} />}
+        </View>
+      )}
     </Card>
   );
 }
@@ -1123,12 +1313,15 @@ function RhythmReminder({
   connectionId,
   intervention,
   onResolved,
+  onPlanMeetup,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
   onResolved: () => void;
+  onPlanMeetup?: () => void;
 }) {
   const isInitial = intervention.payload.mode === 'initial';
+  const { busy, run, errorText } = useCardAction();
   const options: { key: 'weekly' | 'few_weeks' | 'monthly' | 'occasional' | 'not_sure'; label: string }[] = [
     { key: 'weekly', label: 'Every week or two' },
     { key: 'few_weeks', label: 'Every few weeks' },
@@ -1136,20 +1329,66 @@ function RhythmReminder({
     { key: 'occasional', label: 'Occasionally' },
     { key: 'not_sure', label: "I'm not sure yet" },
   ];
+
+  // 2026-10-08: the later reminder ("it's been about as long as you said")
+  // used to show the same pace question again. Now it offers to plan.
+  if (!isInitial) {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          It&apos;s been about as long as the pace you said felt right. Want to plan your next meetup?
+        </Text>
+        <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this.</Text>
+        {errorText}
+        <View className="flex-row flex-wrap gap-2">
+          {onPlanMeetup && (
+            <OptionPill
+              label="Plan a meetup"
+              onPress={() =>
+                !busy &&
+                run(async () => {
+                  if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id);
+                  onPlanMeetup();
+                  onResolved();
+                })
+              }
+            />
+          )}
+          <OptionPill
+            label="Not now"
+            onPress={() =>
+              !busy &&
+              run(async () => {
+                if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id, 24 * 7);
+                onResolved();
+              })
+            }
+          />
+        </View>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        {isInitial ? 'What kind of rhythm would feel natural to you?' : 'You mentioned a pace that felt right before. Want to make a plan?'}
+        You&apos;ve met a couple of times now. How often would you like to get together?
       </Text>
-      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Private to you. Never shown to the other person.</Text>
+      <Text className="text-caption italic text-stone-400 dark:text-stone-600">
+        Only you see this. Limen will gently remind you when it&apos;s been about that long.
+      </Text>
+      {errorText}
       <View className="gap-2">
         {options.map((o) => (
           <Pressable
             key={o.key}
-            onPress={async () => {
-              await submitRhythmPreference(connectionId, o.key);
-              onResolved();
-            }}
+            onPress={() =>
+              !busy &&
+              run(async () => {
+                await submitRhythmPreference(connectionId, o.key);
+                onResolved();
+              })
+            }
             className="rounded-xl border border-stone-300 px-4 py-3 dark:border-stone-700">
             <Text className="text-body text-stone-900 dark:text-stone-50">{o.label}</Text>
           </Pressable>

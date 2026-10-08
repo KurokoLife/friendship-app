@@ -12,9 +12,9 @@ import { supabase } from '@/lib/supabase';
 // 1. While still signed in as the admin, ask dev-create-session for a
 //    one-time sign-in token for the test account. The function checks on
 //    the server that the caller is an admin (or already a test account).
-// 2. Save the admin's own session on this device, sign out of it only on
-//    this device (scope: 'local', so the saved session stays valid), and
-//    sign in as the test account.
+// 2. Save the admin's own session on this device and sign in as the test
+//    account. The admin's session is never signed out (that would end it
+//    on the server), so it can be restored later.
 // 3. "Back to my account" restores the saved session.
 //
 // Only the 9 seed accounts can ever be acted as (enforced in the
@@ -63,7 +63,12 @@ export async function actAsTestAccount(phone: string): Promise<{ error: string |
     await AsyncStorage.setItem(RETURN_KEY, JSON.stringify(saved));
   }
 
-  await supabase.auth.signOut({ scope: 'local' });
+  // Only sign out (which ends that session on the server) when leaving
+  // another TEST account. Leaving the admin's own account must not sign it
+  // out: signing out ends the saved session too, which made "Back to my
+  // account" fail and ask for the phone number again (bug fixed
+  // 2026-10-08). Signing in as the test account simply replaces it here.
+  if (alreadyActing) await supabase.auth.signOut({ scope: 'local' });
   const { error: verifyError } = await supabase.auth.verifyOtp({ type: 'magiclink', token_hash: data.tokenHash });
   if (verifyError) {
     // Put the real account back if the switch failed.

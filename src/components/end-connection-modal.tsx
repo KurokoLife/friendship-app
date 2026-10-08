@@ -9,6 +9,7 @@ import {
   HONEST_EXIT_SENDER_TEXT,
   type ConnectionEndReason,
 } from '@/lib/no-ghost';
+import { nameThenPeriod } from '@/lib/names';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -158,7 +159,7 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                   Reason (private, optional)
                 </Text>
                 <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  Only you can ever see this. It is never shown to {otherName}.
+                  Only you can ever see this. It is never shown to {nameThenPeriod(otherName)}
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
                   {CONNECTION_END_REASONS.map((r) => (

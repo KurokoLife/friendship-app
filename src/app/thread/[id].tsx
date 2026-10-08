@@ -1131,7 +1131,12 @@ export default function ThreadScreen() {
                   intervention={newSystemIntervention}
                   connectionId={connectionId}
                   otherName={other?.display_name ?? 'them'}
-                  onResolved={() => loadNewSystemIntervention()}
+                  onResolved={() => {
+                    loadNewSystemIntervention();
+                    // A card can change the plan or the meetup count ("Did
+                    // you meet?" both yes), so the plan card reloads too.
+                    setPlanRefreshKey((k) => k + 1);
+                  }}
                   onPlanSomething={handlePlanSomething}
                   onVideoOfferChange={setVideo6OfferActive}
                   onEndConnection={() => setEndConnectionVisible(true)}

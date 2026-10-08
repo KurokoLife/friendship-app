@@ -92,16 +92,8 @@ async function resolveVideoGuidance(
 ): Promise<VideoOffer | null> {
   const seen = await getSeenCoachMarks();
 
-  // Video 5: first-ever Conversation Restart prompt for this viewer,
-  // across any connection -- checked against the CURRENT primary
-  // intervention, never shown alongside/instead of it, only beneath it.
-  if (currentInterventionType === 'conversation_restart_prompt' && !seen.has('video_restart')) {
-    return {
-      markKey: 'video_restart',
-      guideId: 'video_restart',
-      prompt: "It's okay to pick a quiet conversation back up, if that's helpful right now.",
-    };
-  }
+  // Video 5 (restart) is not offered: that video hasn't been made yet, and
+  // the link opened "That guide isn't available" (found 2026-10-08).
 
   // Video 4: this connection's first occurred meetup, and the viewer's OWN
   // private reflection for it indicates openness to continuing. Never
@@ -113,10 +105,11 @@ async function resolveVideoGuidance(
       .from('meetups')
       .select('id, status')
       .eq('connection_id', connectionId)
-      .order('sequence_number', { ascending: true })
+      .eq('status', 'occurred')
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
-    if (firstMeetup?.status === 'occurred') {
+    if (firstMeetup) {
       const { data: reflection } = await supabase
         .from('private_post_meetup_reflections')
         .select('response')
@@ -170,6 +163,12 @@ async function resolveVideoGuidance(
 // only ever renders AFTER a connection has already reached 'ended', never
 // as a gate on reaching it.
 export function EndedConnectionVideoLink() {
+  // The "ending" video hasn't been made yet; its link opened "That guide
+  // isn't available" (found 2026-10-08). Hidden until the video exists.
+  return null;
+}
+
+export function EndedConnectionVideoLinkWhenVideoExists() {
   const [seen, setSeen] = useState<boolean | null>(null);
 
   useEffect(() => {

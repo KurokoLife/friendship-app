@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { Modal, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import {
   computeDimmingRegions,
@@ -38,7 +38,12 @@ export function SpotlightHost() {
   );
 
   return (
-    <Modal visible transparent animationType="fade">
+    // A plain full-screen layer, not a Modal (2026-10-08): on the web a
+    // Modal's own wrapper caught every tap, so while a tip was showing
+    // nothing else on the screen could be pressed (including the test
+    // banner's "Back to me"). Only the tip box itself takes taps now.
+    <View
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, pointerEvents: 'box-none' }}>
       <View className="flex-1" style={{ pointerEvents: 'box-none' }}>
         {/* Purely visual: no pointerEvents set here used to mean the
             default 'auto', so these regions silently blocked taps to
@@ -134,6 +139,6 @@ export function SpotlightHost() {
           );
         })}
       </View>
-    </Modal>
+    </View>
   );
 }

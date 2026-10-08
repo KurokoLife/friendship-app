@@ -1,43 +1,52 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  fetchMeetupHistory,
-  proposeMeetupDateResolution,
-  type MeetupHistoryEntry,
-} from '@/lib/friendship-journey';
+import { formatMeetupTime, parseIsoDate } from '@/lib/meetup-format';
 import { supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
-// Friendship Journey rebuild — the new meetup-history screen (design doc §5,
-// "User-facing meetup-history view"). __DEV__-gated at the link site in
-// thread/[id].tsx, same class of gating as the new intervention card: the
-// route exists and is real, tested code, but nothing in production wires a
-// visible path to it yet.
-//
-// Reads only the reconciled, factual meetup_history view — never
-// meetup_occurrence_reports.reported_date (each participant's individual,
-// possibly-differing claim, the private pre-reconciliation layer) and never
-// anything from private_post_meetup_reflections. Private emotional
-// reflections about any given meetup stay completely separate from this
-// screen, structurally, not just by choice of what it happens to query.
-function formatDisplayDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+// Meetup history (rebuilt 2026-10-08): every meetup you both said happened,
+// numbered in order (1st, 2nd, ...), with the date, time and place from the
+// plan. Before, the number shown was an internal version number that went
+// up every time a plan moved ("Meetup 7" for a first meetup), and every row
+// had a "This date looks wrong" link that led nowhere (the other person had
+// no way to approve a fix). The date now always comes from the plan both
+// people confirmed, so there is nothing to correct.
+
+type Row = {
+  id: string;
+  occurred_date: string | null;
+  confirmed_date: string | null;
+  start_time: string | null;
+  place: string | null;
+  activity: string | null;
+};
+
+function formatLongDate(iso: string): string {
+  return parseIsoDate(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 export default function MeetupHistoryScreen() {
   const { connectionId } = useLocalSearchParams<{ connectionId: string }>();
-  const [entries, setEntries] = useState<MeetupHistoryEntry[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     if (!connectionId) return;
-    setEntries(await fetchMeetupHistory(connectionId));
+    const { data } = await supabase
+      .from('meetups')
+      .select('id, occurred_date, confirmed_date, start_time, place, activity, created_at')
+      .eq('connection_id', connectionId)
+      .eq('status', 'occurred')
+      .order('created_at', { ascending: true });
+    const list = ((data ?? []) as (Row & { created_at: string })[]).sort((a, b) =>
+      (a.occurred_date ?? a.confirmed_date ?? a.created_at).localeCompare(b.occurred_date ?? b.confirmed_date ?? b.created_at)
+    );
+    setRows(list);
     setLoaded(true);
   }, [connectionId]);
 
@@ -61,114 +70,37 @@ export default function MeetupHistoryScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={MUTED_ICON_COLOR} />
         </View>
-      ) : entries.length === 0 ? (
+      ) : rows.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-center text-body text-stone-400 dark:text-stone-600">
-            No confirmed meetups yet. Once you both agree a meetup happened, it'll show up here.
+            No meetups yet. Once you both say a meetup happened, it shows up here.
           </Text>
         </View>
       ) : (
         <ScrollView contentContainerClassName="gap-3 px-6 py-5">
-          {entries.map((entry) => (
-            <MeetupHistoryRow key={entry.sequence_number} entry={entry} connectionId={connectionId} onChanged={load} />
-          ))}
+          {[...rows].reverse().map((row, i) => {
+            const number = rows.length - i;
+            const date = row.occurred_date ?? row.confirmed_date;
+            const time = formatMeetupTime(row.start_time);
+            return (
+              <View
+                key={row.id}
+                className="gap-1 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+                <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Meetup {number}</Text>
+                <Text className="text-body text-stone-900 dark:text-stone-50">
+                  {date ? formatLongDate(date) : 'Date not recorded'}
+                  {time ? ` · ${time}` : ''}
+                </Text>
+                {(row.activity || row.place) && (
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    {[row.activity, row.place].filter(Boolean).join(' at ')}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>
   );
-}
-
-function MeetupHistoryRow({
-  entry,
-  connectionId,
-  onChanged,
-}: {
-  entry: MeetupHistoryEntry;
-  connectionId: string;
-  onChanged: () => void;
-}) {
-  const [reconciling, setReconciling] = useState(false);
-  const [date, setDate] = useState('');
-  const [pendingResolutionId, setPendingResolutionId] = useState<string | null>(null);
-
-  // Reconciliation UI is deliberately available on any occurred entry, not
-  // just disputed ones — design doc §5 case 5, a confirmed date can still
-  // need a later correction, using the exact same mutual-approval mechanism
-  // as the initial dispute (case 2). We don't distinguish "propose" vs
-  // "correct" in the UI; the RPC itself derives which one this is from the
-  // meetup's current date_status.
-  const propose = async () => {
-    if (!date) return;
-    const meetupId = await entryMeetupId(entry, connectionId);
-    const id = await proposeMeetupDateResolution(meetupId, date);
-    setPendingResolutionId(id);
-  };
-
-  return (
-    <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Meetup {entry.sequence_number}</Text>
-      {entry.date_status === 'disputed' ? (
-        <>
-          <Text className="text-body text-stone-700 dark:text-stone-300">Met — date unconfirmed</Text>
-          <Text className="text-caption text-stone-400 dark:text-stone-600">
-            You both agree this meetup happened, but the exact date needs a little reconciling.
-          </Text>
-        </>
-      ) : (
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          {entry.occurred_date ? formatDisplayDate(entry.occurred_date) : 'Date not set'}
-        </Text>
-      )}
-
-      {!reconciling ? (
-        <Pressable onPress={() => setReconciling(true)} className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">
-            {entry.date_status === 'disputed' ? 'Help pin down the date' : 'This date looks wrong'}
-          </Text>
-        </Pressable>
-      ) : (
-        <View className="gap-2">
-          <TextInput
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={MUTED_ICON_COLOR}
-            className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-          />
-          <View className="flex-row gap-2">
-            <Pressable onPress={propose} disabled={!date} className="rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
-              <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Suggest this date</Text>
-            </Pressable>
-            <Pressable onPress={() => setReconciling(false)}>
-              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
-            </Pressable>
-          </View>
-          {pendingResolutionId && (
-            <View className="gap-2 rounded-xl border border-accent-500/40 bg-accent-500/5 p-3">
-              <Text className="text-caption text-stone-600 dark:text-stone-400">
-                Suggested. The other participant needs to approve it before it's final — one person can never
-                change shared history alone. (The approval RPC correctly refuses the proposer's own account —
-                exercise it by switching to the other real test account via the Dev tab, not from here.)
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-    </View>
-  );
-}
-
-// meetup_history intentionally doesn't expose the meetup's own id (it's a
-// view over reconciled, participant-safe columns only, per the design's own
-// "shows only reconciled, factual data" rule) — the reconciliation actions
-// need the real id, so this does one small lookup by (connection_id,
-// sequence_number), the same pair the view is already ordered and keyed by.
-async function entryMeetupId(entry: MeetupHistoryEntry, connectionId: string): Promise<string> {
-  const { data } = await supabase
-    .from('meetups')
-    .select('id')
-    .eq('connection_id', connectionId)
-    .eq('sequence_number', entry.sequence_number)
-    .single();
-  return (data as { id: string }).id;
 }

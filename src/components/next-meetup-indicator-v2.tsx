@@ -25,6 +25,7 @@ import {
   type CalendarPlan,
 } from '@/lib/meetup-format';
 import { supabase } from '@/lib/supabase';
+import { nameThenPeriod } from '@/lib/names';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -462,7 +463,7 @@ export function NextMeetupIndicatorV2({
         <Text className="text-caption text-stone-600 dark:text-stone-300">
           {panel === 'cancel'
             ? `Let ${otherName} know with a short message. The plan is cancelled when you send it.`
-            : `A short message to ${otherName}. The date is taken off when you send it, and you can plan again anytime.`}
+            : `A short message to ${nameThenPeriod(otherName)} The date is taken off when you send it, and you can plan again anytime.`}
         </Text>
         <StemMessageBox
           stems={panel === 'cancel' ? CANCEL_STEMS : LEAVE_OPEN_STEMS}

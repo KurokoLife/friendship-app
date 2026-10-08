@@ -4,165 +4,139 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { type CoachMarkKey, resetCoachMark, resetCoachMarks } from '@/lib/coach-marks';
-import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
-import { returnToMyAccount, useTestTools } from '@/lib/test-mode';
-import { type GraduationEligibility, shouldShowGraduationPrompt } from '@/lib/graduation';
-import { type NoGhostTriggerId } from '@/lib/no-ghost';
 import { MeetupTestPanel } from '@/components/meetup-test-panel';
+import { resetCoachMarks } from '@/lib/coach-marks';
+import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { returnToMyAccount, useTestTools } from '@/lib/test-mode';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400, matches this app's own established placeholder color
+const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
-// The 9 real coach-mark keys, for the Time Travel panel's "reset one
-// specific mark" picker. Not imported from coach-marks.ts's own type
-// (a type has no runtime array to iterate), kept in sync manually, same
-// as every other place in this codebase that needs a real list alongside
-// a type (e.g. DEV_SEED_USERS above).
-const ALL_COACH_MARK_KEYS: CoachMarkKey[] = [
-  'tab_discover',
-  'tab_browse',
-  'tab_saved',
-  'tab_inbox',
-  'no_ghost_prompt',
-  'meetup_checkin',
-  'tab_remember',
-  'tab_profile',
-  'credits_premium',
-];
+// Test tools (rebuilt 2026-10-08). Every tool here drives the system the
+// app actually uses today. The previous version was mostly tools for the
+// retired reminder and meetup systems (they changed tables the app no
+// longer reads, so nothing appeared in the chat), which made testing
+// confusing. Only admins and the test accounts can use these; the database
+// checks this too.
 
-// The 5 real free-tier-capped functions (ai_function_caps) plus
-// generate-personality-narrative's separate retake cap (special-cased
-// inside get_ai_gate_status, not in ai_function_caps), for the Time
-// Travel panel's AI-usage-cap reset picker.
-const AI_CAPPED_FUNCTIONS = [
-  'generate-reply-draft',
-  'generate-activity-suggestions',
-  'generate-connection-analysis',
-  'organize-remember-entry',
-  'summarize-remember-timeline',
-  'generate-personality-narrative',
-];
-
-type DevConversation = {
+type Chat = {
   connection_id: string;
-  display_name: string | null;
-  connection_status: string | null;
+  name: string;
+  status: string | null;
+  other_id: string | null;
 };
 
-type DevConnectionInfo = {
-  user_a_id: string;
-  user_a_gender: string | null;
-  user_b_id: string;
-  user_b_gender: string | null;
-  last_sender_id: string | null;
-};
-
-// Fix #2 (2026-07-20): rebuilt for blueprint Section 10's timeline.
-// Trigger identity is R1/R2/R3 (receiver) or S1 (sender, the only
-// sender-side DB row now), which participant it targets is read off the
-// R/S prefix, same as the previous rewrite. The sender's own passive
-// reassurance lines (20h, 72h-in-Chat) have no DB row at all, computed
-// live from the connection's last message, previewed by backdating the
-// message (dev_set_last_message_age, 20260713000002) rather than
-// force-firing a row that doesn't exist for them.
-type PromptTrigger = { kind: 'prompt'; key: string; triggerId: NoGhostTriggerId; label: string };
-type StatusPreviewTrigger = { kind: 'status_preview'; key: string; hoursAgo: number; label: string };
-type NoGhostTrigger = PromptTrigger | StatusPreviewTrigger;
-
-const NO_GHOST_TRIGGERS: NoGhostTrigger[] = [
-  { kind: 'status_preview', key: 'sender-20h', hoursAgo: 20, label: 'Preview sender reassurance (20hr)' },
-  { kind: 'status_preview', key: 'sender-72h', hoursAgo: 72, label: 'Preview sender reassurance (72hr)' },
-  { kind: 'prompt', key: 'r1', triggerId: 'R1', label: 'Trigger R1 (receiver, first reminder, 20/36hr)' },
-  { kind: 'prompt', key: 'r2', triggerId: 'R2', label: 'Trigger R2 (receiver, 72hr, Reply/Pause/End)' },
-  { kind: 'prompt', key: 'r3', triggerId: 'R3', label: 'Trigger R3 (receiver, 120hr final)' },
-  { kind: 'prompt', key: 's1', triggerId: 'S1', label: 'Trigger S1 (sender, 125hr, keep waiting/follow-up/close)' },
+const NO_REPLY_STEPS: { hours: number; label: string; shows: string }[] = [
+  { hours: 2, label: '2 hours', shows: 'Nothing yet' },
+  { hours: 25, label: '1 day', shows: 'First reminder for the person who hasn’t replied' },
+  { hours: 37, label: '1.5 days', shows: 'Calm “it can take a few days” note for the person waiting' },
+  { hours: 73, label: '3 days', shows: 'Second reminder (reply, more time, or end)' },
+  { hours: 121, label: '5 days', shows: 'Last reminder' },
+  { hours: 126, label: '5+ days', shows: '“It’s been quiet” card for the person waiting' },
+  { hours: 170, label: '7 days', shows: 'The chat closes by itself' },
 ];
 
-// __DEV__-only account switcher. Lets a developer sign in as any of the
-// eight seed test accounts to exercise real authenticated flows, most
-// usefully: opening the same thread as both participants (e.g. two
-// devices, or two tabs) to see F16's real-time messaging actually work
-// between two live sessions. Excluded from the tab bar in production
-// (`href: null` in (tabs)/_layout.tsx); this early return is a second,
-// independent guard so a direct deep link to /dev in a real build still
-// renders nothing.
-export default function DevScreen() {
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+      <View className="gap-1">
+        <Text className="text-title text-stone-900 dark:text-stone-50">{title}</Text>
+        {hint && <Text className="text-caption text-stone-500 dark:text-stone-400">{hint}</Text>}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function Button({
+  label,
+  onPress,
+  busy,
+  tone = 'plain',
+}: {
+  label: string;
+  onPress: () => void;
+  busy?: boolean;
+  tone?: 'plain' | 'danger' | 'primary';
+}) {
+  const cls =
+    tone === 'danger'
+      ? 'border-red-300 dark:border-red-800'
+      : tone === 'primary'
+        ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50'
+        : 'border-stone-300 dark:border-stone-600';
+  const text =
+    tone === 'danger'
+      ? 'text-red-600 dark:text-red-400'
+      : tone === 'primary'
+        ? 'text-stone-50 dark:text-stone-900'
+        : 'text-stone-800 dark:text-stone-200';
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      className={`self-start rounded-full border px-4 py-2 ${cls} ${busy ? 'opacity-50' : ''}`}>
+      <Text className={`text-caption font-semibold ${text}`}>{busy ? 'Working...' : label}</Text>
+    </Pressable>
+  );
+}
+
+function Status({ text }: { text: string | null | undefined }) {
+  if (!text) return null;
+  return <Text className="text-caption text-stone-700 dark:text-stone-300">{text}</Text>;
+}
+
+export default function TestToolsScreen() {
   const testTools = useTestTools();
-  const [freshStatus, setFreshStatus] = useState<string | null>(null);
-  const [signingInAs, setSigningInAs] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<DevConversation[]>([]);
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
-  const [hoursOffset, setHoursOffset] = useState('50');
-  const [noGhostBusy, setNoGhostBusy] = useState<string | null>(null);
-  const [noGhostStatus, setNoGhostStatus] = useState<string | null>(null);
-  const [resettingMatches, setResettingMatches] = useState(false);
-  const [resetMatchesStatus, setResetMatchesStatus] = useState<string | null>(null);
-  const [resetAllConfirming, setResetAllConfirming] = useState(false);
-  const [resetAllBusy, setResetAllBusy] = useState(false);
-  const [resetAllStatus, setResetAllStatus] = useState<string | null>(null);
-  const [connectionInfo, setConnectionInfo] = useState<DevConnectionInfo | null>(null);
-  const [reflectionBusy, setReflectionBusy] = useState<string | null>(null);
-  const [reflectionStatus, setReflectionStatus] = useState<string | null>(null);
-  const [planActivityHoursAgo, setPlanActivityHoursAgo] = useState('170');
-  const [checkinBusy, setCheckinBusy] = useState<string | null>(null);
-  const [checkinDevStatus, setCheckinDevStatus] = useState<string | null>(null);
-  const [reflectionOffsetHours, setReflectionOffsetHours] = useState('25');
-  const [reflectionRunBusy, setReflectionRunBusy] = useState(false);
-  const [reflectionRunStatus, setReflectionRunStatus] = useState<string | null>(null);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [status, setStatus] = useState<Record<string, string | null>>({});
+  const [otherText, setOtherText] = useState('');
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [confirmMine, setConfirmMine] = useState(false);
 
-  // Time Travel panel state
-  const [ttBusy, setTtBusy] = useState<string | null>(null);
-  const [ttStatus, setTtStatus] = useState<string | null>(null);
-  const [ttBackdateHours, setTtBackdateHours] = useState('48');
-  const [ttNewMsgSenderId, setTtNewMsgSenderId] = useState<string | null>(null);
-  const [ttNewMsgText, setTtNewMsgText] = useState('');
-  const [ttNewMsgHoursAgo, setTtNewMsgHoursAgo] = useState('24');
-  const [ttMeetupDate, setTtMeetupDate] = useState('');
-  const [ttMeetupStatus, setTtMeetupStatus] = useState<'proposed' | 'confirmed' | null>(null);
-  const [ttMeetupProposedBy, setTtMeetupProposedBy] = useState<string | null>(null);
-  const [ttDisclosedHoursAgo, setTtDisclosedHoursAgo] = useState('192');
-  const [ttSpecificMark, setTtSpecificMark] = useState<CoachMarkKey>('tab_discover');
-  const [ttCapFunction, setTtCapFunction] = useState<string>('generate-reply-draft');
-  const [ttCapHoursAgo, setTtCapHoursAgo] = useState('');
-  const [ttPoolHoursAgo, setTtPoolHoursAgo] = useState('40');
-  const [ttPoolSpent, setTtPoolSpent] = useState('0');
+  const say = (key: string, text: string | null) => setStatus((s) => ({ ...s, [key]: text }));
 
-  // Quick Tests panel state: one busy flag shared across all 4 buttons
-  // (only one runs at a time, same pattern ttBusy already uses), one
-  // status message per test (keyed by test id) so running one doesn't
-  // clear another's most recent result. A 5th button, testing the old
-  // post-first-message friendship-experience trigger, was removed
-  // 2026-08-08 alongside that trigger itself (moved back into onboarding,
-  // see src/app/friendship-experience.tsx); Task 3's own systematic pass
-  // covers verifying the new onboarding-based version instead.
-  const [quickBusy, setQuickBusy] = useState<string | null>(null);
-  const [quickStatus, setQuickStatus] = useState<Record<string, string | null>>({});
-  const setQuickResult = (key: string, message: string | null) => {
-    setQuickStatus((s) => ({ ...s, [key]: message }));
-  };
-
-  const loadConversations = useCallback(async () => {
+  const loadChats = useCallback(async () => {
     if (!isSupabaseConfigured) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      setConversations([]);
+      setChats([]);
       return;
     }
-    const { data } = await supabase
-      .from('inbox_conversations')
-      .select('connection_id, display_name, connection_status')
-      .order('last_message_at', { ascending: false });
-    setConversations((data ?? []) as DevConversation[]);
+    const [{ data: convos }, { data: mutual }, { data: conns }] = await Promise.all([
+      supabase.from('inbox_conversations').select('connection_id, display_name'),
+      supabase.from('new_mutual_connections').select('connection_id, display_name'),
+      supabase.from('connections').select('id, user_a_id, user_b_id, status'),
+    ]);
+    const info = new Map<string, { other: string; status: string | null }>();
+    for (const c of (conns ?? []) as { id: string; user_a_id: string; user_b_id: string; status: string | null }[]) {
+      info.set(c.id, { other: c.user_a_id === user.id ? c.user_b_id : c.user_a_id, status: c.status });
+    }
+    const rows = [
+      ...((convos ?? []) as { connection_id: string; display_name: string | null }[]),
+      ...((mutual ?? []) as { connection_id: string; display_name: string | null }[]),
+    ];
+    const list: Chat[] = [];
+    const seen = new Set<string>();
+    for (const c of rows) {
+      if (seen.has(c.connection_id)) continue;
+      seen.add(c.connection_id);
+      const i = info.get(c.connection_id);
+      list.push({ connection_id: c.connection_id, name: c.display_name ?? 'A member', status: i?.status ?? null, other_id: i?.other ?? null });
+    }
+    setChats(list);
+    setChatId((cur) => (cur && list.some((l) => l.connection_id === cur) ? cur : null));
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadConversations();
-    }, [loadConversations])
+      loadChats();
+    }, [loadChats])
   );
 
   if (!testTools.allowed) {
@@ -173,1575 +147,293 @@ export default function DevScreen() {
             Test tools are only available to admins.
           </Text>
         ) : (
-          <ActivityIndicator color="#a8a29e" />
+          <ActivityIndicator color={MUTED_ICON_COLOR} />
         )}
       </View>
     );
   }
 
-  const handleSwitch = async (phone: string) => {
-    setSigningInAs(phone);
-    setError(null);
-    const { error: signInError } = await devSignInAs(phone);
-    setSigningInAs(null);
-    if (signInError) {
-      setError(signInError.message);
+  const chat = chats.find((c) => c.connection_id === chatId) ?? null;
+
+  const rpc = async (key: string, fn: string, args: Record<string, unknown>, ok: (data: unknown) => string) => {
+    setBusy(key);
+    say(key, null);
+    const { data, error } = await supabase.rpc(fn, args);
+    setBusy(null);
+    say(key, error ? error.message : ok(data));
+    loadChats();
+  };
+
+  const switchTo = async (phone: string) => {
+    setSwitching(phone);
+    say('switch', null);
+    const { error } = await devSignInAs(phone);
+    setSwitching(null);
+    if (error) {
+      say('switch', error.message);
       return;
     }
-    // Bug fix: this screen stays mounted across tab switches (it isn't
-    // remounted just because the user navigated to /home and back), so
-    // without this reset, selectedConnectionId/connectionInfo silently
-    // kept pointing at the PREVIOUS account's connection. Every no-ghost
-    // trigger RPC (dev_force_no_ghost_step, dev_get_connection_info, etc.)
-    // participant-checks the connection against the newly signed-in
-    // account, so a stale id from the old account would fail that check,
-    // the trigger buttons looked like they "weren't firing." Clearing all
-    // of this on every successful switch forces a fresh selection under
-    // the new account, conversations itself already reloads correctly via
-    // loadConversations's own useFocusEffect.
-    setConversations([]);
-    setSelectedConnectionId(null);
-    setConnectionInfo(null);
-    setNoGhostStatus(null);
-    setResetMatchesStatus(null);
-    setReflectionStatus(null);
+    setChatId(null);
+    setStatus({});
     router.replace('/home');
-  };
-
-  // Clears the signed-in account's own connections and match_suggestions
-  // (dev_reset_my_matches, 20260712000009), so Discover testing can
-  // restart from scratch without manual SQL. Deleting a connection
-  // cascades to its messages and no-ghost prompts too, a real and
-  // expected side effect, not a bug.
-  const handleResetMyMatches = async () => {
-    setResettingMatches(true);
-    setResetMatchesStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_reset_my_matches');
-    setResettingMatches(false);
-    setResetMatchesStatus(
-      rpcError
-        ? rpcError.message
-        : 'Cleared. All connections, messages, and match suggestions for this account are gone, Discover will regenerate from scratch next time it loads.'
-    );
-    loadConversations();
-  };
-
-  // Safety plan testing (docs/DECISIONS.md section 3). Seed accounts only,
-  // enforced in the database (dev_mark_selfie_verified,
-  // dev_force_mutual_interest, migration 20261004000000).
-  const [safetyStatus, setSafetyStatus] = useState<string | null>(null);
-  const handleMarkSelfieVerified = async (verified: boolean) => {
-    setSafetyStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_mark_selfie_verified', { p_verified: verified });
-    setSafetyStatus(
-      rpcError
-        ? rpcError.message
-        : verified
-          ? 'This account is now selfie-verified. It can say Interested and send first messages.'
-          : 'Selfie verification removed for this account.'
-    );
-  };
-  const handleForceMutualInterest = async () => {
-    setSafetyStatus(null);
-    if (!selectedConnectionId) {
-      setSafetyStatus('Pick a conversation in No-ghost testing first.');
-      return;
-    }
-    const { error: rpcError } = await supabase.rpc('dev_force_mutual_interest', {
-      p_connection_id: selectedConnectionId,
-    });
-    setSafetyStatus(
-      rpcError ? rpcError.message : 'Both people in the selected conversation are now marked Interested in each other.'
-    );
-  };
-
-  // "Reset ALL seed accounts", distinct from handleResetMyMatches above,
-  // which only ever touches the currently signed-in account. This clears
-  // real, wide-reaching state across all 9 seed accounts at once
-  // (connections, messages, match suggestions, reports, blocks, coach
-  // marks, friendship_experience, AI usage caps, plus everything that
-  // cascades from a deleted connection: no-ghost prompts, meetup
-  // checkins/log/confirmation requests, follow-up reflections, Remember
-  // entries, and more, see dev_reset_all_seed_matches's own migration
-  // comment for the full, verified list). Genuinely destructive and
-  // wide-reaching, so this requires a real second tap before it runs,
-  // not a single click, mirroring this app's own established two-step
-  // confirm pattern (account deletion, Honest Exit).
-  const handleRequestResetAll = () => {
-    setResetAllStatus(null);
-    setResetAllConfirming(true);
-  };
-
-  const handleCancelResetAll = () => {
-    setResetAllConfirming(false);
-  };
-
-  const handleConfirmResetAll = async () => {
-    setResetAllBusy(true);
-    setResetAllConfirming(false);
-    setResetAllStatus(null);
-    const { data, error: rpcError } = await supabase.rpc('dev_reset_all_seed_matches');
-    // Interested choices live outside connections, cleared separately.
-    const { data: interestsCleared } = await supabase.rpc('dev_clear_seed_interests');
-    setResetAllBusy(false);
-    if (rpcError) {
-      setResetAllStatus(rpcError.message);
-      return;
-    }
-    const r = data as {
-      seed_accounts?: number;
-      connections_deleted?: number;
-      match_suggestions_deleted?: number;
-      reports_deleted?: number;
-      blocks_deleted?: number;
-      coach_marks_deleted?: number;
-      friendship_experience_cleared?: number;
-      ai_usage_events_deleted?: number;
-      error?: string;
-    };
-    if (r.error) {
-      setResetAllStatus(r.error);
-      return;
-    }
-    setResetAllStatus(
-      `Cleared across all ${r.seed_accounts} seed accounts: ${r.connections_deleted} connection(s) (and everything tied to them: messages, no-ghost prompts, meetup checkins/log/confirmations, follow-up reflections, Remember entries, and more), ${r.match_suggestions_deleted} match suggestion(s), ${r.reports_deleted} report(s), ${r.blocks_deleted} block(s), ${r.coach_marks_deleted} coach mark(s) seen, ${r.friendship_experience_cleared} friendship_experience answer(s), ${r.ai_usage_events_deleted} AI usage event(s), ${interestsCleared ?? 0} Interested choice(s).`
-    );
-    loadConversations();
-  };
-
-  const handleSelectConnection = async (connectionId: string) => {
-    setSelectedConnectionId(connectionId);
-    setNoGhostStatus(null);
-    setConnectionInfo(null);
-    const { data, error: infoError } = await supabase
-      .rpc('dev_get_connection_info', { p_connection_id: connectionId })
-      .maybeSingle();
-    if (!infoError && data) {
-      setConnectionInfo(data as DevConnectionInfo);
-    }
-  };
-
-  const handleTriggerPrompt = async (triggerId: NoGhostTriggerId, key: string) => {
-    if (!selectedConnectionId) return;
-    setNoGhostBusy(key);
-    setNoGhostStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_force_no_ghost_step', {
-      p_connection_id: selectedConnectionId,
-      p_trigger_id: triggerId,
-    });
-    setNoGhostBusy(null);
-    setNoGhostStatus(
-      rpcError
-        ? rpcError.message
-        : `${triggerId} triggered. Open this thread as the targeted account to see it (switch accounts above if needed).`
-    );
-  };
-
-  const handleStatusPreview = async (hoursAgo: number, key: string) => {
-    if (!selectedConnectionId) return;
-    setNoGhostBusy(key);
-    setNoGhostStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_set_last_message_age', {
-      p_connection_id: selectedConnectionId,
-      p_hours_ago: hoursAgo,
-    });
-    setNoGhostBusy(null);
-    setNoGhostStatus(
-      rpcError
-        ? rpcError.message
-        : `Last message backdated to ${hoursAgo} hours ago. Open this thread as the sender of that message to see the status line (switch accounts above if needed). This also feeds the real scheduler, which may fire real receiver prompts next time it runs.`
-    );
-  };
-
-  const handleReset = async () => {
-    if (!selectedConnectionId) return;
-    setNoGhostBusy('reset');
-    setNoGhostStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_reset_no_ghost', {
-      p_connection_id: selectedConnectionId,
-    });
-    setNoGhostBusy(null);
-    setNoGhostStatus(rpcError ? rpcError.message : 'All no-ghost state cleared for this thread.');
-  };
-
-  // Fix #2: quick way to verify Pause actually stops the timer without
-  // going through the R2/R3 prompt card UI.
-  const handlePauseConnection = async () => {
-    if (!selectedConnectionId) return;
-    setNoGhostBusy('pause');
-    setNoGhostStatus(null);
-    const { error: rpcError } = await supabase.rpc('pause_connection', {
-      p_connection_id: selectedConnectionId,
-    });
-    setNoGhostBusy(null);
-    setNoGhostStatus(
-      rpcError ? rpcError.message : 'Connection paused. Any active prompts were cleared, and the scheduler will skip it until resumed.'
-    );
-  };
-
-  const handleResumeConnection = async () => {
-    if (!selectedConnectionId) return;
-    setNoGhostBusy('resume');
-    setNoGhostStatus(null);
-    const { error: rpcError } = await supabase.rpc('resume_connection', {
-      p_connection_id: selectedConnectionId,
-    });
-    setNoGhostBusy(null);
-    setNoGhostStatus(rpcError ? rpcError.message : 'Connection resumed.');
-  };
-
-  const handleRunWithOffset = async () => {
-    if (!selectedConnectionId) return;
-    const hours = Number(hoursOffset);
-    if (!Number.isFinite(hours)) {
-      setNoGhostStatus('Enter a number of hours, e.g. 50.');
-      return;
-    }
-    setNoGhostBusy('offset');
-    setNoGhostStatus(null);
-    const fakeNow = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
-    const { error: rpcError } = await supabase.rpc('dev_run_no_ghost_check', {
-      p_connection_id: selectedConnectionId,
-      p_now: fakeNow,
-    });
-    setNoGhostBusy(null);
-    setNoGhostStatus(
-      rpcError
-        ? rpcError.message
-        : `Scheduler logic ran as if ${hours} hours had passed. Whichever steps now qualify were fired.`
-    );
-  };
-
-  // F19 dev triggers: force-fires for the signed-in account only (see the
-  // RPC's own comment for why, unlike no-ghost this doesn't need a
-  // sender/receiver distinction, both sides get an identical prompt).
-  const handleTriggerReflection = async () => {
-    if (!selectedConnectionId) return;
-    setReflectionBusy('trigger');
-    setReflectionStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_force_follow_up_reflection', {
-      p_connection_id: selectedConnectionId,
-    });
-    setReflectionBusy(null);
-    setReflectionStatus(
-      rpcError ? rpcError.message : 'Reflection prompt fired for the signed-in account. Open this thread to see it.'
-    );
-  };
-
-  const handleResetReflection = async () => {
-    if (!selectedConnectionId) return;
-    setReflectionBusy('reset');
-    setReflectionStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_reset_follow_up_reflection', {
-      p_connection_id: selectedConnectionId,
-    });
-    setReflectionBusy(null);
-    setReflectionStatus(rpcError ? rpcError.message : 'Reflection state cleared for this thread.');
-  };
-
-  // Time Travel panel investigation finding: run_follow_up_reflection_check
-  // already accepted a simulated p_now, but had no dev-callable wrapper at
-  // all (unlike no-ghost and meetup-checkin, both of which already have a
-  // "run with offset" control above), and used to return void, the exact
-  // "can't tell a real no-op from a bug" gap already fixed once for the
-  // checkin evaluator (2026-08-01). Fixed at the DB layer (migration
-  // 20260824000000) and wired here, in the existing F19 section rather
-  // than a new one, since this is the same "time offset" pattern the
-  // no-ghost/checkin sections above already use, just for the one real
-  // evaluator that was missing it.
-  const REFLECTION_RESULT_MESSAGES: Record<string, string> = {
-    fired: 'Fired. A reflection row was created for both participants, open the thread as either to see it.',
-    already_fired_this_cycle:
-      'Nothing new happened: a reflection row already exists for this cycle. Use Reset reflection state above, or send a fresh message (which clears it automatically), then try again.',
-    not_enough_time_elapsed:
-      'Nothing fired: less than 24 hours have passed since the last real message. Increase the hours-ago value above.',
-    not_two_sided_conversation:
-      'Nothing fired: this requires a real two-sided exchange (both participants have sent at least one message), not just an unanswered opener.',
-    no_messages: 'Nothing fired: this connection has no messages at all yet.',
-    connection_not_found: 'Nothing fired: this connection could not be found.',
-  };
-
-  const handleRunReflectionEvaluator = async () => {
-    if (!selectedConnectionId) return;
-    const hours = Number(reflectionOffsetHours);
-    if (!Number.isFinite(hours)) {
-      setReflectionRunStatus('Enter a number of hours, e.g. 25.');
-      return;
-    }
-    setReflectionRunBusy(true);
-    setReflectionRunStatus(null);
-    const fakeNow = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
-    const { data, error: rpcError } = await supabase.rpc('dev_run_follow_up_reflection_check', {
-      p_connection_id: selectedConnectionId,
-      p_now: fakeNow,
-    });
-    setReflectionRunBusy(false);
-    if (rpcError) {
-      setReflectionRunStatus(rpcError.message);
-      return;
-    }
-    const result = data as string | null;
-    setReflectionRunStatus(
-      (result && REFLECTION_RESULT_MESSAGES[result]) || `Evaluator ran, unrecognized result: ${result}`
-    );
-  };
-
-  // 2026-07-28 milestone redesign dev tools: backdates last_plan_activity_at
-  // directly (dev_set_last_plan_activity), same simulated-time-offset
-  // pattern the no-ghost section already established, so the elapsed-time
-  // checkin can be exercised without waiting a real week.
-  const handleBackdatePlanActivity = async () => {
-    if (!selectedConnectionId) return;
-    const hours = Number(planActivityHoursAgo);
-    if (!Number.isFinite(hours)) {
-      setCheckinDevStatus('Enter a number of hours, e.g. 170.');
-      return;
-    }
-    setCheckinBusy('backdate');
-    setCheckinDevStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_set_last_plan_activity', {
-      p_connection_id: selectedConnectionId,
-      p_hours_ago: hours,
-    });
-    setCheckinBusy(null);
-    setCheckinDevStatus(
-      rpcError ? rpcError.message : `last_plan_activity_at backdated to ${hours} hours ago.`
-    );
-  };
-
-  // Bug fix (2026-08-01): run_meetup_checkin_check used to return void, so
-  // this status message claimed success unconditionally, even when the
-  // evaluator silently no-op'd because the connection's status was
-  // paused/inactive/passed, the exact reason a real user's repro of this
-  // tool produced "nothing happened, no card, no error." The RPC now
-  // returns a real outcome, shown here honestly instead of guessed at.
-  const CHECKIN_RESULT_MESSAGES: Record<string, string> = {
-    fired: 'Fired. A checkin row was created for both participants, open the thread as either to see it.',
-    already_fired_this_cycle:
-      'Nothing new happened: a checkin row already exists for this planning cycle. Use Reset checkins below, or record fresh plan activity, then try again.',
-    not_enough_time_elapsed:
-      'Nothing fired: less than 7 days have passed since the backdated last_plan_activity_at. Increase the hours-ago value above and backdate again.',
-    connection_not_eligible:
-      "Nothing fired: this connection's status is paused, inactive, or passed, the evaluator skips those on purpose (same guard the no-ghost scheduler uses). Use Reactivate this connection below, or pick a different thread.",
-    no_activity_recorded:
-      'Nothing fired: this connection has no last_plan_activity_at at all yet. Backdate it above first.',
-    date_pending_confirmation:
-      "Nothing fired: a meetup date has been proposed on this connection but not yet confirmed by the other participant, the elapsed-time fallback deliberately does not preempt a real, still-open proposal. Confirm or clear the date first, or pick a different thread.",
-  };
-
-  const handleRunCheckinEvaluator = async () => {
-    if (!selectedConnectionId) return;
-    setCheckinBusy('run');
-    setCheckinDevStatus(null);
-    const { data, error: rpcError } = await supabase.rpc('dev_run_meetup_checkin_check', {
-      p_connection_id: selectedConnectionId,
-      p_now: new Date().toISOString(),
-    });
-    setCheckinBusy(null);
-    if (rpcError) {
-      setCheckinDevStatus(rpcError.message);
-      return;
-    }
-    const result = data as string | null;
-    setCheckinDevStatus(
-      (result && CHECKIN_RESULT_MESSAGES[result]) || `Evaluator ran, unrecognized result: ${result}`
-    );
-  };
-
-  // Dev-only escape hatch: every currently selectable seed thread in this
-  // project's own accumulated test data tends to end up inactive or
-  // blocked, which made the checkin flow untestable end to end without
-  // this. Refuses a blocked connection server-side (dev_reactivate_
-  // connection_for_testing's own guard), Block is a real safety feature,
-  // not something a dev convenience button should be able to undo.
-  const handleReactivateConnection = async () => {
-    if (!selectedConnectionId) return;
-    setCheckinBusy('reactivate');
-    setCheckinDevStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_reactivate_connection_for_testing', {
-      p_connection_id: selectedConnectionId,
-    });
-    setCheckinBusy(null);
-    setCheckinDevStatus(
-      rpcError ? rpcError.message : "Connection status set to active. It's now eligible for the checkin evaluator."
-    );
-    loadConversations();
-  };
-
-  const handleResetCheckins = async () => {
-    if (!selectedConnectionId) return;
-    setCheckinBusy('reset');
-    setCheckinDevStatus(null);
-    const { error: rpcError } = await supabase.rpc('dev_reset_meetup_checkins', {
-      p_connection_id: selectedConnectionId,
-    });
-    setCheckinBusy(null);
-    setCheckinDevStatus(rpcError ? rpcError.message : 'Checkin rows cleared for this connection.');
-  };
-
-  // ---- Time Travel panel ----
-  // Message/meetup capabilities below operate on the selected connection
-  // above (same picker No-ghost testing already uses). User-level
-  // capabilities (coach marks, friendship_experience, disclosed_at, AI
-  // caps, premium pool) operate on the currently signed-in account,
-  // matching this file's own established convention (dev_reset_my_matches,
-  // the F19 triggers) rather than adding a new cross-account reach.
-
-  const handleBackdateLastMessage = async () => {
-    if (!selectedConnectionId) return;
-    const hours = Number(ttBackdateHours);
-    if (!Number.isFinite(hours)) {
-      setTtStatus('Enter a number of hours, e.g. 48.');
-      return;
-    }
-    setTtBusy('backdate-last-message');
-    setTtStatus(null);
-    const { data, error: rpcError } = await supabase.rpc('dev_backdate_last_message', {
-      p_connection_id: selectedConnectionId,
-      p_hours_ago: hours,
-    });
-    setTtBusy(null);
-    if (rpcError) {
-      setTtStatus(rpcError.message);
-      return;
-    }
-    if (!data?.found) {
-      setTtStatus('This connection has no messages yet, nothing to backdate.');
-      return;
-    }
-    setTtStatus(
-      `Before: ${new Date(data.old_created_at).toLocaleString()} → After: ${new Date(data.new_created_at).toLocaleString()}. Reload the thread to see it.`
-    );
-  };
-
-  const handleSendBackdatedMessage = async () => {
-    if (!selectedConnectionId || !ttNewMsgSenderId) {
-      setTtStatus('Select a connection and a sender first.');
-      return;
-    }
-    const content = ttNewMsgText.trim();
-    if (!content) {
-      setTtStatus('Enter some message text first.');
-      return;
-    }
-    const hours = Number(ttNewMsgHoursAgo);
-    if (!Number.isFinite(hours)) {
-      setTtStatus('Enter a number of hours, e.g. 24.');
-      return;
-    }
-    setTtBusy('send-message');
-    setTtStatus(null);
-    const { data, error: rpcError } = await supabase.rpc('dev_send_backdated_message', {
-      p_connection_id: selectedConnectionId,
-      p_sender_id: ttNewMsgSenderId,
-      p_content: content,
-      p_hours_ago: hours,
-    });
-    setTtBusy(null);
-    setTtStatus(
-      rpcError
-        ? rpcError.message
-        : `Sent. created_at set to ${new Date(data.created_at).toLocaleString()}. Reload the thread to see it. Note: this bypasses the real send-time gates (photo requirement, messaging_preference, blocked/inactive/ended), it's for seeding test data, not exercising those checks.`
-    );
-  };
-
-  const handleSetNextMeetup = async () => {
-    if (!selectedConnectionId) return;
-    setTtBusy('set-next-meetup');
-    setTtStatus(null);
-    const { data, error: rpcError } = await supabase.rpc('dev_set_next_meetup', {
-      p_connection_id: selectedConnectionId,
-      p_date: ttMeetupDate.trim() || null,
-      p_status: ttMeetupStatus,
-      p_proposed_by: ttMeetupProposedBy,
-    });
-    setTtBusy(null);
-    setTtStatus(
-      rpcError
-        ? rpcError.message
-        : `Before: ${JSON.stringify(data.old)} → After: ${JSON.stringify(data.new)}. Reload the thread to see it.`
-    );
-  };
-
-  const handleBackdateDisclosedAt = async () => {
-    const hours = Number(ttDisclosedHoursAgo);
-    if (!Number.isFinite(hours)) {
-      setTtStatus('Enter a number of hours, e.g. 192 (8 days).');
-      return;
-    }
-    setTtBusy('disclosed-at');
-    setTtStatus(null);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setTtBusy(null);
-      setTtStatus('Sign in as a seed account first.');
-      return;
-    }
-    const newValue = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ behavioral_tracking_disclosed_at: newValue })
-      .eq('id', user.id);
-    setTtBusy(null);
-    setTtStatus(
-      updateError
-        ? updateError.message
-        : `behavioral_tracking_disclosed_at set to ${new Date(newValue).toLocaleString()} for the signed-in account. This no longer feeds the friendship-experience prompt (that trigger was removed 2026-08-08, the survey now fires once during onboarding instead); it still feeds the referral system's 30-day qualification window (referral_reward_qualifies).`
-    );
-  };
-
-  const handleResetAllCoachMarks = async () => {
-    setTtBusy('reset-all-marks');
-    setTtStatus(null);
-    await resetCoachMarks();
-    setTtBusy(null);
-    setTtStatus('All coach marks cleared for the signed-in account. Reload any tab to see its tip again.');
-  };
-
-  const handleResetOneCoachMark = async () => {
-    setTtBusy('reset-one-mark');
-    setTtStatus(null);
-    await resetCoachMark(ttSpecificMark);
-    setTtBusy(null);
-    setTtStatus(`"${ttSpecificMark}" cleared for the signed-in account. Reload the relevant screen to see it again.`);
-  };
-
-  const handleResetFriendshipExperience = async () => {
-    setTtBusy('reset-experience');
-    setTtStatus(null);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setTtBusy(null);
-      setTtStatus('Sign in as a seed account first.');
-      return;
-    }
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ friendship_experience: null })
-      .eq('user_id', user.id);
-    setTtBusy(null);
-    setTtStatus(
-      updateError
-        ? updateError.message
-        : 'friendship_experience cleared for the signed-in account. The AI reflection will fall back to pending copy for "What has helped"/"When uncertain" until answered again.'
-    );
-  };
-
-  const handleResetAiCap = async (mode: 'clear' | 'backdate') => {
-    setTtBusy(`ai-cap-${mode}`);
-    setTtStatus(null);
-    const hours = mode === 'backdate' ? Number(ttCapHoursAgo) : null;
-    if (mode === 'backdate' && !Number.isFinite(hours)) {
-      setTtBusy(null);
-      setTtStatus('Enter a number of hours to backdate by, e.g. 200.');
-      return;
-    }
-    const { data, error: rpcError } = await supabase.rpc('dev_reset_ai_usage', {
-      p_function_name: ttCapFunction,
-      p_hours_ago: mode === 'backdate' ? hours : null,
-    });
-    setTtBusy(null);
-    setTtStatus(
-      rpcError
-        ? rpcError.message
-        : `${data.mode === 'cleared' ? 'Cleared' : 'Backdated'} ${data.rows_affected} usage row(s) for ${ttCapFunction} on the signed-in account.`
-    );
-  };
-
-  const handleResetPremiumPool = async () => {
-    const hours = Number(ttPoolHoursAgo);
-    const spent = Number(ttPoolSpent);
-    if (!Number.isFinite(hours) || !Number.isFinite(spent)) {
-      setTtStatus('Enter valid numbers for both hours-ago and spent ($).');
-      return;
-    }
-    setTtBusy('premium-pool');
-    setTtStatus(null);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setTtBusy(null);
-      setTtStatus('Sign in as a seed account first.');
-      return;
-    }
-    const newPeriodStart = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ premium_pool_period_start: newPeriodStart, premium_pool_spent_usd: spent })
-      .eq('id', user.id);
-    setTtBusy(null);
-    setTtStatus(
-      updateError
-        ? updateError.message
-        : `premium_pool_period_start set to ${new Date(newPeriodStart).toLocaleString()}, premium_pool_spent_usd set to $${spent.toFixed(2)}. Only affects a premium account; the pool is otherwise unread for free-tier accounts.`
-    );
-  };
-
-  // ---- Quick Tests panel ----
-  // One-tap end-to-end tests, each a thin wrapper around the granular
-  // tools already built above (No-ghost testing, Meetup milestone
-  // testing, and this same Time Travel panel's own coach-mark tools), not
-  // a duplicate implementation of any of them. The no-ghost/checkin/
-  // graduation tests need a connection selected (same picker as No-ghost
-  // testing below); coach marks act on the signed-in account only.
-
-  const handleQuickTestNoGhost = async () => {
-    if (!selectedConnectionId) {
-      setQuickResult('no-ghost', 'Select a conversation in the No-ghost testing section below first.');
-      return;
-    }
-    setQuickBusy('no-ghost');
-    setQuickResult('no-ghost', null);
-    const { data, error: rpcError } = await supabase.rpc('dev_test_no_ghost_end_to_end', {
-      p_connection_id: selectedConnectionId,
-    });
-    setQuickBusy(null);
-    if (rpcError) {
-      setQuickResult('no-ghost', rpcError.message);
-      return;
-    }
-    if (!data?.has_messages) {
-      setQuickResult(
-        'no-ghost',
-        'This conversation has no messages yet, the no-ghost scheduler has nothing to evaluate against. Pick a thread with at least one message.'
-      );
-      return;
-    }
-    const fired = (data.fired ?? []) as Array<{
-      trigger_id: string;
-      user_id: string;
-      display_name: string | null;
-      role: 'A' | 'B';
-    }>;
-    if (fired.length === 0) {
-      setQuickResult(
-        'no-ghost',
-        'Cleared existing prompt state and ran the real scheduler as if 40 hours had passed since the last message, but nothing fired. Most likely cause: this connection is paused, inactive, blocked, ended, or passed, the scheduler skips those on purpose.'
-      );
-      return;
-    }
-    const summary = fired
-      .map((f) => `${f.trigger_id} for ${f.display_name ?? 'a member'} (user ${f.role})`)
-      .join(', ');
-    setQuickResult(
-      'no-ghost',
-      `Fired: ${summary}. Cleared existing prompt state first, then ran the real scheduler as if 40 hours had passed since the last message (that offset reliably triggers R1 alone, R2/R3/S1 all need more elapsed time to fire). Sign in as the targeted account above and open this thread to see it.`
-    );
-  };
-
-  const handleQuickTestMeetupCheckin = async () => {
-    if (!selectedConnectionId) {
-      setQuickResult('checkin', 'Select a conversation in the No-ghost testing section below first.');
-      return;
-    }
-    setQuickBusy('checkin');
-    setQuickResult('checkin', null);
-    const { data, error: rpcError } = await supabase.rpc('dev_test_meetup_checkin_end_to_end', {
-      p_connection_id: selectedConnectionId,
-    });
-    setQuickBusy(null);
-    if (rpcError) {
-      setQuickResult('checkin', rpcError.message);
-      return;
-    }
-    const outcome = data?.outcome as string | undefined;
-    const outcomeMessage = (outcome && CHECKIN_RESULT_MESSAGES[outcome]) || `Evaluator ran, unrecognized result: ${outcome}`;
-    const prefix = 'Cleared checkin state, backdated last_plan_activity_at past the real 7-day threshold, and ran the real checkin evaluator.';
-    if (outcome === 'fired') {
-      const names = ((data.checkins ?? []) as Array<{ display_name: string | null }>)
-        .map((c) => c.display_name ?? 'a member')
-        .join(' and ');
-      setQuickResult('checkin', `${prefix} ${outcomeMessage} (${names}). Sign in as either above and open this thread to see it.`);
-    } else {
-      setQuickResult('checkin', `${prefix} ${outcomeMessage}`);
-    }
-  };
-
-  const handleQuickTestGraduation = async () => {
-    if (!selectedConnectionId) {
-      setQuickResult('graduation', 'Select a conversation in the No-ghost testing section below first.');
-      return;
-    }
-    setQuickBusy('graduation');
-    setQuickResult('graduation', null);
-    const { data, error: rpcError } = await supabase.rpc('dev_test_graduation_end_to_end', {
-      p_connection_id: selectedConnectionId,
-    });
-    setQuickBusy(null);
-    if (rpcError) {
-      setQuickResult('graduation', rpcError.message);
-      return;
-    }
-    if (!data?.target_reached) {
-      const reason = data?.abort_reason as string | undefined;
-      const reasonMessage = (reason && CHECKIN_RESULT_MESSAGES[reason]) || `Ran into an unrecognized blocker: ${reason}`;
-      setQuickResult(
-        'graduation',
-        `Completed ${data?.completed_cycles ?? 0} of the meetups needed before hitting a real blocker (same evaluator No-ghost/Meetup milestone testing use). ${reasonMessage}`
-      );
-      return;
-    }
-    const eligibility: GraduationEligibility = {
-      meetupCount: data.final_meetup_count,
-      status: data.status,
-      graduationDismissedAtCount: data.graduation_dismissed_at_count,
-    };
-    const met = shouldShowGraduationPrompt(eligibility);
-    setQuickResult(
-      'graduation',
-      `Pushed ${data.completed_cycles} real, mutually-confirmed meetup(s) through the actual report → confirmation request → confirm → meetup_log + meetup_count mechanism (this dev tool plays both sides since only one account is signed in at a time, see the migration's own comment for why). Connection now has ${data.final_meetup_count} confirmed meetup(s), status "${data.status}". Real graduation-modal condition met: ${met ? 'yes, open this thread to see it' : 'no'}.`
-    );
-  };
-
-  const handleQuickTestCoachMarks = async () => {
-    setQuickBusy('coach-marks');
-    setQuickResult('coach-marks', null);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setQuickBusy(null);
-      setQuickResult('coach-marks', 'Sign in as a seed account first.');
-      return;
-    }
-    await resetCoachMarks();
-    setQuickBusy(null);
-    setQuickResult(
-      'coach-marks',
-      'All 9 coach marks cleared for the signed-in account. Reload any tab (Discover, Browse, Saved, Inbox, Remember, Profile) to see its first-time tip again, or revisit a thread with an active no-ghost prompt or meetup checkin, or a blocked AI-assist surface, to see those.'
-    );
   };
 
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
-        <ScrollView contentContainerClassName="gap-4 px-6 pb-10 pt-10">
+        <ScrollView contentContainerClassName="gap-4 px-6 pb-24 pt-10">
           <View className="gap-2">
             <Text className="text-display text-stone-900 dark:text-stone-50">Test tools</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              Only admins see this tab. Act as one of the fake test accounts to try the other side of
-              a conversation, then come back to your own account.
+              Only admins see this tab. Act as a test account to try the other side of a chat, then come back to your
+              own account.
             </Text>
           </View>
 
           {testTools.actingAs && (
             <View className="gap-2 rounded-2xl border border-accent-500 bg-accent-500/10 p-4">
-              <Text className="text-body text-stone-900 dark:text-stone-50">
-                You are testing as {testTools.actingAs}.
-              </Text>
-              <Pressable
+              <Text className="text-body text-stone-900 dark:text-stone-50">You are testing as {testTools.actingAs}.</Text>
+              <Button
+                label="Back to my account"
+                tone="primary"
                 onPress={async () => {
-                  const { error: backError } = await returnToMyAccount();
-                  if (backError) setError(backError);
+                  const { error } = await returnToMyAccount();
+                  if (error) say('switch', error);
                   else router.replace('/home');
                 }}
-                className="self-start rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Back to my account</Text>
-              </Pressable>
+              />
             </View>
           )}
 
-          {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
-
-          <View className="gap-2">
-            <Pressable
-              onPress={async () => {
-                setFreshStatus('Clearing...');
-                const { data, error: rpcError } = await supabase.rpc('dev_clear_my_suggestions');
-                setFreshStatus(
-                  rpcError
-                    ? `Could not clear: ${rpcError.message}`
-                    : `Cleared ${data ?? 0} suggestion(s). Open Discover to get new ones.`
-                );
-              }}
-              className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
-                Get fresh suggestions for this account
-              </Text>
-            </Pressable>
-            {freshStatus && <Text className="text-caption text-stone-500 dark:text-stone-400">{freshStatus}</Text>}
-          </View>
-
-          <View className="gap-2">
-            <Text className="text-title text-stone-900 dark:text-stone-50">Act as a test account</Text>
+          <Section title="Act as a test account">
             <View className="flex-row flex-wrap gap-2">
               {DEV_SEED_USERS.map((u) => (
                 <Pressable
                   key={u.phone}
-                  onPress={() => handleSwitch(u.phone)}
-                  disabled={signingInAs !== null}
+                  onPress={() => switchTo(u.phone)}
+                  disabled={switching !== null}
                   className={`rounded-full border px-4 py-2 ${
                     testTools.actingAs === u.displayName
                       ? 'border-accent-500 bg-accent-500/10'
                       : 'border-stone-300 dark:border-stone-700'
                   }`}>
                   <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
-                    {signingInAs === u.phone ? 'Switching...' : u.displayName}
+                    {switching === u.phone ? 'Switching...' : u.displayName}
                   </Text>
                 </Pressable>
               ))}
             </View>
-          </View>
+            <Status text={status.switch} />
+          </Section>
 
-          <MeetupTestPanel chats={conversations} />
-
-          <View className="gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
-            <View className="gap-1">
-              <Text className="text-title text-stone-900 dark:text-stone-50">Quick Tests</Text>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                One tap per feature, chaining the granular tools below into a single end-to-end
-                check. The three connection-based tests use whichever conversation is selected in
-                the No-ghost testing section further down; sign in and pick one there first if a
-                button below says so.
-              </Text>
-            </View>
-
-            <View className="gap-2">
-              <Pressable
-                onPress={handleQuickTestNoGhost}
-                disabled={quickBusy === 'no-ghost'}
-                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                  {quickBusy === 'no-ghost' ? 'Testing...' : 'Test no-ghost end-to-end'}
-                </Text>
-              </Pressable>
-              {quickStatus['no-ghost'] && (
-                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['no-ghost']}</Text>
-              )}
-            </View>
-
-            <View className="gap-2">
-              <Pressable
-                onPress={handleQuickTestMeetupCheckin}
-                disabled={quickBusy === 'checkin'}
-                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                  {quickBusy === 'checkin' ? 'Testing...' : 'Test meetup check-in end-to-end'}
-                </Text>
-              </Pressable>
-              {quickStatus['checkin'] && (
-                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['checkin']}</Text>
-              )}
-            </View>
-
-            <View className="gap-2">
-              <Pressable
-                onPress={handleQuickTestGraduation}
-                disabled={quickBusy === 'graduation'}
-                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                  {quickBusy === 'graduation' ? 'Testing...' : 'Test meetup confirmation + graduation end-to-end'}
-                </Text>
-              </Pressable>
-              {quickStatus['graduation'] && (
-                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['graduation']}</Text>
-              )}
-            </View>
-
-            <View className="gap-2">
-              <Pressable
-                onPress={handleQuickTestCoachMarks}
-                disabled={quickBusy === 'coach-marks'}
-                className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                  {quickBusy === 'coach-marks' ? 'Testing...' : 'Test coach marks end-to-end'}
-                </Text>
-              </Pressable>
-              {quickStatus['coach-marks'] && (
-                <Text className="text-caption text-stone-600 dark:text-stone-400">{quickStatus['coach-marks']}</Text>
-              )}
-            </View>
-          </View>
-
-
-          <View className="gap-2 border-t border-stone-200 pt-6 dark:border-stone-800">
-            <Text className="text-title text-stone-900 dark:text-stone-50">Safety testing</Text>
-            <Text className="text-caption text-stone-500 dark:text-stone-400">
-              A first message needs a passed selfie check and both people saying Interested. These
-              shortcuts skip the manual review and the second account, seed accounts only.
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              <Pressable
-                onPress={() => handleMarkSelfieVerified(true)}
-                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
-                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Mark me verified</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => handleMarkSelfieVerified(false)}
-                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
-                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Remove my verification</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleForceMutualInterest}
-                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
-                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                  Make selected conversation mutual
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => router.push('/selfie-check')}
-                className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
-                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Open selfie check</Text>
-              </Pressable>
-            </View>
-            {safetyStatus && (
-              <Text className="text-caption text-stone-500 dark:text-stone-400">{safetyStatus}</Text>
-            )}
-          </View>
-
-          <View className="gap-2 border-t border-stone-200 pt-6 dark:border-stone-800">
-            <Text className="text-title text-stone-900 dark:text-stone-50">Match testing</Text>
-            <Text className="text-caption text-stone-500 dark:text-stone-400">
-              Deletes all connections, messages, and match suggestions for the currently
-              signed-in account.
-            </Text>
-            <Pressable
-              onPress={handleResetMyMatches}
-              disabled={resettingMatches}
-              className="self-start rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-              <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
-                {resettingMatches ? 'Resetting...' : 'Reset my matches'}
-              </Text>
-            </Pressable>
-            {resetMatchesStatus && (
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                {resetMatchesStatus}
-              </Text>
-            )}
-
-            <View className="mt-2 gap-2 rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
-              <Text className="text-caption font-semibold text-red-700 dark:text-red-400">
-                Reset ALL 9 seed accounts (not just the signed-in one)
-              </Text>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                Clears connections, messages, match suggestions, reports, blocks, coach marks
-                seen, friendship_experience answers, AI usage caps, and Interested choices for every seed account at
-                once (Maria, David, Aisha, Robert, Priya, Marcus, Jordan, Sam, and Elena), not
-                just whoever is currently signed in.
-              </Text>
-              {!resetAllConfirming ? (
-                <Pressable
-                  onPress={handleRequestResetAll}
-                  disabled={resetAllBusy}
-                  className="self-start rounded-full bg-red-600 px-4 py-2 active:opacity-80">
-                  <Text className="text-caption font-semibold text-white">
-                    {resetAllBusy ? 'Resetting...' : 'Reset all seed accounts'}
-                  </Text>
-                </Pressable>
-              ) : (
-                <View className="gap-2">
-                  <Text className="text-caption font-semibold text-red-700 dark:text-red-400">
-                    Are you sure? This clears real test state for all 9 seed accounts and cannot
-                    be undone.
-                  </Text>
-                  <View className="flex-row gap-2">
-                    <Pressable
-                      onPress={handleConfirmResetAll}
-                      className="rounded-full bg-red-600 px-4 py-2 active:opacity-80">
-                      <Text className="text-caption font-semibold text-white">
-                        Yes, reset everything
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={handleCancelResetAll}
-                      className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                      <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                        Cancel
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              )}
-              {resetAllStatus && (
-                <Text className="text-caption text-stone-600 dark:text-stone-400">
-                  {resetAllStatus}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          <View className="gap-3 border-t border-stone-200 pt-6 dark:border-stone-800">
-            <View className="gap-1">
-              <Text className="text-title text-stone-900 dark:text-stone-50">
-                No-ghost testing
-              </Text>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                Requires being signed in as one of the two people in the selected thread (use the
-                switcher above). The two &quot;Preview sender reassurance&quot; buttons backdate
-                the last message and create no row, open the thread as the sender to see the line.
-                R1/R2/R3/S1 each force-fire a real prompt row.
-              </Text>
-            </View>
-
-            {conversations.length === 0 ? (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
-                No active conversations for the signed-in account yet.
-              </Text>
+          <Section
+            title="Pick a chat"
+            hint="The chat tools below work on this chat. These are the chats of the account you're using right now.">
+            {chats.length === 0 ? (
+              <Text className="text-caption text-stone-500 dark:text-stone-400">This account has no chats yet.</Text>
             ) : (
-              <View className="gap-2">
-                {conversations.map((c) => (
+              <View className="flex-row flex-wrap gap-2">
+                {chats.map((c) => (
                   <Pressable
                     key={c.connection_id}
-                    onPress={() => handleSelectConnection(c.connection_id)}
-                    className={`rounded-xl border px-4 py-3 ${
-                      selectedConnectionId === c.connection_id
-                        ? 'border-accent-500 bg-accent-500/10'
-                        : 'border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800'
+                    onPress={() => {
+                      setChatId(c.connection_id);
+                      setStatus({});
+                    }}
+                    className={`rounded-full border px-3 py-1.5 ${
+                      chatId === c.connection_id ? 'border-accent-500 bg-accent-500/10' : 'border-stone-300 dark:border-stone-700'
                     }`}>
-                    <Text className="text-body text-stone-900 dark:text-stone-50">
-                      {c.display_name ?? 'A member'}
-                      {c.connection_status ? ` (${c.connection_status})` : ''}
+                    <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
+                      {c.name}
+                      {c.status && c.status !== 'active' && c.status !== 'pending' ? ` (${c.status})` : ''}
                     </Text>
                   </Pressable>
                 ))}
               </View>
             )}
-
-            {selectedConnectionId && (
-              <View className="gap-3">
-                <View className="gap-2">
-                  {NO_GHOST_TRIGGERS.map((t) => (
-                    <Pressable
-                      key={t.key}
-                      onPress={() =>
-                        t.kind === 'prompt'
-                          ? handleTriggerPrompt(t.triggerId, t.key)
-                          : handleStatusPreview(t.hoursAgo, t.key)
-                      }
-                      disabled={noGhostBusy === t.key}
-                      className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                      <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                        {noGhostBusy === t.key ? 'Triggering...' : t.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                  <Pressable
-                    onPress={handleReset}
-                    disabled={noGhostBusy === 'reset'}
-                    className="rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-                    <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
-                      {noGhostBusy === 'reset' ? 'Resetting...' : 'Reset all no-ghost state'}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={handlePauseConnection}
-                    disabled={noGhostBusy === 'pause'}
-                    className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                    <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                      {noGhostBusy === 'pause' ? 'Pausing...' : 'Pause this connection'}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={handleResumeConnection}
-                    disabled={noGhostBusy === 'resume'}
-                    className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                    <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                      {noGhostBusy === 'resume' ? 'Resuming...' : 'Resume this connection'}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    Time offset override (hours from now, e.g. 50)
-                  </Text>
-                  <View className="flex-row items-center gap-2">
-                    <TextInput
-                      value={hoursOffset}
-                      onChangeText={setHoursOffset}
-                      keyboardType="numeric"
-                      className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                    />
-                    <Pressable
-                      onPress={handleRunWithOffset}
-                      disabled={noGhostBusy === 'offset'}
-                      className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                      <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                        {noGhostBusy === 'offset' ? 'Running...' : 'Run scheduler with offset'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                {noGhostStatus && (
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    {noGhostStatus}
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-
-          <View className="gap-3 border-t border-stone-200 pt-6 dark:border-stone-800">
-            <View className="gap-1">
-              <Text className="text-title text-stone-900 dark:text-stone-50">
-                F19 follow-up reflection testing
-              </Text>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                Uses the same selected thread above. Fires for the signed-in account only.
-              </Text>
-            </View>
-            {selectedConnectionId ? (
-              <View className="gap-2">
-                <Pressable
-                  onPress={handleTriggerReflection}
-                  disabled={reflectionBusy === 'trigger'}
-                  className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                  <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                    {reflectionBusy === 'trigger' ? 'Triggering...' : 'Trigger follow-up reflection'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleResetReflection}
-                  disabled={reflectionBusy === 'reset'}
-                  className="rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-                  <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
-                    {reflectionBusy === 'reset' ? 'Resetting...' : 'Reset reflection state'}
-                  </Text>
-                </Pressable>
-                {reflectionStatus && (
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">{reflectionStatus}</Text>
-                )}
-                <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    Run the real evaluator (requires 24hr+ since the last message, and a genuine
-                    two-sided exchange), as if this many hours from now had passed
-                  </Text>
-                  <View className="flex-row items-center gap-2">
-                    <TextInput
-                      value={reflectionOffsetHours}
-                      onChangeText={setReflectionOffsetHours}
-                      keyboardType="numeric"
-                      className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                    />
-                    <Pressable
-                      onPress={handleRunReflectionEvaluator}
-                      disabled={reflectionRunBusy}
-                      className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                      <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                        {reflectionRunBusy ? 'Running...' : 'Run evaluator now'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                  {reflectionRunStatus && (
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">{reflectionRunStatus}</Text>
-                  )}
-                </View>
-              </View>
-            ) : (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
-                Select a conversation above first.
-              </Text>
-            )}
-          </View>
-
-          <View className="gap-3 border-t border-stone-200 pt-6 dark:border-stone-800">
-            <View className="gap-1">
-              <Text className="text-title text-stone-900 dark:text-stone-50">
-                Meetup milestone testing
-              </Text>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                Uses the same selected thread above. Backdate last_plan_activity_at (default 170,
-                just past the real 7-day/168hr threshold), then run the checkin evaluator to fire a
-                real row for both participants without waiting a real week. The evaluator only
-                fires for a connection whose status is not paused, inactive, or passed, the status
-                shown next to each thread above tells you upfront whether it qualifies, and Run
-                checkin evaluator now will say exactly why nothing happened if it doesn't.
-              </Text>
-            </View>
-            {selectedConnectionId ? (
-              <View className="gap-2">
-                <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    Hours ago to backdate last_plan_activity_at
-                  </Text>
-                  <View className="flex-row items-center gap-2">
-                    <TextInput
-                      value={planActivityHoursAgo}
-                      onChangeText={setPlanActivityHoursAgo}
-                      keyboardType="numeric"
-                      className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                    />
-                    <Pressable
-                      onPress={handleBackdatePlanActivity}
-                      disabled={checkinBusy === 'backdate'}
-                      className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                      <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                        {checkinBusy === 'backdate' ? 'Backdating...' : 'Backdate'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-                <Pressable
-                  onPress={handleRunCheckinEvaluator}
-                  disabled={checkinBusy === 'run'}
-                  className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                  <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                    {checkinBusy === 'run' ? 'Running...' : 'Run checkin evaluator now'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleReactivateConnection}
-                  disabled={checkinBusy === 'reactivate'}
-                  className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                  <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                    {checkinBusy === 'reactivate' ? 'Reactivating...' : 'Reactivate this connection (set status to active)'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleResetCheckins}
-                  disabled={checkinBusy === 'reset'}
-                  className="rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-                  <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
-                    {checkinBusy === 'reset' ? 'Resetting...' : 'Reset checkin state'}
-                  </Text>
-                </Pressable>
-                {checkinDevStatus && (
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">{checkinDevStatus}</Text>
-                )}
-              </View>
-            ) : (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
-                Select a conversation above first.
-              </Text>
-            )}
-          </View>
-
-          <View className="gap-3 border-t border-stone-200 pt-6 dark:border-stone-800">
-            <View className="gap-1">
-              <Text className="text-title text-stone-900 dark:text-stone-50">Time Travel</Text>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                Trigger and verify time-based features directly, without a new session each time.
-                Message/meetup tools below use the same connection selected under No-ghost testing
-                above. Already covered elsewhere, not duplicated here: backdating
-                last_plan_activity_at (Meetup milestone testing above), and running the no-ghost /
-                meetup-checkin evaluators with a simulated time offset (their own sections above).
-                The follow-up-reflection evaluator&apos;s own &quot;Run evaluator now&quot; is in the
-                F19 section above too. User-level tools below (coach marks, friendship experience,
-                disclosed-at, AI caps, premium pool) act on whichever account is currently signed in.
-              </Text>
-            </View>
-
-            {ttStatus && (
-              <View className="rounded-xl border border-accent-500/40 bg-accent-500/5 p-3">
-                <Text className="text-caption text-stone-700 dark:text-stone-300">{ttStatus}</Text>
-              </View>
-            )}
-
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Backdate most recent message
-              </Text>
-              {selectedConnectionId ? (
-                <View className="flex-row items-center gap-2">
-                  <TextInput
-                    value={ttBackdateHours}
-                    onChangeText={setTtBackdateHours}
-                    keyboardType="numeric"
-                    className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+            {chat && (
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  label="Open this chat"
+                  onPress={() => router.push({ pathname: '/thread/[id]', params: { id: chat.connection_id } })}
+                />
+                {(chat.status === 'inactive' || chat.status === 'paused') && (
+                  <Button
+                    label="Reopen this chat"
+                    busy={busy === 'reopen'}
+                    onPress={() => rpc('reopen', 'test_reopen_chat', { p_connection_id: chat.connection_id }, (d) => String(d))}
                   />
-                  <Pressable
-                    onPress={handleBackdateLastMessage}
-                    disabled={ttBusy === 'backdate-last-message'}
-                    className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                    <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                      {ttBusy === 'backdate-last-message' ? 'Backdating...' : 'Backdate (hours ago)'}
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  Select a conversation above first.
-                </Text>
-              )}
-            </View>
+                )}
+              </View>
+            )}
+            <Status text={status.reopen} />
+          </Section>
 
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Send a new message, any sender, backdated
-              </Text>
-              {selectedConnectionId && connectionInfo ? (
+          {chat && (
+            <Section
+              title="No-reply reminders"
+              hint={`Makes the last message in your chat with ${chat.name} this old, then runs the real reminder check. Then open the chat as either person.`}>
+              <View className="gap-2">
+                {NO_REPLY_STEPS.map((s) => (
+                  <Pressable
+                    key={s.hours}
+                    disabled={busy !== null}
+                    onPress={() =>
+                      rpc('noreply', 'test_no_reply', { p_connection_id: chat.connection_id, p_hours: s.hours }, (d) => String(d))
+                    }
+                    className={`flex-row items-center justify-between gap-3 rounded-xl border border-stone-300 px-4 py-3 dark:border-stone-700 ${
+                      busy !== null ? 'opacity-50' : ''
+                    }`}>
+                    <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{s.label}</Text>
+                    <Text className="flex-1 text-right text-caption text-stone-500 dark:text-stone-400">{s.shows}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Status text={status.noreply} />
+              {chat.other_id && (
+                <View className="gap-2 border-t border-stone-200 pt-3 dark:border-stone-700">
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    Send a message as {chat.name}, so it&apos;s your turn to reply.
+                  </Text>
+                  <TextInput
+                    value={otherText}
+                    onChangeText={setOtherText}
+                    placeholder={`A message from ${chat.name}`}
+                    placeholderTextColor={MUTED_ICON_COLOR}
+                    className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                  />
+                  <Button
+                    label={`Send as ${chat.name}`}
+                    busy={busy === 'sendas'}
+                    onPress={() => {
+                      if (!otherText.trim()) return;
+                      rpc(
+                        'sendas',
+                        'test_send_message_as',
+                        { p_connection_id: chat.connection_id, p_sender_id: chat.other_id, p_content: otherText.trim(), p_hours_ago: 0 },
+                        () => {
+                          setOtherText('');
+                          return `Sent as ${chat.name}.`;
+                        }
+                      );
+                    }}
+                  />
+                  <Status text={status.sendas} />
+                </View>
+              )}
+            </Section>
+          )}
+
+          {chat && <MeetupTestPanel chatId={chat.connection_id} chatName={chat.name} />}
+
+          <Section title="Safety" hint="A first message needs a passed selfie check. These work on test accounts only.">
+            <View className="flex-row flex-wrap gap-2">
+              <Button
+                label="Mark me verified"
+                onPress={() => rpc('safety', 'dev_mark_selfie_verified', { p_verified: true }, () => 'This account is now selfie-verified.')}
+              />
+              <Button
+                label="Remove my verification"
+                onPress={() => rpc('safety', 'dev_mark_selfie_verified', { p_verified: false }, () => 'Selfie verification removed.')}
+              />
+              {chat && (
+                <Button
+                  label={`Make me and ${chat.name} both Interested`}
+                  onPress={() =>
+                    rpc('safety', 'dev_force_mutual_interest', { p_connection_id: chat.connection_id }, () => 'Both are now Interested in each other.')
+                  }
+                />
+              )}
+              <Button label="Open selfie check" onPress={() => router.push('/selfie-check')} />
+            </View>
+            <Status text={status.safety} />
+          </Section>
+
+          <Section title="This account">
+            <View className="flex-row flex-wrap gap-2">
+              <Button
+                label="Get fresh suggestions"
+                busy={busy === 'fresh'}
+                onPress={() =>
+                  rpc('fresh', 'test_clear_my_suggestions', {}, (d) => `Cleared ${d ?? 0} suggestion(s). Open Discover to get new ones.`)
+                }
+              />
+              <Button
+                label="Show tips and videos again"
+                onPress={async () => {
+                  await resetCoachMarks();
+                  say('fresh', 'Done. First-time tips and video offers will show again.');
+                }}
+              />
+              <Button
+                label="Clear my AI limits"
+                busy={busy === 'fresh'}
+                onPress={() => rpc('fresh', 'test_clear_ai_limits', {}, () => 'Daily and weekly limits cleared for this account.')}
+              />
+            </View>
+            <Status text={status.fresh} />
+            <View className="gap-2 border-t border-stone-200 pt-3 dark:border-stone-700">
+              {!confirmMine ? (
+                <Button label="Reset this account's chats and matches" tone="danger" onPress={() => setConfirmMine(true)} />
+              ) : (
                 <View className="gap-2">
+                  <Text className="text-caption text-red-700 dark:text-red-400">
+                    Deletes every chat, message, meetup and suggestion for this account. Can&apos;t be undone.
+                  </Text>
                   <View className="flex-row gap-2">
-                    <Pressable
-                      onPress={() => setTtNewMsgSenderId(connectionInfo.user_a_id)}
-                      className={`rounded-full border px-3 py-2 ${
-                        ttNewMsgSenderId === connectionInfo.user_a_id
-                          ? 'border-accent-500 bg-accent-500/10'
-                          : 'border-stone-300 dark:border-stone-700'
-                      }`}>
-                      <Text className="text-caption text-stone-700 dark:text-stone-300">
-                        Sender: user A ({connectionInfo.user_a_id.slice(0, 8)})
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setTtNewMsgSenderId(connectionInfo.user_b_id)}
-                      className={`rounded-full border px-3 py-2 ${
-                        ttNewMsgSenderId === connectionInfo.user_b_id
-                          ? 'border-accent-500 bg-accent-500/10'
-                          : 'border-stone-300 dark:border-stone-700'
-                      }`}>
-                      <Text className="text-caption text-stone-700 dark:text-stone-300">
-                        Sender: user B ({connectionInfo.user_b_id.slice(0, 8)})
-                      </Text>
-                    </Pressable>
-                  </View>
-                  <TextInput
-                    value={ttNewMsgText}
-                    onChangeText={setTtNewMsgText}
-                    placeholder="Message text"
-                    placeholderTextColor={MUTED_ICON_COLOR}
-                    multiline
-                    className="rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                  />
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">Hours ago</Text>
-                    <TextInput
-                      value={ttNewMsgHoursAgo}
-                      onChangeText={setTtNewMsgHoursAgo}
-                      keyboardType="numeric"
-                      className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                    <Button
+                      label="Yes, reset"
+                      tone="danger"
+                      busy={busy === 'mine'}
+                      onPress={() => {
+                        setConfirmMine(false);
+                        rpc('mine', 'test_reset_my_matches', {}, () => 'Reset. This account has no chats or suggestions now.');
+                      }}
                     />
-                    <Pressable
-                      onPress={handleSendBackdatedMessage}
-                      disabled={ttBusy === 'send-message'}
-                      className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                      <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                        {ttBusy === 'send-message' ? 'Sending...' : 'Send'}
-                      </Text>
-                    </Pressable>
+                    <Button label="Cancel" onPress={() => setConfirmMine(false)} />
                   </View>
                 </View>
-              ) : (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  Select a conversation above first.
-                </Text>
               )}
+              <Status text={status.mine} />
             </View>
+          </Section>
 
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Set next-meetup date / status / proposed-by directly
-              </Text>
-              {selectedConnectionId && connectionInfo ? (
-                <View className="gap-2">
-                  <TextInput
-                    value={ttMeetupDate}
-                    onChangeText={setTtMeetupDate}
-                    placeholder="YYYY-MM-DD (blank to clear)"
-                    placeholderTextColor={MUTED_ICON_COLOR}
-                    className="rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+          <Section
+            title="All test accounts"
+            hint="Clears chats, messages, meetups, matches, reports, blocks, tips seen and Interested choices for all 9 test accounts.">
+            {!confirmAll ? (
+              <Button label="Reset all test accounts" tone="danger" onPress={() => setConfirmAll(true)} />
+            ) : (
+              <View className="gap-2">
+                <Text className="text-caption text-red-700 dark:text-red-400">Are you sure? This can&apos;t be undone.</Text>
+                <View className="flex-row gap-2">
+                  <Button
+                    label="Yes, reset everything"
+                    tone="danger"
+                    busy={busy === 'all'}
+                    onPress={async () => {
+                      setConfirmAll(false);
+                      setBusy('all');
+                      say('all', null);
+                      const { data, error } = await supabase.rpc('test_reset_all_test_accounts');
+                      setBusy(null);
+                      const r = (data ?? {}) as { connections_deleted?: number; interests_deleted?: number; error?: string };
+                      say(
+                        'all',
+                        error
+                          ? error.message
+                          : (r.error ??
+                              `Reset. ${r.connections_deleted ?? 0} chat(s) and ${r.interests_deleted ?? 0} Interested choice(s) cleared.`)
+                      );
+                      loadChats();
+                    }}
                   />
-                  <View className="flex-row flex-wrap gap-2">
-                    {(['proposed', 'confirmed', null] as const).map((s) => (
-                      <Pressable
-                        key={s ?? 'none'}
-                        onPress={() => setTtMeetupStatus(s)}
-                        className={`rounded-full border px-3 py-2 ${
-                          ttMeetupStatus === s
-                            ? 'border-accent-500 bg-accent-500/10'
-                            : 'border-stone-300 dark:border-stone-700'
-                        }`}>
-                        <Text className="text-caption text-stone-700 dark:text-stone-300">
-                          Status: {s ?? 'none (clear)'}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <View className="flex-row flex-wrap gap-2">
-                    {([connectionInfo.user_a_id, connectionInfo.user_b_id, null] as const).map((id) => (
-                      <Pressable
-                        key={id ?? 'none'}
-                        onPress={() => setTtMeetupProposedBy(id)}
-                        className={`rounded-full border px-3 py-2 ${
-                          ttMeetupProposedBy === id
-                            ? 'border-accent-500 bg-accent-500/10'
-                            : 'border-stone-300 dark:border-stone-700'
-                        }`}>
-                        <Text className="text-caption text-stone-700 dark:text-stone-300">
-                          Proposed by: {id ? `${id === connectionInfo.user_a_id ? 'A' : 'B'} (${id.slice(0, 8)})` : 'none'}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <Pressable
-                    onPress={handleSetNextMeetup}
-                    disabled={ttBusy === 'set-next-meetup'}
-                    className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                    <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                      {ttBusy === 'set-next-meetup' ? 'Applying...' : 'Apply'}
-                    </Text>
-                  </Pressable>
+                  <Button label="Cancel" onPress={() => setConfirmAll(false)} />
                 </View>
-              ) : (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  Select a conversation above first.
-                </Text>
-              )}
-            </View>
-
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Backdate behavioral_tracking_disclosed_at (signed-in account)
-              </Text>
-              <View className="flex-row items-center gap-2">
-                <TextInput
-                  value={ttDisclosedHoursAgo}
-                  onChangeText={setTtDisclosedHoursAgo}
-                  keyboardType="numeric"
-                  className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                />
-                <Pressable
-                  onPress={handleBackdateDisclosedAt}
-                  disabled={ttBusy === 'disclosed-at'}
-                  className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                    {ttBusy === 'disclosed-at' ? 'Backdating...' : 'Backdate (hours ago)'}
-                  </Text>
-                </Pressable>
               </View>
-            </View>
-
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Reset coach marks (signed-in account)
-              </Text>
-              <Pressable
-                onPress={handleResetAllCoachMarks}
-                disabled={ttBusy === 'reset-all-marks'}
-                className="self-start rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-                <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
-                  {ttBusy === 'reset-all-marks' ? 'Resetting...' : 'Reset all marks'}
-                </Text>
-              </Pressable>
-              <View className="flex-row flex-wrap gap-2">
-                {ALL_COACH_MARK_KEYS.map((k) => (
-                  <Pressable
-                    key={k}
-                    onPress={() => setTtSpecificMark(k)}
-                    className={`rounded-full border px-3 py-2 ${
-                      ttSpecificMark === k
-                        ? 'border-accent-500 bg-accent-500/10'
-                        : 'border-stone-300 dark:border-stone-700'
-                    }`}>
-                    <Text className="text-caption text-stone-700 dark:text-stone-300">{k}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Pressable
-                onPress={handleResetOneCoachMark}
-                disabled={ttBusy === 'reset-one-mark'}
-                className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-                <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                  {ttBusy === 'reset-one-mark' ? 'Resetting...' : `Reset just "${ttSpecificMark}"`}
-                </Text>
-              </Pressable>
-            </View>
-
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Reset friendship_experience (signed-in account)
-              </Text>
-              <Pressable
-                onPress={handleResetFriendshipExperience}
-                disabled={ttBusy === 'reset-experience'}
-                className="self-start rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-                <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
-                  {ttBusy === 'reset-experience' ? 'Resetting...' : 'Clear friendship_experience'}
-                </Text>
-              </Pressable>
-            </View>
-
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Reset/backdate an AI usage cap (signed-in account)
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {AI_CAPPED_FUNCTIONS.map((fn) => (
-                  <Pressable
-                    key={fn}
-                    onPress={() => setTtCapFunction(fn)}
-                    className={`rounded-full border px-3 py-2 ${
-                      ttCapFunction === fn
-                        ? 'border-accent-500 bg-accent-500/10'
-                        : 'border-stone-300 dark:border-stone-700'
-                    }`}>
-                    <Text className="text-caption text-stone-700 dark:text-stone-300">{fn}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Pressable
-                onPress={() => handleResetAiCap('clear')}
-                disabled={ttBusy === 'ai-cap-clear'}
-                className="self-start rounded-full border border-red-300 px-4 py-2 dark:border-red-800">
-                <Text className="text-caption font-semibold text-red-600 dark:text-red-400">
-                  {ttBusy === 'ai-cap-clear' ? 'Clearing...' : `Clear all usage for ${ttCapFunction}`}
-                </Text>
-              </Pressable>
-              <View className="flex-row items-center gap-2">
-                <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  Or backdate existing usage by (hours)
-                </Text>
-                <TextInput
-                  value={ttCapHoursAgo}
-                  onChangeText={setTtCapHoursAgo}
-                  keyboardType="numeric"
-                  placeholder="e.g. 200"
-                  placeholderTextColor={MUTED_ICON_COLOR}
-                  className="w-24 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                />
-                <Pressable
-                  onPress={() => handleResetAiCap('backdate')}
-                  disabled={ttBusy === 'ai-cap-backdate'}
-                  className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                    {ttBusy === 'ai-cap-backdate' ? 'Backdating...' : 'Backdate'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <View className="gap-2 rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">
-                Reset/backdate premium pool (signed-in account)
-              </Text>
-              <View className="flex-row items-center gap-2">
-                <Text className="text-caption text-stone-500 dark:text-stone-400">Period start, hours ago</Text>
-                <TextInput
-                  value={ttPoolHoursAgo}
-                  onChangeText={setTtPoolHoursAgo}
-                  keyboardType="numeric"
-                  className="w-20 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                />
-              </View>
-              <View className="flex-row items-center gap-2">
-                <Text className="text-caption text-stone-500 dark:text-stone-400">Spent so far ($)</Text>
-                <TextInput
-                  value={ttPoolSpent}
-                  onChangeText={setTtPoolSpent}
-                  keyboardType="numeric"
-                  className="w-20 rounded-lg border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-                />
-                <Pressable
-                  onPress={handleResetPremiumPool}
-                  disabled={ttBusy === 'premium-pool'}
-                  className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-                    {ttBusy === 'premium-pool' ? 'Applying...' : 'Apply'}
-                  </Text>
-                </Pressable>
-              </View>
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
-                Set spent to 0 with any period-start to simulate a fresh pool, or a value ≥ $3.00 to
-                simulate an exhausted one. Only has an effect for a premium account.
-              </Text>
-            </View>
-          </View>
+            )}
+            <Status text={status.all} />
+          </Section>
         </ScrollView>
       </SafeAreaView>
     </View>

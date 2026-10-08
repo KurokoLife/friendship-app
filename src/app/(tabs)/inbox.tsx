@@ -7,10 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoachMark } from '@/components/coach-mark';
 import { UpcomingMeetupsStrip } from '@/components/upcoming-meetups-strip';
 import { track } from '@/lib/analytics';
-import { fetchActiveReflections, reflectionByConnection, type FollowUpReflection } from '@/lib/follow-up-reflection';
 import { checkAndMarkGraduationContinuation } from '@/lib/graduation';
 import { lifeTransitionFragment } from '@/lib/life-transition';
-import { bestPromptPerConnection, fetchActivePrompts, isSenderTrigger, type NoGhostPrompt } from '@/lib/no-ghost';
 import { subscribeToMessages } from '@/lib/realtime-messages';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -71,8 +69,7 @@ function timeAgo(iso: string): string {
 export default function InboxScreen() {
   const [loaded, setLoaded] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [noGhostByConnection, setNoGhostByConnection] = useState<Map<string, NoGhostPrompt>>(new Map());
-  const [reflectionsByConnection, setReflectionsByConnection] = useState<Map<string, FollowUpReflection>>(new Map());
+  const [yourTurn, setYourTurn] = useState<Set<string>>(new Set());
   const [capacity, setCapacity] = useState<CapacityStatus | null>(null);
   const [newMutual, setNewMutual] = useState<NewMutual[]>([]);
   const [loadCount, setLoadCount] = useState(0);
@@ -89,10 +86,17 @@ export default function InboxScreen() {
       setLoaded(true);
       return;
     }
-    const [{ data }, activePrompts, activeReflections, { data: capacityRows }, { data: mutualRows }] = await Promise.all([
+    const [{ data }, { data: reminderRows }, { data: capacityRows }, { data: mutualRows }] = await Promise.all([
       supabase.from('inbox_conversations').select('*').order('last_message_at', { ascending: false }),
-      fetchActivePrompts(),
-      fetchActiveReflections(),
+      // 2026-10-08: "Your turn" now reads the reminders the app actually
+      // sends (the old no-ghost and reflection tables are retired, so this
+      // section was always empty).
+      supabase
+        .from('connection_interventions')
+        .select('connection_id, intervention_type')
+        .eq('target_user_id', user.id)
+        .eq('status', 'pending')
+        .in('intervention_type', ['no_ghost_r1', 'no_ghost_r2', 'no_ghost_r3']),
       // Fix #3: "Show active-conversation capacity" (blueprint Section 8's
       // Inbox spec). Read-only, own data only (my_connection_capacity has
       // no parameters, always operates on auth.uid()).
@@ -105,8 +109,7 @@ export default function InboxScreen() {
     setNewMutual((mutualRows ?? []) as NewMutual[]);
     const loadedConversations = (data ?? []) as Conversation[];
     setConversations(loadedConversations);
-    setNoGhostByConnection(bestPromptPerConnection(activePrompts));
-    setReflectionsByConnection(reflectionByConnection(activeReflections));
+    setYourTurn(new Set(((reminderRows ?? []) as { connection_id: string }[]).map((r) => r.connection_id)));
     setCapacity((capacityRows?.[0] as CapacityStatus | undefined) ?? null);
     setLoaded(true);
     setLoadCount((n) => n + 1);
@@ -192,7 +195,6 @@ export default function InboxScreen() {
   const graduated: Conversation[] = [];
   const rest: Conversation[] = [];
   for (const c of conversations) {
-    const noGhostPrompt = noGhostByConnection.get(c.connection_id);
     if (c.connection_status === 'blocked') {
       blocked.push(c);
     } else if (c.connection_status === 'ended') {
@@ -206,7 +208,7 @@ export default function InboxScreen() {
       graduated.push(c);
     } else if (c.connection_status === 'paused') {
       paused.push(c);
-    } else if (noGhostPrompt && !isSenderTrigger(noGhostPrompt.trigger_id)) {
+    } else if (yourTurn.has(c.connection_id)) {
       needsReply.push(c);
     } else {
       rest.push(c);
@@ -215,9 +217,7 @@ export default function InboxScreen() {
 
   const renderConversation = (c: Conversation) => {
     const fragment = lifeTransitionFragment(c.life_transitions);
-    const noGhostPrompt = noGhostByConnection.get(c.connection_id);
-    const showReplyReminder = Boolean(noGhostPrompt && !isSenderTrigger(noGhostPrompt.trigger_id));
-    const showReflectionReminder = !noGhostPrompt && reflectionsByConnection.has(c.connection_id);
+    const showReplyReminder = yourTurn.has(c.connection_id);
     return (
       <Pressable
         key={c.connection_id}
@@ -284,12 +284,7 @@ export default function InboxScreen() {
           <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Inactive</Text>
         ) : (
           <>
-            {showReplyReminder && (
-              <Text className="text-caption font-semibold text-accent-500">A reply is overdue</Text>
-            )}
-            {showReflectionReminder && (
-              <Text className="text-caption font-semibold text-accent-500">A reflection is waiting</Text>
-            )}
+            {showReplyReminder && <Text className="text-caption font-semibold text-accent-500">Your turn to reply</Text>}
           </>
         )}
       </Pressable>
@@ -358,7 +353,7 @@ export default function InboxScreen() {
           {needsReply.length > 0 && (
             <View className="gap-3">
               <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                Awaiting your reply
+                Your turn
               </Text>
               {needsReply.map(renderConversation)}
             </View>

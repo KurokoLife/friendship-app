@@ -43,3 +43,9 @@ export async function loadProfileName(userId: string): Promise<{ first: string; 
   const [first, ...rest] = display.split(' ');
   return { first: first ?? '', last: rest.join(' '), display };
 }
+
+// A name at the end of a sentence: "Maria S." already ends with a period,
+// so don't add a second one ("Maria S..").
+export function nameThenPeriod(name: string): string {
+  return name.endsWith('.') ? name : `${name}.`;
+}

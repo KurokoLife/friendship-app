@@ -27,6 +27,17 @@ export async function getActiveIntervention(
   return (row as ActiveIntervention | null) ?? null;
 }
 
+// Dismiss (or snooze for a few hours) the person's own card. Before
+// 2026-10-08, "I'll come back to this"-style buttons only reloaded the
+// screen and the same card came straight back.
+export async function dismissIntervention(interventionId: string, snoozeHours?: number): Promise<void> {
+  const { error } = await supabase.rpc('dismiss_intervention', {
+    p_intervention_id: interventionId,
+    p_snooze_hours: snoozeHours ?? null,
+  });
+  if (error) throw error;
+}
+
 // ---- Meetups ----
 
 export type MeetupStatus =

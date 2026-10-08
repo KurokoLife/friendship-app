@@ -8,6 +8,7 @@ import {
   REPORT_CATEGORIES,
   type ReportCategory,
 } from '@/lib/report-block';
+import { nameThenPeriod } from '@/lib/names';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -177,7 +178,7 @@ export function ReportModal({ visible, onClose, reportedId, connectionId, otherN
                         {alsoBlock && <Text className="text-caption text-stone-50 dark:text-stone-900">✓</Text>}
                       </View>
                       <Text className="flex-1 text-caption text-stone-600 dark:text-stone-300">
-                        Also block {otherName}. They will not be able to see your profile or message
+                        Also block {nameThenPeriod(otherName)} They will not be able to see your profile or message
                         you.
                       </Text>
                     </Pressable>
