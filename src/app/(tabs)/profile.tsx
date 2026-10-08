@@ -13,6 +13,7 @@ import {
   WHEN_UNCERTAIN_PENDING_COPY,
   type FriendshipExperience,
 } from '@/lib/friendship-experience';
+import { loadProfileName } from '@/lib/names';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -69,6 +70,7 @@ export default function ProfileScreen() {
   const [whenUncertain, setWhenUncertain] = useState<string | null>(null);
   const [narrativeLoading, setNarrativeLoading] = useState(false);
   const [narrativeError, setNarrativeError] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -98,6 +100,8 @@ export default function ProfileScreen() {
         .maybeSingle(),
       supabase.from('users').select('gender_identity, meet_genders').eq('id', user.id).maybeSingle(),
     ]);
+    const names = await loadProfileName(user.id);
+    setFullName([names.first, names.last].filter(Boolean).join(' ') || null);
 
     if (data) {
       const age = data.birthdate
@@ -242,6 +246,13 @@ export default function ProfileScreen() {
               <Ionicons name="lock-closed" size={14} color={MUTED_ICON_COLOR} />
               <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Only you can see this</Text>
             </View>
+            {fullName && (
+              <PrivateRow
+                label="Your full name"
+                value={fullName}
+                note={`Others see your first name and last initial${publicProfile?.display_name ? `: ${publicProfile.display_name}` : ''}.`}
+              />
+            )}
             {profile.age !== null && (
               <PrivateRow
                 label="Your exact age"

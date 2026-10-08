@@ -135,9 +135,6 @@ export function MirrorSheet({ visible, onClose, otherName }: Props) {
                   </View>
                 ))}
                 {closing && <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{closing}</Text>}
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  Reflection coach (AI). It never writes your messages, the question is yours to write.
-                </Text>
               </View>
             )}
 

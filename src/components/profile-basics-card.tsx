@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
+import { loadProfileName, publicName, saveProfileName } from '@/lib/names';
 import { supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -17,7 +18,8 @@ const MEET_LABELS: Record<string, string> = {
 };
 
 type Basics = {
-  name: string;
+  first: string;
+  last: string;
   age: number | null;
   gender: string | null;
   meet: string[];
@@ -36,12 +38,13 @@ function ageFrom(birthdate: string | null): number | null {
 
 // The basics set during sign-up (name, age, gender, who you'd like to
 // meet, age range), shown at the top of Edit profile (2026-10-06).
-// Name saves here. Gender, who you'd like to meet and age range open the
+// First and last name save here (others see first name and last initial). Gender, who you'd like to meet and age range open the
 // sign-up screen in edit mode. Birthday is shown but not editable: it sets
 // your age range for everyone else, so it stays as entered at sign-up.
 export function ProfileBasicsCard() {
   const [basics, setBasics] = useState<Basics | null>(null);
-  const [name, setName] = useState('');
+  const [first, setFirst] = useState('');
+  const [last, setLast] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -50,12 +53,14 @@ export function ProfileBasicsCard() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    const [{ data: profile }, { data: userRow }] = await Promise.all([
-      supabase.from('profiles').select('display_name, birthdate, min_friend_age, max_friend_age').eq('user_id', user.id).maybeSingle(),
+    const [{ data: profile }, { data: userRow }, names] = await Promise.all([
+      supabase.from('profiles').select('birthdate, min_friend_age, max_friend_age').eq('user_id', user.id).maybeSingle(),
       supabase.from('users').select('gender_identity, meet_genders').eq('id', user.id).maybeSingle(),
+      loadProfileName(user.id),
     ]);
     const next: Basics = {
-      name: profile?.display_name ?? '',
+      first: names.first,
+      last: names.last,
       age: ageFrom(profile?.birthdate ?? null),
       gender: userRow?.gender_identity ?? null,
       meet: (userRow?.meet_genders as string[] | null) ?? [],
@@ -63,7 +68,8 @@ export function ProfileBasicsCard() {
       maxAge: profile?.max_friend_age ?? null,
     };
     setBasics(next);
-    setName(next.name);
+    setFirst(next.first);
+    setLast(next.last);
   }, []);
 
   useFocusEffect(
@@ -72,27 +78,26 @@ export function ProfileBasicsCard() {
     }, [load])
   );
 
+  const nameChanged = basics ? first.trim() !== basics.first || last.trim() !== basics.last : false;
+
   const saveName = async () => {
-    const trimmed = name.trim();
     setMessage(null);
-    if (!trimmed) {
-      setMessage("Your first name can't be empty.");
+    if (!first.trim() || !last.trim()) {
+      setMessage('Enter both your first and last name.');
       return;
     }
-    if (trimmed === basics?.name) return;
+    if (!nameChanged) return;
     setSavingName(true);
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const { error } = user
-      ? await supabase.from('profiles').update({ display_name: trimmed }).eq('user_id', user.id)
-      : { error: new Error('no user') };
+    const { error } = user ? await saveProfileName(user.id, first, last) : { error: { message: 'no user' } };
     setSavingName(false);
     if (error) {
       setMessage("That didn't save. Try again.");
       return;
     }
-    setBasics((b) => (b ? { ...b, name: trimmed } : b));
+    setBasics((b) => (b ? { ...b, first: first.trim(), last: last.trim() } : b));
     setMessage('Saved.');
   };
 
@@ -113,26 +118,45 @@ export function ProfileBasicsCard() {
       <Text className="text-title text-stone-900 dark:text-stone-50">Basics</Text>
 
       <View className="gap-1">
-        <Text className="text-caption text-stone-500 dark:text-stone-400">First name</Text>
-        <View className="flex-row items-center gap-2">
-          <TextInput
-            value={name}
-            onChangeText={(t) => {
-              setName(t);
-              setMessage(null);
-            }}
-            onBlur={saveName}
-            maxLength={40}
-            className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-          />
-          {name.trim() !== basics.name && (
-            <Pressable onPress={saveName} disabled={savingName} className="rounded-full border border-stone-300 px-3 py-2 dark:border-stone-700">
-              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
-                {savingName ? 'Saving...' : 'Save'}
-              </Text>
-            </Pressable>
-          )}
+        <View className="flex-row gap-2">
+          <View className="flex-1 gap-1">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">First name</Text>
+            <TextInput
+              value={first}
+              onChangeText={(t) => {
+                setFirst(t);
+                setMessage(null);
+              }}
+              maxLength={40}
+              className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+            />
+          </View>
+          <View className="flex-1 gap-1">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Last name</Text>
+            <TextInput
+              value={last}
+              onChangeText={(t) => {
+                setLast(t);
+                setMessage(null);
+              }}
+              maxLength={40}
+              className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+            />
+          </View>
         </View>
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Others see: {first.trim() ? publicName(first, last) : 'your first name and last initial'}
+        </Text>
+        {nameChanged && (
+          <Pressable
+            onPress={saveName}
+            disabled={savingName}
+            className="self-start rounded-full border border-stone-300 px-3 py-2 dark:border-stone-700">
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
+              {savingName ? 'Saving...' : 'Save name'}
+            </Text>
+          </Pressable>
+        )}
         {message && <Text className="text-caption text-stone-500 dark:text-stone-400">{message}</Text>}
       </View>
 

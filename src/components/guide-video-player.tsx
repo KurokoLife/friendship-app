@@ -25,7 +25,9 @@ export function GuideVideoPlayer({ uri }: Props) {
   const player = useVideoPlayer(uri);
 
   return (
-    <View className="overflow-hidden rounded-2xl bg-black">
+    // Kept small (2026-10-08): at full width a portrait video filled the
+    // whole screen. Capped to a phone-sized frame and centered.
+    <View className="w-full self-center overflow-hidden rounded-2xl bg-black" style={{ maxWidth: 260 }}>
       <VideoView player={player} style={{ width: '100%', aspectRatio: 9 / 16 }} contentFit="contain" />
     </View>
   );

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { calculateAge } from '@/lib/age';
 import { track } from '@/lib/analytics';
+import { publicName, saveProfileName } from '@/lib/names';
 import { FRIENDLY_SAVE_ERROR } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -51,7 +52,8 @@ function parseBirthdate(monthText: string, dayText: string, yearText: string): D
 // written by any onboarding screen until now.
 export default function ProfileBasicsScreen() {
   const colorScheme = useColorScheme();
-  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [birthMonth, setBirthMonth] = useState('');
   const [birthDay, setBirthDay] = useState('');
   const [birthYear, setBirthYear] = useState('');
@@ -70,9 +72,12 @@ export default function ProfileBasicsScreen() {
   const handleContinue = async () => {
     setError(null);
 
-    const trimmedName = displayName.trim();
-    if (!trimmedName) {
+    if (!firstName.trim()) {
       setError('Enter your first name.');
+      return;
+    }
+    if (!lastName.trim()) {
+      setError('Enter your last name.');
       return;
     }
 
@@ -120,7 +125,7 @@ export default function ProfileBasicsScreen() {
     // from the earliest real point in onboarding, not just once
     // gender-identity is reached.
     const [{ error: saveError }] = await Promise.all([
-      supabase.from('profiles').upsert({ user_id: user.id, display_name: trimmedName, birthdate: isoBirthdate }),
+      saveProfileName(user.id, firstName, lastName, { birthdate: isoBirthdate }),
       supabase.from('users').upsert({ id: user.id, terms_accepted_at: new Date().toISOString() }),
     ]);
 
@@ -160,8 +165,8 @@ export default function ProfileBasicsScreen() {
           <View className="gap-3">
             <Text className="text-display text-stone-900 dark:text-stone-50">A couple of basics</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              Your first name and birthdate. Your exact birthdate is never shown to anyone, only a
-              general age range on your profile.
+              Your name and birthdate. Others see only your first name and last initial, and a
+              general age range, never your full last name or exact birthdate.
             </Text>
           </View>
 
@@ -171,17 +176,38 @@ export default function ProfileBasicsScreen() {
             </Text>
           )}
 
-          <View className="gap-1">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">First name</Text>
-            <TextInput
-              value={displayName}
-              onChangeText={setDisplayName}
-              autoFocus
-              className="rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-              placeholder="First name"
-              placeholderTextColor={MUTED_ICON_COLOR}
-            />
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-1">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">First name</Text>
+              <TextInput
+                value={firstName}
+                onChangeText={setFirstName}
+                autoFocus
+                autoComplete="given-name"
+                maxLength={40}
+                className="rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                placeholder="First name"
+                placeholderTextColor={MUTED_ICON_COLOR}
+              />
+            </View>
+            <View className="flex-1 gap-1">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">Last name</Text>
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                autoComplete="family-name"
+                maxLength={40}
+                className="rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                placeholder="Last name"
+                placeholderTextColor={MUTED_ICON_COLOR}
+              />
+            </View>
           </View>
+          {firstName.trim() && lastName.trim() ? (
+            <Text className="-mt-3 text-caption text-stone-400 dark:text-stone-500">
+              Others will see: {publicName(firstName, lastName)}
+            </Text>
+          ) : null}
 
           <View className="gap-1">
             <Text className="text-caption text-stone-500 dark:text-stone-400">Birthdate</Text>

@@ -162,9 +162,6 @@ export function UniversalTextBox({
               <Text className="text-caption italic text-stone-600 dark:text-stone-300">“{otherCareStyle}”</Text>
             </View>
           ) : null}
-          <Text className="text-caption text-stone-400 dark:text-stone-600">
-            Reflection coach (AI). It never writes your messages.
-          </Text>
         </View>
       )}
 

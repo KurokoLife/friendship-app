@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateField, FieldLabel, TimeField } from '@/components/date-time-field';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
@@ -133,6 +133,37 @@ export function NextMeetupIndicatorV2({
     load();
   }, [load, refreshKey]);
 
+  // Live updates (2026-10-08): when the other person proposes, confirms,
+  // changes or cancels, this card (and the prompt card under it) update
+  // without reloading the page. Also reloads when the person comes back to
+  // the tab or app.
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
+  useEffect(() => {
+    const channel = supabase
+      .channel(`meetups-${connectionId}-${Math.random().toString(36).slice(2)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'meetups', filter: `connection_id=eq.${connectionId}` },
+        () => {
+          load();
+          onChangedRef.current();
+        }
+      )
+      .subscribe();
+    const onAppState = (state: string) => {
+      if (state === 'active') {
+        load();
+        onChangedRef.current();
+      }
+    };
+    const sub = AppState.addEventListener('change', onAppState);
+    return () => {
+      supabase.removeChannel(channel);
+      sub.remove();
+    };
+  }, [connectionId, load]);
+
   const firstMeetupOfferVisible = showFirstMeetupOffer && !editMode && plan?.status === 'confirmed' && plan.date !== localToday;
   useEffect(() => {
     onVideoOfferChange?.(firstMeetupOfferVisible);
@@ -149,7 +180,7 @@ export function NextMeetupIndicatorV2({
         setActivityText('');
       } else if (plan) {
         setDateText(plan.date);
-        setTimeText(Platform.OS === 'web' ? plan.start_time ?? '' : formatMeetupTime(plan.start_time) ?? '');
+        setTimeText(plan.start_time ?? '');
         setPlaceText(plan.place ?? '');
         setActivityText(plan.activity ?? '');
         if (mode === 'details') {
@@ -180,7 +211,7 @@ export function NextMeetupIndicatorV2({
 
   const readTime = (): { ok: boolean; value: string | null } => {
     if (!timeText.trim()) return { ok: true, value: null };
-    const parsed = Platform.OS === 'web' ? (/^\d{2}:\d{2}$/.test(timeText) ? timeText : null) : parseTimeInput(timeText);
+    const parsed = /^\d{2}:\d{2}$/.test(timeText) ? timeText : parseTimeInput(timeText);
     return parsed ? { ok: true, value: parsed } : { ok: false, value: null };
   };
 
@@ -188,7 +219,7 @@ export function NextMeetupIndicatorV2({
     setError(null);
     const time = readTime();
     if (!time.ok) {
-      setError('Enter the time like 10:30 am.');
+      setError('Pick a time, or leave it empty.');
       return;
     }
     if (editMode === 'details') {
@@ -209,7 +240,7 @@ export function NextMeetupIndicatorV2({
       return;
     }
     if (!isValidIsoDate(dateText)) {
-      setError(Platform.OS === 'web' ? 'Pick a date.' : 'Enter the date as YYYY-MM-DD.');
+      setError('Pick a date.');
       return;
     }
     if (dateText < localToday) {

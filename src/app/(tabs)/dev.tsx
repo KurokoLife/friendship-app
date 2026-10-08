@@ -9,6 +9,7 @@ import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
 import { returnToMyAccount, useTestTools } from '@/lib/test-mode';
 import { type GraduationEligibility, shouldShowGraduationPrompt } from '@/lib/graduation';
 import { type NoGhostTriggerId } from '@/lib/no-ghost';
+import { MeetupTestPanel } from '@/components/meetup-test-panel';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400, matches this app's own established placeholder color
@@ -986,6 +987,8 @@ export default function DevScreen() {
               ))}
             </View>
           </View>
+
+          <MeetupTestPanel chats={conversations} />
 
           <View className="gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
             <View className="gap-1">

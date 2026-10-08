@@ -1,11 +1,10 @@
-import { Platform, Text, TextInput, View, useColorScheme } from 'react-native';
+import { View, useColorScheme } from 'react-native';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+// Web version of the meetup date and time fields (2026-10-08): the
+// browser's own date and time pickers. The phone app uses
+// date-time-field.native.tsx (the phone's own pickers).
 
-// Date and time inputs for meetup plans (2026-10-08). On the web these are
-// the browser's own date and time pickers. In the phone app they are plain
-// text fields (no native picker package is installed): the date as
-// YYYY-MM-DD, the time typed freely ("10:30 am", "7pm").
+export { FieldLabel } from './date-time-field.shared';
 
 function webInputStyle(dark: boolean) {
   return {
@@ -22,15 +21,6 @@ function webInputStyle(dark: boolean) {
   };
 }
 
-export function FieldLabel({ label, optional }: { label: string; optional?: boolean }) {
-  return (
-    <Text className="text-caption text-stone-500 dark:text-stone-400">
-      {label}
-      {optional ? <Text className="text-stone-400 dark:text-stone-500"> (optional)</Text> : null}
-    </Text>
-  );
-}
-
 export function DateField({
   value,
   onChange,
@@ -43,70 +33,43 @@ export function DateField({
   disabled?: boolean;
 }) {
   const dark = useColorScheme() === 'dark';
-  if (Platform.OS === 'web') {
-    return (
-      <View>
-        <input
-          type="date"
-          aria-label="Date"
-          value={value}
-          min={min}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-          style={webInputStyle(dark)}
-        />
-      </View>
-    );
-  }
   return (
-    <TextInput
-      value={value}
-      onChangeText={onChange}
-      placeholder="YYYY-MM-DD"
-      placeholderTextColor={MUTED_ICON_COLOR}
-      autoCapitalize="none"
-      editable={!disabled}
-      className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-    />
+    <View>
+      <input
+        type="date"
+        aria-label="Date"
+        value={value}
+        min={min}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        style={webInputStyle(dark)}
+      />
+    </View>
   );
 }
 
-// Web: value is "HH:MM" from the browser picker. Phone: free text, parsed
-// by the caller with parseTimeInput().
+// value is "HH:MM" (24-hour) or "" when no time is set.
 export function TimeField({
   value,
   onChange,
   disabled,
 }: {
   value: string;
-  onChange: (text: string) => void;
+  onChange: (hhmm: string) => void;
   disabled?: boolean;
 }) {
   const dark = useColorScheme() === 'dark';
-  if (Platform.OS === 'web') {
-    return (
-      <View>
-        <input
-          type="time"
-          aria-label="Time"
-          value={value}
-          step={300}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-          style={webInputStyle(dark)}
-        />
-      </View>
-    );
-  }
   return (
-    <TextInput
-      value={value}
-      onChangeText={onChange}
-      placeholder="e.g. 10:30 am"
-      placeholderTextColor={MUTED_ICON_COLOR}
-      autoCapitalize="none"
-      editable={!disabled}
-      className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-    />
+    <View>
+      <input
+        type="time"
+        aria-label="Time"
+        value={value}
+        step={300}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        style={webInputStyle(dark)}
+      />
+    </View>
   );
 }
