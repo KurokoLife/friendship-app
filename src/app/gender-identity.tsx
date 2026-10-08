@@ -212,7 +212,7 @@ export default function GenderIdentityScreen() {
                 ))}
               </View>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                Shown on your profile, and used so the people you meet are people who chose to meet you too.
+                Not shown on your profile. It&apos;s used only so the people you meet also chose to meet someone like you.
               </Text>
             </View>
           )}

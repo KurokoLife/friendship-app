@@ -26,9 +26,22 @@ type OwnProfile = {
   life_transitions_other: string | null;
   show_life_transitions: boolean | null;
   care_style: string | null;
+  min_friend_age: number | null;
+  max_friend_age: number | null;
+  search_radius_miles: number | null;
+  gender_identity: string | null;
+  meet_genders: string[] | null;
   completion_pct: number;
   big_five_scores: { responses?: Record<string, string> } | null;
   friendship_experience: FriendshipExperience | null;
+};
+
+const GENDER_LABELS: Record<string, string> = { woman: 'Woman', man: 'Man', non_binary: 'Non-binary' };
+const MEET_LABELS: Record<string, string> = {
+  woman: 'Women',
+  man: 'Men',
+  non_binary: 'Non-binary people',
+  everyone: 'Everyone',
 };
 
 function PrivateRow({ label, value, note }: { label: string; value: string; note: string }) {
@@ -69,11 +82,11 @@ export default function ProfileScreen() {
       setLoaded(true);
       return;
     }
-    const [{ data }, { data: preview }] = await Promise.all([
+    const [{ data }, { data: preview }, { data: userRow }] = await Promise.all([
       supabase
         .from('profiles')
         .select(
-          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, completion_pct, big_five_scores, friendship_experience'
+          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, min_friend_age, max_friend_age, search_radius_miles, completion_pct, big_five_scores, friendship_experience'
         )
         .eq('user_id', user.id)
         .maybeSingle(),
@@ -83,13 +96,19 @@ export default function ProfileScreen() {
         .select(PUBLIC_PROFILE_COLUMNS.replace(', distance_miles', ''))
         .eq('user_id', user.id)
         .maybeSingle(),
+      supabase.from('users').select('gender_identity, meet_genders').eq('id', user.id).maybeSingle(),
     ]);
 
     if (data) {
       const age = data.birthdate
         ? Math.floor((Date.now() - new Date(data.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
         : null;
-      setProfile({ ...data, age } as OwnProfile);
+      setProfile({
+        ...data,
+        age,
+        gender_identity: userRow?.gender_identity ?? null,
+        meet_genders: (userRow?.meet_genders as string[] | null) ?? null,
+      } as OwnProfile);
     }
     setPublicProfile((preview as PublicProfile | null) ?? null);
     setLoaded(true);
@@ -230,6 +249,30 @@ export default function ProfileScreen() {
                 note={`Others see an age range${publicProfile?.age_band ? `: ${publicProfile.age_band}` : ''}.`}
               />
             )}
+            <PrivateRow
+              label="Your gender"
+              value={profile.gender_identity ? GENDER_LABELS[profile.gender_identity] ?? profile.gender_identity : 'Not set'}
+              note="Used only so the people you meet also chose to meet someone like you. Not shown on your profile."
+            />
+            <PrivateRow
+              label="Who you'd like to meet"
+              value={(profile.meet_genders ?? []).map((m) => MEET_LABELS[m] ?? m).join(', ') || 'Not set'}
+              note="Works both ways: you only see people who would also like to meet you."
+            />
+            <PrivateRow
+              label="Ages you're open to"
+              value={
+                profile.min_friend_age != null && profile.max_friend_age != null
+                  ? `${profile.min_friend_age} to ${profile.max_friend_age}`
+                  : 'Not set'
+              }
+              note="Also works both ways."
+            />
+            <PrivateRow
+              label="How far you'll go to meet"
+              value={profile.search_radius_miles != null ? `Up to ${profile.search_radius_miles} miles` : 'Not set'}
+              note="Others only see roughly how far away you are."
+            />
             <PrivateRow
               label="Phone number and ZIP code"
               value="Never shown"
