@@ -1,10 +1,11 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
+import { UpcomingMeetupsStrip } from '@/components/upcoming-meetups-strip';
 import { track } from '@/lib/analytics';
 import { fetchActiveReflections, reflectionByConnection, type FollowUpReflection } from '@/lib/follow-up-reflection';
 import { checkAndMarkGraduationContinuation } from '@/lib/graduation';
@@ -74,6 +75,7 @@ export default function InboxScreen() {
   const [reflectionsByConnection, setReflectionsByConnection] = useState<Map<string, FollowUpReflection>>(new Map());
   const [capacity, setCapacity] = useState<CapacityStatus | null>(null);
   const [newMutual, setNewMutual] = useState<NewMutual[]>([]);
+  const [loadCount, setLoadCount] = useState(0);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -107,6 +109,7 @@ export default function InboxScreen() {
     setReflectionsByConnection(reflectionByConnection(activeReflections));
     setCapacity((capacityRows?.[0] as CapacityStatus | undefined) ?? null);
     setLoaded(true);
+    setLoadCount((n) => n + 1);
 
     // Optional 30/90-day continuation measurement (see graduation.ts's
     // own comment for why this is driven from here rather than a cron
@@ -140,6 +143,17 @@ export default function InboxScreen() {
       onUpdate: () => load(),
     });
   }, [load]);
+
+  // Open chats only, for the "Coming up" strip.
+  const openChatNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of conversations) {
+      if (['blocked', 'ended', 'inactive', 'passed'].includes(c.connection_status ?? '')) continue;
+      map.set(c.connection_id, c.display_name ?? 'them');
+    }
+    for (const m of newMutual) map.set(m.connection_id, m.display_name ?? 'them');
+    return map;
+  }, [conversations, newMutual]);
 
   if (!loaded) {
     return (
@@ -303,6 +317,8 @@ export default function InboxScreen() {
                 : ''}
             </Text>
           )}
+
+          <UpcomingMeetupsStrip names={openChatNames} refreshKey={loadCount} />
 
           {!isSupabaseConfigured && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">

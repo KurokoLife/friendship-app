@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { getSeenCoachMarks, markCoachMarkSeen } from '@/lib/coach-marks';
 import {
   cancelMeetup,
   confirmMeetup,
@@ -15,12 +14,15 @@ import {
   submitPostMeetupReflection,
   submitRhythmPreference,
   submitSecondLookResponse,
+  respondToMeetupPrompt,
   type ActiveIntervention,
   type MeetupCancellationReason,
   type PauseDuration,
 } from '@/lib/friendship-journey';
 import { supabase } from '@/lib/supabase';
+import { formatMeetupTime, formatWhen } from '@/lib/meetup-format';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
+import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { UniversalTextBox } from '@/components/universal-text-box';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -47,6 +49,11 @@ type Props = {
   // Limen v2: the graduation decision point's "Close honestly" option
   // opens the thread's existing Honest Exit modal.
   onEndConnection?: () => void;
+  // Meetup plans (2026-10-08): prompt cards can open the plan card's
+  // editor ("Need to move it", "Add details") and tell the thread the plan
+  // changed (cancelled from the morning-of card).
+  onRequestPlanEditor?: (mode: 'change' | 'details') => void;
+  onPlanChanged?: () => void;
 };
 
 // Friendship Journey rebuild — the single card this app now renders, driven
@@ -57,7 +64,17 @@ type Props = {
 // __DEV__-gated only, see thread/[id].tsx's own comment for why: this is
 // real, tested code, not a stub, but it is not yet the default experience
 // for a real production user — that is the deliberate cutover step.
-export function PrimaryInterventionCard({ intervention, connectionId, otherName, onResolved, onVideoOfferChange, onPlanSomething, onEndConnection }: Props) {
+export function PrimaryInterventionCard({
+  intervention,
+  connectionId,
+  otherName,
+  onResolved,
+  onVideoOfferChange,
+  onPlanSomething,
+  onEndConnection,
+  onRequestPlanEditor,
+  onPlanChanged,
+}: Props) {
   switch (intervention.intervention_type) {
     case 'no_ghost_r1':
       return <NoGhostR1 connectionId={connectionId} onResolved={onResolved} />;
@@ -69,6 +86,16 @@ export function PrimaryInterventionCard({ intervention, connectionId, otherName,
       return <NoGhostS1 connectionId={connectionId} onResolved={onResolved} />;
     case 'meetup_confirm_needed':
       return <MeetupConfirmNeeded intervention={intervention} otherName={otherName} onResolved={onResolved} />;
+    case 'meetup_still_on':
+      return (
+        <MeetupStillOn
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          onResolved={onResolved}
+          onRequestPlanEditor={onRequestPlanEditor}
+        />
+      );
     case 'pre_meetup_support':
       return (
         <PreMeetupSupport
@@ -77,6 +104,8 @@ export function PrimaryInterventionCard({ intervention, connectionId, otherName,
           otherName={otherName}
           onResolved={onResolved}
           onVideoOfferChange={onVideoOfferChange}
+          onRequestPlanEditor={onRequestPlanEditor}
+          onPlanChanged={onPlanChanged}
         />
       );
     case 'meetup_occurrence_check':
@@ -87,6 +116,8 @@ export function PrimaryInterventionCard({ intervention, connectionId, otherName,
           otherName={otherName}
           onResolved={onResolved}
           onPlanSomething={onPlanSomething}
+          onSuggestAnotherDay={onRequestPlanEditor ? () => onRequestPlanEditor('change') : undefined}
+          onEndConnection={onEndConnection}
         />
       );
     case 'post_meetup_reflection':
@@ -383,116 +414,312 @@ function MeetupConfirmNeeded({
   );
 }
 
+const MOVE_STEMS = ['I need to move our plan, ', "Something came up and I can't make it, ", 'Could we find another day? '];
+const DAY_OF_CANCEL_STEMS = [
+  "Sorry, I need to cancel today, ",
+  "Something came up and I can't make it today, ",
+  "I'm not able to make it after all, ",
+];
+
+function planLine(payload: Record<string, unknown>): string | null {
+  const time = formatMeetupTime(payload.start_time as string | null | undefined);
+  const place = (payload.place as string | null | undefined) ?? null;
+  if (time && place) return `${time} · ${place}`;
+  return time ?? place ?? null;
+}
+
+// ---- The day before: "Still on?" (2026-10-08) ----
+// Shown to each person the day before a confirmed meetup, until they
+// answer. "Still on" is shown to the other person on the plan card.
+// "Need to move it" stays private and opens the change editor, with an
+// optional short message in their own words.
+function MeetupStillOn({
+  connectionId,
+  intervention,
+  otherName,
+  onResolved,
+  onRequestPlanEditor,
+}: {
+  connectionId: string;
+  intervention: ActiveIntervention;
+  otherName: string;
+  onResolved: () => void;
+  onRequestPlanEditor?: (mode: 'change' | 'details') => void;
+}) {
+  const meetupId = intervention.payload.meetup_id as string;
+  const line = planLine(intervention.payload);
+  const missingDetails = !intervention.payload.start_time || !intervention.payload.place;
+  const [mode, setMode] = useState<'ask' | 'move'>('ask');
+  const [busy, setBusy] = useState(false);
+
+  const answer = async (value: 'still_on' | 'needs_move') => {
+    setBusy(true);
+    try {
+      await respondToMeetupPrompt(meetupId, 'still_on', value);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (mode === 'move') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Moving it is kind. Let {otherName} know, then pick a new day.
+        </Text>
+        <StemMessageBox
+          stems={MOVE_STEMS}
+          sendLabel="Send, then pick a new day"
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) {
+              onRequestPlanEditor?.('change');
+              onResolved();
+            }
+            return ok;
+          }}
+        />
+        <Pressable
+          onPress={() => {
+            onRequestPlanEditor?.('change');
+            onResolved();
+          }}
+          className="self-start">
+          <Text className="text-caption font-semibold text-accent-500">Just pick a new day</Text>
+        </Pressable>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <Text className="text-body text-stone-700 dark:text-stone-300">Tomorrow with {otherName}. Still on?</Text>
+      {line && <Text className="text-caption text-stone-500 dark:text-stone-400">{line}</Text>}
+      {missingDetails && (
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Did you settle a {!intervention.payload.start_time && !intervention.payload.place ? 'time and place' : !intervention.payload.start_time ? 'time' : 'place'}?
+          Adding it helps you both show up at the same spot.
+        </Text>
+      )}
+      <View className="flex-row flex-wrap gap-2">
+        <OptionPill
+          label="Still on"
+          onPress={async () => {
+            if (busy) return;
+            await answer('still_on');
+            onResolved();
+          }}
+        />
+        <OptionPill
+          label="Need to move it"
+          onPress={async () => {
+            if (busy) return;
+            await answer('needs_move');
+            setMode('move');
+          }}
+        />
+        {missingDetails && (
+          <OptionPill
+            label="Add details"
+            onPress={() => onRequestPlanEditor?.('details')}
+          />
+        )}
+      </View>
+    </Card>
+  );
+}
+
+type DayOfMode = 'ask' | 'nervous' | 'why' | 'nerves' | 'came_up' | 'move' | 'cancel';
+
+// ---- The morning of (rebuilt 2026-10-08) ----
+// Private. Before, "A little nervous" just closed the card with no support,
+// and the card came back on every reload. Now each answer leads somewhere
+// useful and is remembered (meetup_prompt_responses), so it shows once.
+// Cancelling always goes with a short message in their own words: never a
+// silent no-show.
 function PreMeetupSupport({
   connectionId,
   intervention,
   otherName,
   onResolved,
   onVideoOfferChange,
+  onRequestPlanEditor,
+  onPlanChanged,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
   onVideoOfferChange?: (active: boolean) => void;
+  onRequestPlanEditor?: (mode: 'change' | 'details') => void;
+  onPlanChanged?: () => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
-  const [mode, setMode] = useState<'none' | 'concern'>('none');
-  // Video 6 ("When Something Feels Off: Ask, Repair, and Give It Room"),
-  // 2026-08-11 video architecture update. Attached inline here rather than
-  // the shared VideoGuidanceCard: its two triggers are this card's own
-  // local concern state (entering `mode === 'concern'` IS the private
-  // difficulty-reflection signal the approved spec names) and repeated
-  // cancellation on this connection, both already-supported friction
-  // signals, nothing invented. Deliberately placed AFTER the existing
-  // safety-pointer line, never instead of it or above it -- per explicit
-  // instruction, safety controls always outrank this video.
-  const [videoDismissed, setVideoDismissed] = useState(false);
-  const [videoAlreadySeen, setVideoAlreadySeen] = useState(true);
-  const [repeatedCancellations, setRepeatedCancellations] = useState(false);
+  const line = planLine(intervention.payload);
+  const [mode, setMode] = useState<DayOfMode>('ask');
 
+  const showsGuide = mode === 'nervous' || mode === 'nerves';
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const seen = await getSeenCoachMarks();
-      if (cancelled) return;
-      setVideoAlreadySeen(seen.has('video_something_off'));
+    onVideoOfferChange?.(showsGuide);
+  }, [showsGuide, onVideoOfferChange]);
+  useEffect(() => () => onVideoOfferChange?.(false), [onVideoOfferChange]);
 
-      const { count } = await supabase
-        .from('meetups')
-        .select('id', { count: 'exact', head: true })
-        .eq('connection_id', connectionId)
-        .eq('status', 'cancelled');
-      if (cancelled) return;
-      setRepeatedCancellations((count ?? 0) >= 2);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [connectionId]);
+  const answer = (value: string) => respondToMeetupPrompt(meetupId, 'feeling', value).catch(() => undefined);
 
-  const cancel = async () => {
-    await cancelMeetup(meetupId, 'cancelled');
-    onResolved();
-  };
+  const support = (
+    <View className="gap-2">
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        Totally normal. Most people enjoy meeting more than they expect to, and {otherName} is probably a bit nervous
+        too.
+      </Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        One thing that helps: have one question ready that you&apos;re genuinely curious to ask.
+      </Text>
+      <Pressable
+        onPress={() => router.push({ pathname: '/guide/[id]', params: { id: 'guide_meetup_anxiety' } })}
+        className="self-start">
+        <Text className="text-caption font-semibold text-accent-500">Watch a 2-minute guide</Text>
+      </Pressable>
+    </View>
+  );
 
-  const dismissVideo = async () => {
-    await markCoachMarkSeen('video_something_off');
-    setVideoDismissed(true);
-  };
+  if (mode === 'ask') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          How are you feeling about meeting {otherName} today?
+        </Text>
+        {line && <Text className="text-caption text-stone-500 dark:text-stone-400">{line}</Text>}
+        <Text className="text-caption italic text-stone-400 dark:text-stone-500">Only you see this.</Text>
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill
+            label="Looking forward to it"
+            onPress={async () => {
+              await answer('looking_forward');
+              onResolved();
+            }}
+          />
+          <OptionPill
+            label="A little nervous"
+            onPress={async () => {
+              await answer('nervous');
+              setMode('nervous');
+            }}
+          />
+          <OptionPill label="Thinking about cancelling" onPress={() => setMode('why')} />
+        </View>
+      </Card>
+    );
+  }
 
-  const showVideoOffer = (mode === 'concern' || repeatedCancellations) && !videoAlreadySeen && !videoDismissed;
+  if (mode === 'nervous') {
+    return (
+      <Card>
+        {support}
+        <Pressable onPress={onResolved} className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
+          <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">Thanks</Text>
+        </Pressable>
+      </Card>
+    );
+  }
 
-  useEffect(() => {
-    onVideoOfferChange?.(showVideoOffer);
-  }, [showVideoOffer, onVideoOfferChange]);
+  if (mode === 'why') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">Is it nerves, or did something come up?</Text>
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill label="Nerves" onPress={() => setMode('nerves')} />
+          <OptionPill label="Something came up" onPress={() => setMode('came_up')} />
+        </View>
+        <Text className="text-caption text-stone-400 dark:text-stone-500">
+          If something feels unsafe, use Report or Block at the top of the chat. You don&apos;t need to explain.
+        </Text>
+      </Card>
+    );
+  }
 
+  if (mode === 'nerves') {
+    return (
+      <Card>
+        {support}
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill
+            label="I'll still go"
+            onPress={async () => {
+              await answer('going_anyway');
+              onResolved();
+            }}
+          />
+          <OptionPill label="Move it to another day" onPress={() => setMode('move')} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (mode === 'came_up') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          That happens. If you&apos;d still like to meet, moving it is kinder than cancelling.
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill label="Move it" onPress={() => setMode('move')} />
+          <OptionPill label="Cancel" onPress={() => setMode('cancel')} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (mode === 'move') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Let {otherName} know, then pick a new day.
+        </Text>
+        <StemMessageBox
+          stems={MOVE_STEMS}
+          sendLabel="Send, then pick a new day"
+          onCancel={() => setMode('ask')}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) {
+              await answer('moving');
+              onRequestPlanEditor?.('change');
+              onResolved();
+            }
+            return ok;
+          }}
+        />
+      </Card>
+    );
+  }
+
+  // cancel
   return (
     <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">How are you feeling about meeting {otherName}?</Text>
-      {mode === 'none' && (
-        <View className="flex-row flex-wrap gap-2">
-          <OptionPill label="Looking forward to it" onPress={onResolved} />
-          <OptionPill label="A little nervous" onPress={onResolved} />
-          <OptionPill label="I'm thinking about cancelling" onPress={() => setMode('concern')} />
-        </View>
-      )}
-      {mode === 'concern' && (
-        <View className="gap-2">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            That's okay. If something feels unsafe, use Report or Block from the thread header — you don't need to explain why here.
-          </Text>
-          <OptionPill label="I'll go anyway" onPress={onResolved} />
-          <OptionPill label="Cancel this one" onPress={cancel} />
-        </View>
-      )}
-      {/* Rendered at the card's own top level, not nested inside either
-          mode: repeatedCancellations can be true while mode is still
-          'none' (the user hasn't necessarily said anything is wrong THIS
-          time, the pattern itself is what's worth gently surfacing). Always
-          after the safety-pointer text above when both are visible. */}
-      {showVideoOffer && (
-        <View className="flex-row flex-wrap items-center gap-3 border-t border-stone-200 pt-2 dark:border-stone-700">
-          <Text className="text-caption text-stone-400 dark:text-stone-600">A short guide, if it helps.</Text>
-          <Pressable
-            onPress={() => {
-              dismissVideo();
-              router.push({ pathname: '/guide/[id]', params: { id: 'video_something_off' } });
-            }}>
-            <Text className="text-caption font-semibold text-accent-500">Watch</Text>
-          </Pressable>
-          <Pressable onPress={dismissVideo}>
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Not now</Text>
-          </Pressable>
-        </View>
-      )}
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        Let {otherName} know with a short message. The plan is cancelled when you send it.
+      </Text>
+      <StemMessageBox
+        stems={DAY_OF_CANCEL_STEMS}
+        sendLabel="Send and cancel"
+        onCancel={() => setMode('came_up')}
+        onSend={async (text) => {
+          const ok = await sendChatMessage(connectionId, text);
+          if (!ok) return false;
+          try {
+            await answer('cancelling');
+            await cancelMeetup(meetupId, 'cancelled');
+            onPlanChanged?.();
+            onResolved();
+            return true;
+          } catch {
+            return false;
+          }
+        }}
+      />
     </Card>
   );
-}
-
-function formatMeetupDisplayDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 const CANCELLATION_REASON_OPTIONS: { key: MeetupCancellationReason; label: string }[] = [
@@ -510,7 +737,8 @@ type OccurrenceMode =
   | 'cancelled_reschedule_ask'
   | 'cancelled_reschedule_compose'
   | 'rescheduled_done'
-  | 'cancelled_done';
+  | 'cancelled_done'
+  | 'no_show';
 
 // Part 3 of tonight's consolidated build: replaces the old plain
 // Yes/No-plus-re-asked-date card with a real branching post-meetup flow.
@@ -539,16 +767,22 @@ function MeetupOccurrenceCheck({
   otherName,
   onResolved,
   onPlanSomething,
+  onSuggestAnotherDay,
+  onEndConnection,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
   onPlanSomething?: () => void;
+  onSuggestAnotherDay?: () => void;
+  onEndConnection?: () => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
   const confirmedDate = intervention.payload.confirmed_date as string | undefined;
-  const dateLabel = confirmedDate ? formatMeetupDisplayDate(confirmedDate) : null;
+  const dateLabel = confirmedDate
+    ? formatWhen(confirmedDate, intervention.payload.start_time as string | null | undefined)
+    : null;
 
   const [mode, setMode] = useState<OccurrenceMode>('ask');
   const [busy, setBusy] = useState(false);
@@ -601,6 +835,19 @@ function MeetupOccurrenceCheck({
 
   const pickCancelled = () => setMode('cancelled_reason');
 
+  // 2026-10-08: "They didn't show up". Recorded privately, nobody is
+  // accused, and the person who waited gets a kind note and real choices.
+  const pickNoShow = async () => {
+    setBusy(true);
+    try {
+      await submitMeetupCancellationReason(meetupId, 'no_show');
+      await reportMeetupOccurrence(meetupId, false);
+      setMode('no_show');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submitReason = (r: MeetupCancellationReason) => {
     setReason(r);
     setMode('cancelled_reschedule_ask');
@@ -648,10 +895,36 @@ function MeetupOccurrenceCheck({
   if (mode === 'no_followup') {
     return (
       <Card>
-        <Text className="text-body text-stone-700 dark:text-stone-300">Was it rescheduled, or cancelled?</Text>
-        <View className="flex-row gap-2">
-          <OptionPill label="Rescheduled" onPress={pickRescheduled} />
-          <OptionPill label="Cancelled" onPress={pickCancelled} />
+        <Text className="text-body text-stone-700 dark:text-stone-300">What happened?</Text>
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill label="We moved it" onPress={pickRescheduled} />
+          <OptionPill label="It was cancelled" onPress={pickCancelled} />
+          <OptionPill label={`${otherName} didn't show up`} onPress={pickNoShow} />
+        </View>
+      </Card>
+    );
+  }
+
+  if (mode === 'no_show') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          That&apos;s disappointing, and it isn&apos;t on you. Sometimes people get overwhelmed or something comes
+          up. You can suggest another day, or end things kindly.
+        </Text>
+        <Text className="text-caption italic text-stone-400 dark:text-stone-500">Only you see this.</Text>
+        <View className="flex-row flex-wrap gap-2">
+          {onSuggestAnotherDay && (
+            <OptionPill
+              label="Suggest another day"
+              onPress={() => {
+                onSuggestAnotherDay();
+                onResolved();
+              }}
+            />
+          )}
+          {onEndConnection && <OptionPill label="End kindly" onPress={onEndConnection} />}
+          <OptionPill label="Not now" onPress={onResolved} />
         </View>
       </Card>
     );
@@ -661,11 +934,20 @@ function MeetupOccurrenceCheck({
     return (
       <Card>
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          No problem. Use the meetup card above whenever you&apos;re ready to propose a new date.
+          No problem. Add the new day to the plan so your reminders follow it.
         </Text>
-        <Pressable onPress={onResolved} className="self-start rounded-full border border-stone-300 px-4 py-2 dark:border-stone-700">
-          <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">Got it</Text>
-        </Pressable>
+        <View className="flex-row flex-wrap gap-2">
+          {onSuggestAnotherDay && (
+            <OptionPill
+              label="Plan the new day"
+              onPress={() => {
+                onSuggestAnotherDay();
+                onResolved();
+              }}
+            />
+          )}
+          <OptionPill label="Later" onPress={onResolved} />
+        </View>
       </Card>
     );
   }
@@ -859,7 +1141,7 @@ function RhythmReminder({
       <Text className="text-body text-stone-700 dark:text-stone-300">
         {isInitial ? 'What kind of rhythm would feel natural to you?' : 'You mentioned a pace that felt right before. Want to make a plan?'}
       </Text>
-      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Private to you — never shown to the other person.</Text>
+      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Private to you. Never shown to the other person.</Text>
       <View className="gap-2">
         {options.map((o) => (
           <Pressable
@@ -1032,7 +1314,7 @@ function MeetupDateReconciliation({ intervention, onResolved }: { intervention: 
         You both confirmed you met, but the exact date is unclear. Want to help pin it down?
       </Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">
-        This is optional and low-stakes — it only affects your shared history, nothing else.
+        This is optional and low-stakes. It only affects your shared history, nothing else.
       </Text>
       <View className="gap-2">
         <TextInput

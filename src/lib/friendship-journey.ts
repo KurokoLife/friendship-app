@@ -40,10 +40,86 @@ export type MeetupStatus =
 
 export type DateStatus = 'not_applicable' | 'confirmed' | 'disputed';
 
-export async function proposeMeetup(connectionId: string, date: string): Promise<string> {
-  const { data, error } = await supabase.rpc('propose_meetup', { p_connection_id: connectionId, p_date: date });
+// A meetup plan (2026-10-08): date is required; time, place and what
+// you'll do are optional. Proposing while a plan is active replaces it
+// with a new version the other person confirms ("Change plan").
+export type MeetupPlanInput = {
+  date: string; // YYYY-MM-DD
+  startTime?: string | null; // HH:MM, 24-hour
+  place?: string | null;
+  activity?: string | null;
+};
+
+export function deviceTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function proposeMeetup(connectionId: string, plan: MeetupPlanInput): Promise<string> {
+  const { data, error } = await supabase.rpc('propose_meetup', {
+    p_connection_id: connectionId,
+    p_date: plan.date,
+    p_start_time: plan.startTime || null,
+    p_place: plan.place?.trim() || null,
+    p_activity: plan.activity?.trim() || null,
+    p_time_zone: deviceTimeZone(),
+  });
   if (error) throw error;
   return data as string;
+}
+
+// Fill in a detail that is still missing. Never changes an agreed detail,
+// so no re-confirm is needed.
+export async function addMeetupDetails(
+  meetupId: string,
+  details: { startTime?: string | null; place?: string | null; activity?: string | null }
+): Promise<void> {
+  const { error } = await supabase.rpc('add_meetup_details', {
+    p_meetup_id: meetupId,
+    p_start_time: details.startTime || null,
+    p_place: details.place?.trim() || null,
+    p_activity: details.activity?.trim() || null,
+  });
+  if (error) throw error;
+}
+
+export type MeetupPlan = {
+  id: string;
+  status: 'proposed' | 'confirmed';
+  date: string;
+  start_time: string | null;
+  place: string | null;
+  activity: string | null;
+  time_zone: string;
+  proposed_by: string;
+  move_count: number;
+  plan_root_id: string;
+  previous: { date: string; start_time: string | null; place: string | null } | null;
+  other_still_on: boolean;
+  my_still_on: 'still_on' | 'needs_move' | null;
+  many_moves_answered: boolean;
+};
+
+export async function getMeetupPlan(
+  connectionId: string
+): Promise<{ meetup: MeetupPlan | null; meetupCount: number; localToday: string | null }> {
+  const { data, error } = await supabase.rpc('get_meetup_plan', { p_connection_id: connectionId });
+  if (error) throw error;
+  const d = (data ?? {}) as { meetup?: MeetupPlan | null; meetup_count?: number; local_today?: string };
+  return { meetup: d.meetup ?? null, meetupCount: d.meetup_count ?? 0, localToday: d.local_today ?? null };
+}
+
+export type MeetupPrompt = 'still_on' | 'feeling' | 'many_moves';
+export async function respondToMeetupPrompt(meetupId: string, prompt: MeetupPrompt, answer: string): Promise<void> {
+  const { error } = await supabase.rpc('respond_to_meetup_prompt', {
+    p_meetup_id: meetupId,
+    p_prompt: prompt,
+    p_answer: answer,
+  });
+  if (error) throw error;
 }
 
 export async function confirmMeetup(meetupId: string): Promise<void> {
@@ -226,7 +302,7 @@ export async function resolvePreMeetupConcern(concernId: string, resolution: Pre
 // mechanism from pre_meetup_concerns (see the migration's own header
 // comment for why), backing the new post-meetup "why was it cancelled"
 // question.
-export type MeetupCancellationReason = 'schedule_conflict' | 'circumstances_changed' | 'lost_interest' | 'other';
+export type MeetupCancellationReason = 'schedule_conflict' | 'circumstances_changed' | 'lost_interest' | 'other' | 'no_show';
 export async function submitMeetupCancellationReason(
   meetupId: string,
   reason: MeetupCancellationReason,

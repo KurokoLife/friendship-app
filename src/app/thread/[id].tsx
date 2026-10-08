@@ -296,6 +296,10 @@ export default function ThreadScreen() {
   // clearing must not accidentally clear the other's still-active state.
   const [video3OfferActive, setVideo3OfferActive] = useState(false);
   const [video6OfferActive, setVideo6OfferActive] = useState(false);
+  // Meetup plans (2026-10-08): prompt cards can open the plan card's editor
+  // and ask it to reload after they change the plan.
+  const [planEditorRequest, setPlanEditorRequest] = useState<{ mode: 'change' | 'details'; n: number } | null>(null);
+  const [planRefreshKey, setPlanRefreshKey] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
   const loadNewSystemIntervention = useCallback(
@@ -1116,14 +1120,10 @@ export default function ThreadScreen() {
                 otherName={other?.display_name ?? 'them'}
                 onChanged={() => loadNewSystemIntervention()}
                 onVideoOfferChange={setVideo3OfferActive}
+                refreshKey={planRefreshKey}
+                editorRequest={planEditorRequest}
+                onEndConnection={() => setEndConnectionVisible(true)}
               />
-            )}
-            {connectionId && (
-              <View className="px-6 pt-2">
-                <Pressable onPress={() => router.push({ pathname: '/meetup-history/[connectionId]', params: { connectionId } })}>
-                  <Text className="text-caption font-semibold text-accent-500">View meetup history</Text>
-                </Pressable>
-              </View>
             )}
             {newSystemIntervention && connectionId && (
               <View className="px-6 pt-4">
@@ -1135,6 +1135,8 @@ export default function ThreadScreen() {
                   onPlanSomething={handlePlanSomething}
                   onVideoOfferChange={setVideo6OfferActive}
                   onEndConnection={() => setEndConnectionVisible(true)}
+                  onRequestPlanEditor={(mode) => setPlanEditorRequest((r) => ({ mode, n: (r?.n ?? 0) + 1 }))}
+                  onPlanChanged={() => setPlanRefreshKey((k) => k + 1)}
                 />
               </View>
             )}
