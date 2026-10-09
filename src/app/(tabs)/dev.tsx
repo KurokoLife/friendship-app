@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MeetupTestPanel } from '@/components/meetup-test-panel';
@@ -211,11 +211,22 @@ export default function TestToolsScreen() {
                 below, from top to bottom: open the link, copy everything, paste it into a new query and press Run.
                 It&apos;s fine if you already ran some of them, as long as you go through all of them in this order.
               </Text>
-              {RECENT_DB_UPDATES.map((f) => (
-                <Pressable key={f} onPress={() => Linking.openURL(MIGRATION_URL_BASE + f)}>
-                  <Text className="text-caption font-semibold text-accent-500">{f}</Text>
-                </Pressable>
-              ))}
+              {RECENT_DB_UPDATES.map((f) =>
+                // On the web this is a plain browser link (opens in a new
+                // tab), so it works even when a tap handler doesn't.
+                Platform.OS === 'web' ? (
+                  <Text
+                    key={f}
+                    {...({ href: MIGRATION_URL_BASE + f, hrefAttrs: { target: '_blank', rel: 'noopener' } } as object)}
+                    className="text-caption font-semibold text-accent-500 underline">
+                    {f}
+                  </Text>
+                ) : (
+                  <Pressable key={f} onPress={() => Linking.openURL(MIGRATION_URL_BASE + f)}>
+                    <Text className="text-caption font-semibold text-accent-500 underline">{f}</Text>
+                  </Pressable>
+                ),
+              )}
               <Text className="text-caption text-stone-500 dark:text-stone-400">
                 When it&apos;s done, come back to this tab and this note disappears.
               </Text>
