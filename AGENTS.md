@@ -21,7 +21,7 @@ Full rationale and research links: `docs/LIMEN_V2_DECISIONS.md`.
 - **Pause (2026-10-09):** 3 days / 1 week / 2 weeks only, both people see it and the end date, no messages while paused, only the pauser resumes early, the other person can end, max 2 pauses per person per chat per 30 days. See `20261009000001_reconnect_hello_pause.sql`.
 - **No-hello matches (2026-10-09):** nudge from 2 days, quiet close at 14 days. Reconnecting with someone you already talked to needs no second selfie check.
 - **Pause note (2026-10-09):** a pause always comes with a short note the person writes (starters allowed, never AI-written), sent in the same step as the pause.
-- **Selfie check once per account (2026-10-09):** a sent selfie (waiting for review) or an approved one counts for saying Interested and first messages. A rejected one asks for a new selfie. The profile badge still only shows after approval.
+- **Selfie check once per account, approved only (2026-10-09, revised same day):** only an approved selfie lets someone say Interested or send a first message; it then counts for every connection. While it waits for review, Interested and chats with no messages explain that it's waiting (`selfie_pending`). A rejected one asks for a new selfie. Two people who already talked can reconnect without it. The profile badge only shows after approval.
 
 ---
 

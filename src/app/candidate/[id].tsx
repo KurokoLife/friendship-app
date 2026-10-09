@@ -12,6 +12,7 @@ import {
   connectionHasMutualInterest,
   expressInterest,
   fetchMyInterestIds,
+  SELFIE_PENDING_COPY,
   WAITING_FOR_INTEREST_COPY,
 } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -174,6 +175,8 @@ export default function CandidateProfileScreen() {
       setNotice(WAITING_FOR_INTEREST_COPY);
     } else if (result.status === 'not_verified') {
       router.push('/selfie-check');
+    } else if (result.status === 'selfie_pending') {
+      setNotice(SELFIE_PENDING_COPY);
     } else if (result.status === 'ended') {
       // A deliberately ended connection needs the separate "Start over"
       // confirmation (20260817000000), not a silent reopen.

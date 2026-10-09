@@ -16,13 +16,19 @@ export type InterestResult =
   | { status: 'waiting' }
   | { status: 'mutual'; connectionId: string }
   | { status: 'not_verified' }
+  | { status: 'selfie_pending' }
   | { status: 'ended' }
   | { status: 'error'; message: string };
+
+// Shown when someone says Interested while their selfie waits for review.
+export const SELFIE_PENDING_COPY =
+  "Your selfie is waiting for our review, usually less than a day. Once it's approved you can say Interested and send first messages.";
 
 export async function expressInterest(otherId: string): Promise<InterestResult> {
   const { data, error } = await supabase.rpc('express_interest', { p_other_user_id: otherId });
   if (error) {
     const message = error.message ?? '';
+    if (message.includes('selfie_pending')) return { status: 'selfie_pending' };
     if (message.includes('not_verified')) return { status: 'not_verified' };
     // Word match, not includes(): 'suspended' also contains 'ended'.
     if (/\bended\b/.test(message)) return { status: 'ended' };

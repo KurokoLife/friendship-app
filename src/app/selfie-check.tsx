@@ -111,7 +111,7 @@ export default function SelfieCheckScreen() {
                 soon as it&apos;s been checked.
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                You only do this once. You can already say Interested and start chatting while we check it.
+                You only do this once for your account. Until it&apos;s approved you can&apos;t say Interested or send a first message, but you can keep replying in chats you already have.
               </Text>
             </View>
           ) : (

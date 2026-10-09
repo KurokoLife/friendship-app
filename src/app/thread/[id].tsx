@@ -208,6 +208,8 @@ export default function ThreadScreen() {
   // true so the gates never flash before the real values load; the real
   // enforcement is the messages INSERT RLS policy (20261004000000).
   const [mySelfieVerified, setMySelfieVerified] = useState(true);
+  // True while a sent selfie waits for review (2026-10-09 (3)).
+  const [mySelfiePending, setMySelfiePending] = useState(false);
   const [hasMutualInterest, setHasMutualInterest] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
   // Friendship Journey: the one reminder or prompt card to show right now
@@ -410,6 +412,7 @@ export default function ThreadScreen() {
         { data: myUserRow },
         mutual,
         { data: selfieDone },
+        { data: mySelfieCheck },
       ] = await Promise.all([
           // 2026-08-11 fix: was discovery_profiles, keyed by user_id, whose
           // WHERE clause hard-filters on gender/pause compatibility, a
@@ -437,13 +440,15 @@ export default function ThreadScreen() {
           supabase.from('profiles').select('photo_url').eq('user_id', user.id).maybeSingle(),
           supabase.from('users').select('gender_identity, selfie_verified_at').eq('id', user.id).maybeSingle(),
           connectionHasMutualInterest(connectionId),
-          // The selfie check is done once per account: a selfie that was
-          // sent (waiting for review) or approved counts (2026-10-09).
+          // The selfie check is done once per account and only an approved
+          // selfie counts (2026-10-09 (3)).
           supabase.rpc('selfie_check_done', { p_user: user.id }),
+          supabase.from('selfie_checks').select('status').eq('user_id', user.id).maybeSingle(),
         ]);
       if (cancelled) return;
 
       setMySelfieVerified(Boolean(myUserRow?.selfie_verified_at) || Boolean(selfieDone));
+      setMySelfiePending(mySelfieCheck?.status === 'pending');
       setHasMutualInterest(mutual);
 
       setOther(otherProfile ?? null);
@@ -1085,11 +1090,14 @@ export default function ThreadScreen() {
         ) : needsSelfieForFirstMessage ? (
           <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
             <Text className="text-body text-stone-600 dark:text-stone-400">
-              Before you send a first message, finish your selfie check. It confirms you&apos;re the person in
-              your photo and usually takes less than a day.
+              {mySelfiePending
+                ? "Your selfie is waiting for our review, usually less than a day. You can send your first message here once it's approved."
+                : "Before you send a first message, finish your selfie check. You only do it once, and it confirms you're the person in your photo."}
             </Text>
             <Pressable onPress={() => router.push('/selfie-check')} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">Do my selfie check</Text>
+              <Text className="text-caption font-semibold text-accent-500">
+                {mySelfiePending ? 'See my selfie check' : 'Do my selfie check'}
+              </Text>
             </Pressable>
           </View>
         ) : needsPhotoForFirstMessage ? (

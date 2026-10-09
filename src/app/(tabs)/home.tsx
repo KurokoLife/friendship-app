@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoachMark } from '@/components/coach-mark';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
-import { expressInterest, fetchMyInterestIds, WAITING_FOR_INTEREST_COPY } from '@/lib/safety';
+import { expressInterest, fetchMyInterestIds, SELFIE_PENDING_COPY, WAITING_FOR_INTEREST_COPY } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -305,6 +305,8 @@ export default function HomeScreen() {
       setCapacityNotice(WAITING_FOR_INTEREST_COPY);
     } else if (result.status === 'not_verified') {
       router.push('/selfie-check');
+    } else if (result.status === 'selfie_pending') {
+      setCapacityNotice(SELFIE_PENDING_COPY);
     } else if (result.status === 'ended') {
       // Starting over after an honest exit needs its own confirmation,
       // which lives on the profile screen.
