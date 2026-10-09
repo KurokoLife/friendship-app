@@ -266,27 +266,66 @@ export async function fetchDisputedMeetups(connectionId: string): Promise<{ id: 
   return (data ?? []) as { id: string; sequence_number: number }[];
 }
 
-// ---- Pause / resume with a defined defer window (Decision 3) ----
+// ---- Pause / resume (rules updated 2026-10-09) ----
+// A pause always has an end date, at most 2 weeks away. Both people can
+// see that the chat is paused and until when. While paused there are no
+// reminders and no messages, and the chat doesn't count toward the 3
+// active conversations. Only the person who paused can resume early; the
+// other person can always end the connection.
 
-export type PauseDuration = 'couple_days' | 'about_a_week' | 'indefinite';
+export type PauseDuration = 'few_days' | 'one_week' | 'two_weeks';
+
+export const PAUSE_OPTIONS: { key: PauseDuration; label: string; days: number }[] = [
+  { key: 'few_days', label: '3 days', days: 3 },
+  { key: 'one_week', label: '1 week', days: 7 },
+  { key: 'two_weeks', label: '2 weeks', days: 14 },
+];
+
+const PAUSE_ERRORS: Record<string, string> = {
+  already_paused: 'This chat is already paused.',
+  not_open: "This chat isn't open, so there's nothing to pause.",
+  pause_length: 'A pause can last up to 2 weeks.',
+  pause_limit: "You've paused this chat twice in the last month. If you need more space, you can end the connection instead.",
+  only_pauser_can_resume: 'Only the person who paused this chat can resume it early. It opens again on its own on the end date.',
+};
+
+// An error whose message is safe and helpful to show as-is.
+export class FriendlyError extends Error {}
+
+function pauseErrorMessage(message: string): string {
+  const key = Object.keys(PAUSE_ERRORS).find((k) => message.includes(k));
+  return key ? PAUSE_ERRORS[key] : 'Something went wrong. Please try again.';
+}
 
 export async function pauseConnectionWithDuration(connectionId: string, duration: PauseDuration): Promise<void> {
-  const pausedUntil =
-    duration === 'couple_days'
-      ? new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
-      : duration === 'about_a_week'
-        ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-        : null;
+  const days = PAUSE_OPTIONS.find((o) => o.key === duration)?.days ?? 7;
   const { error } = await supabase.rpc('pause_connection_with_duration', {
     p_connection_id: connectionId,
-    p_paused_until: pausedUntil,
+    p_paused_until: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
   });
-  if (error) throw error;
+  if (error) throw new FriendlyError(pauseErrorMessage(error.message ?? ''));
 }
 
 export async function resumeConnectionEarly(connectionId: string): Promise<void> {
   const { error } = await supabase.rpc('resume_connection_early', { p_connection_id: connectionId });
-  if (error) throw error;
+  if (error) throw new FriendlyError(pauseErrorMessage(error.message ?? ''));
+}
+
+export type PauseDetails = {
+  connection_id: string;
+  paused_until: string;
+  paused_by_me: boolean;
+  other_paused_name: string | null;
+};
+
+// Pause details for one chat, or for all of the viewer's paused chats.
+export async function getPauseDetails(connectionId?: string): Promise<PauseDetails[]> {
+  const { data, error } = await supabase.rpc(
+    'get_pause_details',
+    connectionId ? { p_connection_id: connectionId } : {}
+  );
+  if (error) return [];
+  return (data ?? []) as PauseDetails[];
 }
 
 // ---- Private submissions ----

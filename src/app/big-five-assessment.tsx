@@ -256,7 +256,6 @@ export default function BigFiveAssessmentScreen() {
   // whether fetchNarrative can include it, and whether the results screen
   // shows real "what helped"/"when uncertain" content or the pending copy.
   const [experience, setExperience] = useState<FriendshipExperience>(EMPTY_EXPERIENCE);
-  const [hasStoredExperience, setHasStoredExperience] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -295,7 +294,6 @@ export default function BigFiveAssessmentScreen() {
       const storedExperience = data?.friendship_experience as Partial<FriendshipExperience> | null;
       if (storedExperience) {
         setExperience({ ...EMPTY_EXPERIENCE, ...storedExperience });
-        setHasStoredExperience(true);
       }
       setLoaded(true);
     })();
@@ -388,7 +386,6 @@ export default function BigFiveAssessmentScreen() {
       setError('Something went wrong saving that. Try again.');
       return;
     }
-    setHasStoredExperience(true);
 
     // The "Your experience with new friendship" phase that used to sit
     // directly inside this screen is gone (moved through a post-first-

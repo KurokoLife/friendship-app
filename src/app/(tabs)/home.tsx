@@ -6,7 +6,6 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
-import { purchaseAiCreditPack } from '@/lib/ai-credits';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { expressInterest, fetchMyInterestIds, WAITING_FOR_INTEREST_COPY } from '@/lib/safety';
@@ -134,16 +133,13 @@ export default function HomeScreen() {
   // nobody can see who chose them.
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [usingDevFallback, setUsingDevFallback] = useState(false);
-  // Consumable AI credits (2026-07-29): capReached is a new signal from
+  // capReached comes from
   // generate-match-suggestions, confirmed absent before this (the cache-
   // first architecture previously just silently served fewer/cached
   // suggestions with nothing telling the client it happened). Only shown
   // when there's truly nothing left to show, see the render below, never
   // layered on top of real suggestions that are still available.
   const [capReached, setCapReached] = useState(false);
-  const [aiCredits, setAiCredits] = useState(0);
-  const [purchasing, setPurchasing] = useState(false);
-  const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -245,32 +241,7 @@ export default function HomeScreen() {
     }
     setSuggestions(fresh.map((s) => ({ ...s, selfieVerified: verifiedIds.has(s.userId) })));
     setCapReached(Boolean(fnData?.capReached));
-    setAiCredits(typeof fnData?.aiCredits === 'number' ? fnData.aiCredits : 0);
   }, []);
-
-  const handleBuyCredits = async () => {
-    setPurchasing(true);
-    setPurchaseMessage(null);
-    try {
-      const result = await purchaseAiCreditPack();
-      if (result.status === 'success') {
-        setAiCredits(result.newBalance);
-        setPurchaseMessage(`50 credits added. You now have ${result.newBalance}.`);
-        setCapReached(false);
-        await load();
-      } else if (result.status === 'cancelled') {
-        // No message shown, a cancelled purchase sheet isn't an error,
-        // matches this app's own "no shaming labels" framing for capacity
-        // limits above.
-      } else {
-        setPurchaseMessage(result.message);
-      }
-    } catch (err) {
-      setPurchaseMessage(err instanceof Error ? err.message : 'Something went wrong with that purchase.');
-    } finally {
-      setPurchasing(false);
-    }
-  };
 
   useFocusEffect(
     useCallback(() => {
@@ -360,7 +331,7 @@ export default function HomeScreen() {
               Today&apos;s suggestions
             </Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              A few people we think you might click with, and why.
+              A few people we think you might connect with, and why.
             </Text>
           </View>
 

@@ -25,6 +25,7 @@ type Chat = {
   name: string;
   status: string | null;
   other_id: string | null;
+  has_messages: boolean;
 };
 
 const NO_REPLY_STEPS: { hours: number; label: string; shows: string }[] = [
@@ -119,6 +120,7 @@ export default function TestToolsScreen() {
     for (const c of (conns ?? []) as { id: string; user_a_id: string; user_b_id: string; status: string | null }[]) {
       info.set(c.id, { other: c.user_a_id === user.id ? c.user_b_id : c.user_a_id, status: c.status });
     }
+    const withMessages = new Set(((convos ?? []) as { connection_id: string }[]).map((c) => c.connection_id));
     const rows = [
       ...((convos ?? []) as { connection_id: string; display_name: string | null }[]),
       ...((mutual ?? []) as { connection_id: string; display_name: string | null }[]),
@@ -129,7 +131,13 @@ export default function TestToolsScreen() {
       if (seen.has(c.connection_id)) continue;
       seen.add(c.connection_id);
       const i = info.get(c.connection_id);
-      list.push({ connection_id: c.connection_id, name: c.display_name ?? 'A member', status: i?.status ?? null, other_id: i?.other ?? null });
+      list.push({
+        connection_id: c.connection_id,
+        name: c.display_name ?? 'A member',
+        status: i?.status ?? null,
+        other_id: i?.other ?? null,
+        has_messages: withMessages.has(c.connection_id),
+      });
     }
     setChats(list);
     setChatId((cur) => (cur && list.some((l) => l.connection_id === cur) ? cur : null));
@@ -252,7 +260,7 @@ export default function TestToolsScreen() {
 
           <Section
             title="Pick a chat"
-            hint="The chat tools below work on this chat. These are the chats of the account you're using right now.">
+            hint="The chat tools below work on this chat. These are the chats of the account you're using right now. Results of the reopen, no-hello and pause tools show at the bottom of this box.">
             {chats.length === 0 ? (
               <Text className="text-caption text-stone-500 dark:text-stone-400">This account has no chats yet.</Text>
             ) : (
@@ -345,6 +353,37 @@ export default function TestToolsScreen() {
                   <Status text={status.sendas} />
                 </View>
               )}
+            </Section>
+          )}
+
+          {chat && !chat.has_messages && (
+            <Section
+              title="Match with no hello yet"
+              hint={`Nobody has written in your chat with ${chat.name}. From 2 days the chat and Inbox suggest a short hello; at 14 days the match closes quietly.`}>
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  label="Make it 3 days old"
+                  busy={busy === 'reopen'}
+                  onPress={() => rpc('reopen', 'test_match_age', { p_connection_id: chat.connection_id, p_days: 3 }, (d) => String(d))}
+                />
+                <Button
+                  label="Make it 14 days old"
+                  busy={busy === 'reopen'}
+                  onPress={() => rpc('reopen', 'test_match_age', { p_connection_id: chat.connection_id, p_days: 14 }, (d) => String(d))}
+                />
+              </View>
+            </Section>
+          )}
+
+          {chat && chat.status === 'paused' && (
+            <Section
+              title="Pause"
+              hint={`Your chat with ${chat.name} is paused. A pause ends on its own on its end date; this ends it now.`}>
+              <Button
+                label="End the pause now"
+                busy={busy === 'reopen'}
+                onPress={() => rpc('reopen', 'test_end_pause', { p_connection_id: chat.connection_id }, (d) => String(d))}
+              />
             </Section>
           )}
 

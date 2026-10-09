@@ -6,7 +6,7 @@ import {
   cancelMeetup,
   confirmMeetup,
   dismissIntervention,
-  pauseConnectionWithDuration,
+  FriendlyError,
   proposeMeetupDateResolution,
   reportMeetupOccurrence,
   resolveMeetupDateResolution,
@@ -18,12 +18,12 @@ import {
   respondToMeetupPrompt,
   type ActiveIntervention,
   type MeetupCancellationReason,
-  type PauseDuration,
   type PostMeetupReflectionResponse,
 } from '@/lib/friendship-journey';
 import { supabase } from '@/lib/supabase';
 import { formatMeetupTime, formatWhen } from '@/lib/meetup-format';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
+import { PauseChoices, pauseExplainer } from '@/components/pause-connection-modal';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { nameThenPeriod } from '@/lib/names';
@@ -233,8 +233,8 @@ function useCardAction() {
     setError(null);
     try {
       await fn();
-    } catch {
-      setError("That didn't go through. Please try again.");
+    } catch (e) {
+      setError(e instanceof FriendlyError ? e.message : "That didn't go through. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -311,7 +311,6 @@ function NoGhostR2R3({
   onEndConnection?: () => void;
 }) {
   const [mode, setMode] = useState<'none' | 'reply' | 'defer'>('none');
-  const { busy, run, errorText } = useCardAction();
 
   const awareness =
     escalation === 'perspective'
@@ -322,18 +321,10 @@ function NoGhostR2R3({
       ? 'Sometimes life gets busy, or it gets harder to know what to say after some time has passed.'
       : null;
 
-  const pause = (duration: PauseDuration) =>
-    !busy &&
-    run(async () => {
-      await pauseConnectionWithDuration(connectionId, duration);
-      onResolved();
-    });
-
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">{awareness}</Text>
       {supporting && <Text className="text-body text-stone-600 dark:text-stone-400">{supporting}</Text>}
-      {errorText}
       {mode === 'none' && (
         <View className="flex-row flex-wrap gap-2">
           <OptionPill label="Reply" onPress={() => setMode('reply')} />
@@ -343,12 +334,8 @@ function NoGhostR2R3({
       )}
       {mode === 'defer' && (
         <View className="gap-2">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            Reminders pause for this chat. {otherName} won&apos;t see which of these you picked.
-          </Text>
-          <OptionPill label="A couple of days" onPress={() => pause('couple_days')} />
-          <OptionPill label="About a week" onPress={() => pause('about_a_week')} />
-          <OptionPill label="I'll come back when I'm ready" onPress={() => pause('indefinite')} />
+          <Text className="text-caption text-stone-500 dark:text-stone-400">{pauseExplainer(otherName)}</Text>
+          <PauseChoices connectionId={connectionId} onPaused={onResolved} />
           <Pressable onPress={() => setMode('none')} className="self-start">
             <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
@@ -854,8 +841,8 @@ function MeetupOccurrenceCheck({
     setError(null);
     try {
       await fn();
-    } catch {
-      setError("That didn't go through. Please try again.");
+    } catch (e) {
+      setError(e instanceof FriendlyError ? e.message : "That didn't go through. Please try again.");
     } finally {
       setBusy(false);
     }

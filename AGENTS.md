@@ -18,6 +18,8 @@ Full rationale and research links: `docs/LIMEN_V2_DECISIONS.md`.
 - **"How I like care"** profile field (own words, max 400 chars), shown only to connections inside Reflect.
 - **Stories** (2-3, own words, character prompts, no "Ask me about") and private **curiosity notes** ("I wonder...") on profiles.
 - **Read receipts:** unchanged, still never shown to the sender.
+- **Pause (2026-10-09):** 3 days / 1 week / 2 weeks only, both people see it and the end date, no messages while paused, only the pauser resumes early, the other person can end, max 2 pauses per person per chat per 30 days. See `20261009000001_reconnect_hello_pause.sql`.
+- **No-hello matches (2026-10-09):** nudge from 2 days, quiet close at 14 days. Reconnecting with someone you already talked to needs no second selfie check.
 
 ---
 

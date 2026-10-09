@@ -14,85 +14,44 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActivitySuggestionsModal } from '@/components/activity-suggestions-modal';
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
-import { CoachMark } from '@/components/coach-mark';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
-import { FollowUpReflectionCard } from '@/components/follow-up-reflection-card';
 import { MirrorSheet } from '@/components/mirror-sheet';
-import { MeetupCheckinCard } from '@/components/meetup-checkin-card';
-import { MeetupConfirmationCard } from '@/components/meetup-confirmation-card';
-import { MeetupOutcomeCard } from '@/components/meetup-outcome-card';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
-import { ConversationFlowPromptCard } from '@/components/conversation-flow-prompt-card';
-import { MeetupSuggestionBanner } from '@/components/meetup-suggestion-banner';
-import { ReplyAssistPanel, type ReplyAssistContextMessage } from '@/components/reply-assist-panel';
-import { ReportModal } from '@/components/report-modal';
-import { SpotlightTarget } from '@/components/spotlight-target';
-import { UniversalTextBox } from '@/components/universal-text-box';
-import { fetchConnectionCareStyle } from '@/lib/care-style';
-import { fetchActiveReflections, type FollowUpReflection } from '@/lib/follow-up-reflection';
-import { track } from '@/lib/analytics';
-import {
-  dismissMeetupSuggestionPermanently,
-  fetchMeetupSuggestionState,
-  shouldShowMeetupSuggestion,
-  snoozeMeetupSuggestion,
-  type MeetupSuggestionState,
-} from '@/lib/meetup-suggestion';
-import {
-  dismissMeetupOutcome,
-  fetchMeetupCheckinStatus,
-  fetchMeetupLog,
-  fetchNextMeetupStatus,
-  fetchPendingMeetupConfirmation,
-  formatMeetupDateShort,
-  hasAckedNextMeetupFeeling,
-  proposeNextMeetup,
-  recordPlanActivity,
-  submitNextMeetupFeeling,
-  type MeetupCheckinStatus,
-  type MeetupConfirmationRequest,
-  type MeetupLogEntry,
-  type NextMeetupStatus,
-} from '@/lib/meetup-milestones';
-import { NextMeetupIndicator } from '@/components/next-meetup-indicator';
 import { NextMeetupIndicatorV2 } from '@/components/next-meetup-indicator-v2';
+import { PauseConnectionModal } from '@/components/pause-connection-modal';
 import { PrimaryInterventionCard } from '@/components/primary-intervention-card';
-import { EndedConnectionVideoLink, VideoGuidanceCard } from '@/components/video-guidance-card';
-import { getActiveIntervention, type ActiveIntervention } from '@/lib/friendship-journey';
-import { NextMeetupFeelingCard } from '@/components/next-meetup-feeling-card';
-import { formatMeetupDate } from '@/lib/remember';
-import { fetchLatestRememberNote } from '@/lib/remember';
 import { RememberReminderCard } from '@/components/remember-reminder-card';
+import { ReportModal } from '@/components/report-modal';
+import { UniversalTextBox, type CoachContextMessage } from '@/components/universal-text-box';
+import { EndedConnectionVideoLink, VideoGuidanceCard } from '@/components/video-guidance-card';
+import { fetchConnectionCareStyle } from '@/lib/care-style';
 import {
-  bestPromptPerConnection,
-  fetchActivePrompts,
-  HONEST_EXIT_RECEIVER_TEXT,
-  HONEST_EXIT_SENDER_TEXT,
-  resumeConnection,
-  senderReassuranceLine,
-  type NoGhostPrompt,
-} from '@/lib/no-ghost';
-// F20 disabled 2026-07-16, see PROGRESS.md: detection was incorrectly
-// flagging normal back-and-forth conversations as one-sided. Code kept
-// in place, not deleted, for a future re-enable once the heuristic is
-// improved.
-// import { isDoingMostOfTheWork, RECIPROCITY_NOTE } from '@/lib/reciprocity';
+  FriendlyError,
+  getActiveIntervention,
+  getPauseDetails,
+  resumeConnectionEarly,
+  type ActiveIntervention,
+  type PauseDetails,
+} from '@/lib/friendship-journey';
+import { recordPlanActivity } from '@/lib/meetup-milestones';
+import { goBack } from '@/lib/navigation';
+import { HONEST_EXIT_RECEIVER_TEXT, HONEST_EXIT_SENDER_TEXT, senderReassuranceLine } from '@/lib/no-ghost';
 import { subscribeToMessages } from '@/lib/realtime-messages';
+import { fetchLatestRememberNote } from '@/lib/remember';
 import {
   dismissRhythmMismatch,
   hasDismissedRhythmMismatch,
   isReplyingMuchFaster,
   rhythmMismatchNote,
 } from '@/lib/rhythm-mismatch';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import {
   connectionHasMutualInterest,
   containsScamSignal,
   SCAM_CHECK_EARLY_MESSAGE_COUNT,
   SCAM_NOTE_COPY,
 } from '@/lib/safety';
-import { goBack } from '@/lib/navigation';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -165,6 +124,15 @@ function timeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+// A match where nobody has said hello yet gets a gentle nudge after 2 days
+// and closes quietly at 14 days (run_say_hello_check), so nobody is left
+// wondering. Both people see the same note.
+const HELLO_NUDGE_AFTER_DAYS = 2;
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 // F16: the core connection layer between two matched users. Clean,
 // minimal thread, no GIFs, no emoji reactions, no stickers. Read receipts
 // are private to the receiver, this screen never renders read_at for the
@@ -172,16 +140,6 @@ function timeLabel(iso: string): string {
 // receiving side (see the "Recipients can mark messages as read" RLS
 // policy in 20260712000004_add_messages.sql, which enforces the same
 // rule at the data layer).
-
-// Friendship Journey cutover flag, 2026-08-10. Explicitly typed `boolean`,
-// not inferred (which would collapse to the literal type `true` and make
-// TypeScript treat the old block below as statically unreachable code,
-// discarding its own internal null-narrowing and producing spurious
-// errors — confirmed by hitting exactly that during this cutover, fixed by
-// this typed const instead of a bare literal). Rollback is a one-word flip:
-// change `true` to `false` here, nothing else in either render block needs
-// to change.
-const NEW_SYSTEM_LIVE: boolean = true;
 
 export default function ThreadScreen() {
   const { id: connectionId } = useLocalSearchParams<{ id: string }>();
@@ -194,30 +152,11 @@ export default function ThreadScreen() {
   const [notFound, setNotFound] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const [replyAssistVisible, setReplyAssistVisible] = useState(false);
-  const [noGhostPrompt, setNoGhostPrompt] = useState<NoGhostPrompt | null>(null);
-  // Kept separate from noGhostPrompt: sending the honest-exit message
-  // triggers this same screen's own realtime onInsert handler, which
-  // unconditionally nulls noGhostPrompt the moment the message lands,
-  // unmounting ConversationFlowPromptCard (and its local exitConfirmed
-  // state) before the sender ever sees the required confirmation copy.
-  // This flag lives at the screen level instead, so the confirmation
-  // survives that unmount.
+  // Keeps the sender's "Choosing honesty over silence" confirmation on
+  // screen after the chat flips to ended.
   const [honestExitSent, setHonestExitSent] = useState(false);
-  const [followUpReflection, setFollowUpReflection] = useState<FollowUpReflection | null>(null);
   const [rhythmNoteDismissed, setRhythmNoteDismissed] = useState(false);
-  const [meetupSuggestionState, setMeetupSuggestionState] = useState<MeetupSuggestionState | null>(null);
   const [activitySuggestionsVisible, setActivitySuggestionsVisible] = useState(false);
-  const [checkinStatus, setCheckinStatus] = useState<MeetupCheckinStatus | null>(null);
-  // Graduation foundation (2026-08-25): a separate signal from
-  // checkinStatus above, fires only when the OTHER participant just
-  // reported a meetup happened, decoupled from this viewer's own
-  // checkinStatus (which may not exist, may be unresolved, or may already
-  // be resolved, none of that matters here). meetupLog backs the thread
-  // header's "Met N times · date, date, date" display, only ever grows on
-  // a real mutual confirm.
-  const [pendingMeetupConfirmation, setPendingMeetupConfirmation] = useState<MeetupConfirmationRequest | null>(null);
-  const [meetupLog, setMeetupLog] = useState<MeetupLogEntry[]>([]);
   const [mirrorVisible, setMirrorVisible] = useState(false);
   const [otherCareStyle, setOtherCareStyle] = useState<string | null>(null);
   useEffect(() => {
@@ -231,18 +170,6 @@ export default function ThreadScreen() {
     };
   }, [connectionId]);
   const [showFirstMilestone, setShowFirstMilestone] = useState(false);
-  // Item 4, 2026-08-16: next-meetup date. nextMeetupStatus backs the
-  // always-visible NextMeetupIndicator; feelingAcked tracks whether the
-  // CURRENT viewer has already tapped through today's day-of feeling
-  // check for the currently confirmed date specifically (re-fetched
-  // whenever the date itself changes, so a new confirmed cycle correctly
-  // shows the card again even on the same calendar day it was set).
-  const [nextMeetupStatus, setNextMeetupStatus] = useState<NextMeetupStatus>({
-    date: null,
-    status: null,
-    proposedBy: null,
-  });
-  const [feelingAcked, setFeelingAcked] = useState(false);
   const [rememberReminderNote, setRememberReminderNote] = useState<string | null>(null);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
@@ -250,6 +177,11 @@ export default function ThreadScreen() {
   // directly from the header at the user's own initiative, independent of
   // any no-ghost escalation or meetup-outcome trigger.
   const [endConnectionVisible, setEndConnectionVisible] = useState(false);
+  const [pauseModalVisible, setPauseModalVisible] = useState(false);
+  const [pause, setPause] = useState<PauseDetails | null>(null);
+  const [pauseError, setPauseError] = useState<string | null>(null);
+  // Set while this is a match where nobody has written yet.
+  const [hello, setHello] = useState<{ opened_at: string; closes_at: string } | null>(null);
   // Ambiguous-state fix: whether the CURRENT VIEWER is the one who
   // blocked the other participant, as opposed to the one who was
   // blocked. Only meaningful when connectionStatus === 'blocked'.
@@ -278,15 +210,8 @@ export default function ThreadScreen() {
   const [mySelfieVerified, setMySelfieVerified] = useState(true);
   const [hasMutualInterest, setHasMutualInterest] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
-  // Friendship Journey rebuild (Phase 3): the new priority-queue-driven
-  // system's single active intervention. __DEV__-gated only, per this
-  // file's own explicit safety requirement — the new system is fully built
-  // and tested (see FRIENDSHIP_JOURNEY_DESIGN.md and the Phase 3 report),
-  // but is deliberately not the default experience for a real production
-  // user yet. That is the separate, explicit cutover step, not taken here.
-  // In __DEV__, this REPLACES every old card below (no_ghost/checkin/
-  // outcome/confirmation/suggestion), never renders alongside them, so old
-  // and new never both drive what one user sees at once.
+  // Friendship Journey: the one reminder or prompt card to show right now
+  // (get_active_intervention picks it).
   const [newSystemIntervention, setNewSystemIntervention] = useState<ActiveIntervention | null>(null);
   // 2026-08-12 correction: at most one Limen video guidance offer may be
   // visible at once. Video 3 (NextMeetupIndicatorV2) and Video 6 (inline in
@@ -305,18 +230,8 @@ export default function ThreadScreen() {
 
   const loadNewSystemIntervention = useCallback(
     async (viewerId?: string) => {
-      // Bug found and fixed during cutover verification, 2026-08-10: this
-      // had its OWN internal `!__DEV__` early return, separate from (and
-      // missed by) the render-block flip to NEW_SYSTEM_LIVE above. In a
-      // real production build (__DEV__ === false) this would have silently
-      // never populated newSystemIntervention at all, no matter what the
-      // render block's own condition said -- the new card would have
-      // rendered its container but never any actual content, forever.
-      // Fixed to use the same NEW_SYSTEM_LIVE flag as the render blocks,
-      // so the two can't drift apart again.
-      if (!NEW_SYSTEM_LIVE || !connectionId) return;
       const resolvedViewerId = viewerId ?? myId;
-      if (!resolvedViewerId) return;
+      if (!connectionId || !resolvedViewerId) return;
       try {
         setNewSystemIntervention(await getActiveIntervention(connectionId, resolvedViewerId));
       } catch {
@@ -326,110 +241,19 @@ export default function ThreadScreen() {
     [connectionId, myId]
   );
 
-  const loadMeetupSuggestionState = useCallback(async () => {
+  const loadPause = useCallback(async () => {
     if (!connectionId) return;
-    setMeetupSuggestionState(await fetchMeetupSuggestionState(connectionId));
+    setPause((await getPauseDetails(connectionId))[0] ?? null);
   }, [connectionId]);
 
-  // 2026-07-28 milestone redesign: no scheduled_at/confirmed_at date
-  // exists anywhere anymore, so there's nothing to fetch on a timer. One
-  // read covers both possible cards: an unresolved row (my_resolved_at
-  // null) means MeetupCheckinCard should show, a resolved row with a
-  // branch means MeetupOutcomeCard should show. No row at all means
-  // neither, the normal, most-of-the-time case.
-  const loadCheckinStatus = useCallback(async () => {
+  const loadHello = useCallback(async () => {
     if (!connectionId) return;
-    setCheckinStatus(await fetchMeetupCheckinStatus(connectionId));
-  }, [connectionId]);
-
-  const loadPendingMeetupConfirmation = useCallback(async () => {
-    if (!connectionId) return;
-    setPendingMeetupConfirmation(await fetchPendingMeetupConfirmation(connectionId));
-  }, [connectionId]);
-
-  const loadMeetupLog = useCallback(async () => {
-    if (!connectionId) return;
-    setMeetupLog(await fetchMeetupLog(connectionId));
-  }, [connectionId]);
-
-  // Graduation: checked alongside meetupLog (both react to the same
-  // underlying event, a meetup_count change via mutual confirmation),
-  // fires the "Shown" analytics event exactly once per genuine
-  // transition into visible, not on every re-check while it's already
-  // showing or already dismissed.
-  // Limen v2 (2026-10-03): the old 5-meetup GraduationModal is retired.
-  // Graduation now runs only through the Friendship Journey's private,
-  // mutual graduation_checkpoint (PrimaryInterventionCard), see
-  // docs/LIMEN_V2_DECISIONS.md. Kept as a no-op so existing call sites
-  // don't need to change.
-  const checkGraduationEligibility = useCallback(async () => {}, []);
-
-  // Item 4, 2026-08-16: reloaded after propose/confirm/reschedule so the
-  // indicator reflects the real, persisted state rather than an
-  // optimistic local guess (same reasoning every other RPC-backed status
-  // in this file already follows). Also re-checks the day-of feeling ack
-  // for whatever date is now current, keyed by date (not just "have I
-  // ever acked"), so a reschedule to a new date correctly shows the
-  // feeling card again even if an earlier date's cycle was already acked.
-  // Accepts an explicit viewer id (mirroring markIncomingRead's own
-  // pattern below) rather than only reading the myId state, since the
-  // very first call happens inside the same initial-load effect that
-  // just set myId, before that state update has actually landed in this
-  // closure.
-  const loadNextMeetupStatus = useCallback(
-    async (viewerId?: string) => {
-      if (!connectionId) return;
-      const resolvedViewerId = viewerId ?? myId;
-      const status = await fetchNextMeetupStatus(connectionId);
-      setNextMeetupStatus(status);
-      if (status.date && status.status === 'confirmed' && resolvedViewerId) {
-        setFeelingAcked(await hasAckedNextMeetupFeeling(connectionId, resolvedViewerId, status.date));
-      } else {
-        setFeelingAcked(false);
-      }
-    },
-    [connectionId, myId]
-  );
-
-  // Bug fix, repeat-meetup scheduling investigation (2026-08-09):
-  // NextMeetupIndicator's propose/confirm actions used to only trigger
-  // loadNextMeetupStatus (via its onChanged prop). Proposing a new date
-  // (propose_next_meetup) already deletes any stale meetup_checkins rows
-  // server-side the moment it's called, correctly wiping out a prior
-  // meetup's resolved outcome card in the database, but nothing told this
-  // screen's own checkinStatus to re-fetch, so an already-open thread kept
-  // showing the previous meetup's stale "Sounds like it went well..." card
-  // until a full reload happened to re-fetch everything from scratch.
-  // Confirmed live: the database was correct immediately after proposing,
-  // only the in-memory checkinStatus was stale. This is the "something
-  // changed, please refresh" callback NextMeetupIndicator already had, just
-  // widened to refresh both pieces of state a propose/confirm can actually
-  // invalidate, not a new callback prop, since onChanged was already a
-  // generic no-argument signal with nothing propose/confirm-specific about
-  // its name.
-  const handleNextMeetupChanged = useCallback(() => {
-    loadNextMeetupStatus();
-    loadCheckinStatus();
-  }, [loadNextMeetupStatus, loadCheckinStatus]);
-
-  // Persisted (meetup_outcome_dismissals), not client-only: this app's Back
-  // button always calls router.replace(), so the thread screen never
-  // survives a real exit and re-entry the way a tab screen does, a purely
-  // local dismiss resurfaced on almost every real visit. Re-fetches
-  // checkinStatus after the write so the now-true outcome_dismissed flag
-  // (and the render condition reading it) reflect the real, persisted
-  // state, not an optimistic local guess.
-  const handleDismissCheckinOutcome = useCallback(async () => {
-    if (!checkinStatus || !myId) return;
-    await dismissMeetupOutcome(checkinStatus.checkin_id, myId);
-    await loadCheckinStatus();
-  }, [checkinStatus, myId, loadCheckinStatus]);
-
-  const loadNoGhostPrompt = useCallback(async () => {
-    if (!connectionId) return;
-    const prompts = await fetchActivePrompts();
-    const best = bestPromptPerConnection(prompts).get(connectionId) ?? null;
-    setNoGhostPrompt(best);
+    const { data } = await supabase
+      .from('new_mutual_connections')
+      .select('opened_at, closes_at')
+      .eq('connection_id', connectionId)
+      .maybeSingle();
+    setHello(data?.opened_at && data?.closes_at ? (data as { opened_at: string; closes_at: string }) : null);
   }, [connectionId]);
 
   // Fix #2: re-read after any action that might change status (a prompt
@@ -443,6 +267,7 @@ export default function ThreadScreen() {
     const { data } = await supabase.from('connections').select('status').eq('id', connectionId).maybeSingle();
     const status = data?.status ?? null;
     setConnectionStatus(status);
+    await loadPause();
     if (status === 'blocked') {
       const { data: myBlock } = await supabase
         .from('blocks')
@@ -452,18 +277,25 @@ export default function ThreadScreen() {
         .maybeSingle();
       setIsBlocker(Boolean(myBlock));
     }
-  }, [connectionId, otherId, myId]);
-
-  const handleNoGhostResolved = useCallback(async () => {
-    await loadNoGhostPrompt();
-    await loadConnectionStatus();
-  }, [loadNoGhostPrompt, loadConnectionStatus]);
+  }, [connectionId, otherId, myId, loadPause]);
 
   const handleResume = useCallback(async () => {
     if (!connectionId) return;
-    await resumeConnection(connectionId);
+    setPauseError(null);
+    try {
+      await resumeConnectionEarly(connectionId);
+    } catch (e) {
+      setPauseError(e instanceof FriendlyError ? e.message : "That didn't go through. Please try again.");
+    }
     await loadConnectionStatus();
-  }, [connectionId, loadConnectionStatus]);
+    await loadNewSystemIntervention();
+  }, [connectionId, loadConnectionStatus, loadNewSystemIntervention]);
+
+  const handlePaused = useCallback(async () => {
+    setPauseModalVisible(false);
+    await loadConnectionStatus();
+    await loadNewSystemIntervention();
+  }, [loadConnectionStatus, loadNewSystemIntervention]);
 
   // Report & Block: blocking is immediate and needs no further
   // confirmation step here, block_user() already did the real work
@@ -475,27 +307,12 @@ export default function ThreadScreen() {
     await loadConnectionStatus();
   }, [loadConnectionStatus]);
 
-  // "End the connection" (no-ghost escalation card's exit option, and the
-  // meetup-outcome not_good card's exit option) now atomically flips
-  // connections.status to 'ended'. honestExitSent is what keeps the
-  // sender's own "Choosing honesty over silence..." confirmation visible
-  // (both cards render it locally the instant this fires), and
-  // loadConnectionStatus() is what makes the rest of the screen (the
-  // banner, the footer, the "connection isn't ended" gate around every
-  // other prompt/card) actually reflect the real, now-closed state,
-  // rather than only reacting on the next unrelated reload.
+  // Ending the connection flips it to 'ended'; this keeps the sender's
+  // confirmation on screen and refreshes everything else.
   const handleExitConfirmed = useCallback(() => {
     setHonestExitSent(true);
     loadConnectionStatus();
   }, [loadConnectionStatus]);
-
-  // F19: separate from no-ghost, its own table, its own priority (shown
-  // only when no no-ghost prompt is active, see the render below).
-  const loadFollowUpReflection = useCallback(async () => {
-    if (!connectionId) return;
-    const reflections = await fetchActiveReflections();
-    setFollowUpReflection(reflections.find((r) => r.connection_id === connectionId) ?? null);
-  }, [connectionId]);
 
   const markIncomingRead = useCallback(
     async (viewerId: string) => {
@@ -635,24 +452,18 @@ export default function ThreadScreen() {
         setIsBlocker(Boolean(myBlock));
       }
 
+      if (connection.status === 'paused') {
+        const [details] = await getPauseDetails(connectionId);
+        if (cancelled) return;
+        setPause(details ?? null);
+      }
+      if ((existingMessages ?? []).length === 0) {
+        await loadHello();
+        if (cancelled) return;
+      }
+
       setLoaded(true);
       await markIncomingRead(user.id);
-      if (cancelled) return;
-      await loadNoGhostPrompt();
-      if (cancelled) return;
-      await loadFollowUpReflection();
-      if (cancelled) return;
-      await loadMeetupSuggestionState();
-      if (cancelled) return;
-      await loadCheckinStatus();
-      if (cancelled) return;
-      await loadPendingMeetupConfirmation();
-      if (cancelled) return;
-      await loadMeetupLog();
-      if (cancelled) return;
-      await checkGraduationEligibility();
-      if (cancelled) return;
-      await loadNextMeetupStatus(user.id);
       if (cancelled) return;
       await loadNewSystemIntervention(user.id);
       if (cancelled) return;
@@ -678,13 +489,11 @@ export default function ThreadScreen() {
           if (incoming.sender_id !== user.id) {
             markIncomingRead(user.id);
           }
-          // A new message clears no-ghost tracking for this connection
-          // (20260712000007's trigger), so any prompt shown here is
-          // stale the moment either side sends something. Same reasoning
-          // for the follow-up reflection prompt (F19's own clearing
-          // trigger, 20260718000000).
-          setNoGhostPrompt(null);
-          setFollowUpReflection(null);
+          // A new message clears reply reminders on the server
+          // (messages_clear_v2_interventions), so re-read the card, and
+          // the chat is no longer a match waiting for a hello.
+          setHello(null);
+          loadNewSystemIntervention(user.id);
         },
       });
       if (cancelled) {
@@ -698,19 +507,7 @@ export default function ThreadScreen() {
       cancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [
-    connectionId,
-    markIncomingRead,
-    loadNoGhostPrompt,
-    loadFollowUpReflection,
-    loadMeetupSuggestionState,
-    loadCheckinStatus,
-    loadPendingMeetupConfirmation,
-    loadMeetupLog,
-    checkGraduationEligibility,
-    loadNextMeetupStatus,
-    loadNewSystemIntervention,
-  ]);
+  }, [connectionId, markIncomingRead, loadNewSystemIntervention, loadHello]);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -801,7 +598,10 @@ export default function ThreadScreen() {
     ? (Date.now() - new Date(lastMessage.created_at).getTime()) / (60 * 60 * 1000)
     : 0;
   const statusLine =
-    !conversationEnded && isSenderWaiting && newSystemIntervention?.intervention_type !== 'no_ghost_s1'
+    !conversationEnded &&
+    connectionStatus !== 'paused' &&
+    isSenderWaiting &&
+    newSystemIntervention?.intervention_type !== 'no_ghost_s1'
       ? senderReassuranceLine(hoursSinceSent)
       : null;
 
@@ -815,13 +615,6 @@ export default function ThreadScreen() {
     ? rhythmMismatchNote(other?.display_name ?? 'They', other?.response_time ?? null)
     : null;
 
-  // F22: fires once the conversation reaches 7 messages (of the given
-  // "7-10" range). The old "never while a meetup is already planned"
-  // gate is gone along with the concept of an active meetup, there's
-  // nothing left to actively plan against, snooze/permanent-dismiss are
-  // the only remaining controls on repeat firing.
-  const showMeetupSuggestion = shouldShowMeetupSuggestion(messages.length, meetupSuggestionState, connectionStatus);
-
   // 2026-07-28 milestone redesign: both the manual "Let's plan
   // something" button and the automatic banner's "Yes" route through
   // here, so first-time engagement is detected consistently regardless
@@ -831,19 +624,6 @@ export default function ThreadScreen() {
   const handlePlanSomething = async () => {
     if (!connectionId) return;
     const isFirstTime = await recordPlanActivity(connectionId);
-    await loadCheckinStatus();
-    // Item 4, 2026-08-16: "Either 'Let's plan something' auto-populates
-    // the date, or either user sets/edits it directly." Read literally:
-    // engaging this flow with no date currently active gives the
-    // NextMeetupIndicator a real, editable starting point (today) rather
-    // than leaving it empty, without inventing any date-guessing logic
-    // beyond that. Only fires when nothing is already proposed/confirmed,
-    // never silently overwrites a real in-progress date the two people
-    // are already coordinating on.
-    if (!nextMeetupStatus.date) {
-      await proposeNextMeetup(connectionId, formatMeetupDate(new Date()));
-      await loadNextMeetupStatus();
-    }
     if (isFirstTime) {
       setShowFirstMilestone(true);
       return;
@@ -866,18 +646,6 @@ export default function ThreadScreen() {
     setActivitySuggestionsVisible(true);
   };
 
-  const handleMeetupSuggestionNotYet = async () => {
-    if (!connectionId) return;
-    await snoozeMeetupSuggestion(connectionId, messages.length);
-    await loadMeetupSuggestionState();
-  };
-
-  const handleMeetupSuggestionDontRemindMe = async () => {
-    if (!connectionId) return;
-    await dismissMeetupSuggestionPermanently(connectionId);
-    await loadMeetupSuggestionState();
-  };
-
   const handleFirstMilestoneClose = () => {
     setShowFirstMilestone(false);
     setActivitySuggestionsVisible(true);
@@ -889,16 +657,10 @@ export default function ThreadScreen() {
     await dismissRhythmMismatch(connectionId, myId);
   };
 
-  // F20 disabled 2026-07-16 (see PROGRESS.md): the detection heuristic
-  // incorrectly flagged normal back-and-forth conversations as one-sided.
-  // Kept commented out, not deleted, pending a better approach.
-  // const showReciprocityNote = Boolean(myId) && isDoingMostOfTheWork(messages, myId as string);
-  const showReciprocityNote = false;
-
   // F18: last 3-5 messages, in order, as context for the draft. Only
   // sender/content cross into the Edge Function, nothing else about the
   // conversation.
-  const replyAssistContext: ReplyAssistContextMessage[] = messages.slice(-5).map((m) => ({
+  const replyAssistContext: CoachContextMessage[] = messages.slice(-5).map((m) => ({
     sender: m.sender_id === myId ? 'me' : 'them',
     content: m.content,
   }));
@@ -958,6 +720,11 @@ export default function ThreadScreen() {
                 already blocked/inactive/ended, ending an already-ended
                 connection has nothing left to do. */}
             <View className="flex-row gap-4">
+              {!conversationEnded && connectionStatus !== 'paused' && messages.length > 0 && (
+                <Pressable onPress={() => setPauseModalVisible(true)}>
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">Pause</Text>
+                </Pressable>
+              )}
               {!conversationEnded && (
                 <Pressable onPress={() => setEndConnectionVisible(true)}>
                   <Text className="text-caption text-stone-500 dark:text-stone-400">End</Text>
@@ -997,16 +764,6 @@ export default function ThreadScreen() {
             {statusLine && (
               <Text className="text-caption text-stone-400 dark:text-stone-600">{statusLine}</Text>
             )}
-            {/* Graduation foundation: only shown once at least one meetup
-                is mutually confirmed, per explicit instruction not to
-                clutter a thread that hasn't met yet. meetupLog is already
-                ordered most-recent-first (fetchMeetupLog's own order). */}
-            {meetupLog.length > 0 && (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
-                Met {meetupLog.length} {meetupLog.length === 1 ? 'time' : 'times'} ·{' '}
-                {meetupLog.map((entry) => formatMeetupDateShort(entry.meetup_date)).join(', ')}
-              </Text>
-            )}
           </Pressable>
           {rhythmNoteText && (
             <View className="mt-1 flex-row items-start gap-2">
@@ -1016,13 +773,6 @@ export default function ThreadScreen() {
               </Pressable>
             </View>
           )}
-          {/* F20 disabled 2026-07-16, see PROGRESS.md. showReciprocityNote is
-              hardcoded false above, so this never renders; kept as a
-              comment, not deleted, for the eventual re-enable.
-          {showReciprocityNote && (
-            <Text className="mt-1 text-caption text-stone-400 dark:text-stone-600">{RECIPROCITY_NOTE}</Text>
-          )}
-          */}
         </View>
 
         {/* Block: instant and bidirectional. Message history above stays
@@ -1103,20 +853,45 @@ export default function ThreadScreen() {
           </View>
         )}
 
-        {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && NEW_SYSTEM_LIVE && (
+        {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && (
           <>
-            {/* Friendship Journey rebuild, new-system path (Phase 3):
-                CUTOVER 2026-08-10 — this is now the live production path,
-                `__DEV__` replaced with the typed `NEW_SYSTEM_LIVE` const
-                above (not removed) so the flip back to the old block below
-                is a one-line rollback, not a restore. ambient status stays outside the priority queue
-                exactly as the old system's own NextMeetupIndicator already
-                did (design doc §6a), just reading from the new `meetups`
-                table instead of connections.next_meetup_date. Below it, at
-                most ONE card renders — whichever get_active_intervention()
-                says is highest-priority right now — replacing what used to
-                be up to six independently-evaluated, potentially-
-                simultaneous cards. */}
+            {connectionStatus === 'paused' && pause && (
+              <View className="mx-6 mt-4 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+                <Text className="text-body text-stone-700 dark:text-stone-300">
+                  {pause.paused_by_me
+                    ? `You paused this chat until ${shortDate(pause.paused_until)}.`
+                    : `${pause.other_paused_name ?? 'They'} paused this chat until ${shortDate(pause.paused_until)}.`}
+                </Text>
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  {pause.paused_by_me
+                    ? "No reminders, no messages, and it doesn't count toward your 3 active conversations. It opens again on its own on that date."
+                    : `It opens again on its own on that date. Until then there are no reminders or messages. If waiting doesn't work for you, you can end the connection.`}
+                </Text>
+                {pauseError && <Text className="text-caption text-red-600 dark:text-red-400">{pauseError}</Text>}
+                <Pressable
+                  onPress={pause.paused_by_me ? handleResume : () => setEndConnectionVisible(true)}
+                  className="self-start">
+                  <Text className="text-caption font-semibold text-accent-500">
+                    {pause.paused_by_me ? 'Resume now' : 'End the connection'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+            {messages.length === 0 &&
+              hello &&
+              hasMutualInterest &&
+              Date.now() - new Date(hello.opened_at).getTime() >= HELLO_NUDGE_AFTER_DAYS * 24 * 60 * 60 * 1000 && (
+                <View className="mx-6 mt-4 gap-1 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
+                  <Text className="text-body text-stone-700 dark:text-stone-300">
+                    You and {other?.display_name ?? 'they'} both said Interested. A short hello is plenty, like
+                    something on their profile you&apos;re curious about.
+                  </Text>
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    If neither of you says hello by {shortDate(hello.closes_at)}, this match closes quietly so nobody
+                    is left wondering. You can still say hello later from their profile.
+                  </Text>
+                </View>
+              )}
             {myId && connectionId && (
               <NextMeetupIndicatorV2
                 connectionId={connectionId}
@@ -1169,201 +944,6 @@ export default function ThreadScreen() {
                 myId={myId}
                 currentInterventionType={newSystemIntervention?.intervention_type}
               />
-            )}
-          </>
-        )}
-
-        {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && !NEW_SYSTEM_LIVE && (
-          <>
-            {/* RETIRED at Friendship Journey cutover, 2026-08-10. This whole
-                block, including MeetupSuggestionBanner ("Let's plan
-                something" at 7+ messages), is deliberately disabled, not
-                deleted: `!__DEV__` replaced with `!NEW_SYSTEM_LIVE` so
-                rollback is a one-word flip (NEW_SYSTEM_LIVE = false, at the
-                const declaration above), not a restore from git history. MeetupSuggestionBanner specifically was NOT ported
-                into the new intervention system as part of this cutover —
-                that was an explicit product decision, not an oversight: the
-                old "suggest planning a meetup at 7+ messages" behavior was
-                never designed or approved as part of the new
-                single-intervention-priority architecture, so no new
-                intervention type, priority rank, threshold, or replacement
-                trigger was invented for it here. Retired pending later
-                feature-level review of when and how Limen should encourage
-                moving from conversation to an in-person meetup, to be
-                revisited in the feature-by-feature QA phase, not here.
-                Item 4, 2026-08-16 (original comment, preserved): persistent,
-                always at the top of this block regardless of how the date
-                got there (direct propose, reschedule, or auto-populated via
-                "Let's plan something"), per the given spec literally. */}
-            {myId && connectionId && (
-              <NextMeetupIndicator
-                connectionId={connectionId}
-                myId={myId}
-                otherName={other?.display_name ?? 'them'}
-                status={nextMeetupStatus}
-                onChanged={handleNextMeetupChanged}
-              />
-            )}
-
-            {/* Day-of feeling check: only for a real confirmed date whose
-                day, compared using the SAME local y/m/d construction as
-                every other date comparison in this feature (never a UTC
-                round-trip), is today, and only until this viewer has
-                acked it once for this specific date cycle. */}
-            {nextMeetupStatus.date &&
-              nextMeetupStatus.status === 'confirmed' &&
-              !feelingAcked &&
-              nextMeetupStatus.date === formatMeetupDate(new Date()) && (
-                <View className="px-6 pt-4">
-                  <NextMeetupFeelingCard
-                    otherName={other?.display_name ?? 'them'}
-                    onPick={async (feeling) => {
-                      if (!connectionId || !myId || !nextMeetupStatus.date) return;
-                      await submitNextMeetupFeeling(connectionId, myId, nextMeetupStatus.date, feeling);
-                      if (feeling !== 'nervous') setFeelingAcked(true);
-                    }}
-                    onDone={() => setFeelingAcked(true)}
-                  />
-                </View>
-              )}
-
-            {/* Fix #2: formal Pause state. Shown right under the header
-                whenever this connection is paused, this is what makes Pause
-                visible to both participants (not just the one who paused
-                it), and gives either side a way back out that doesn't
-                require sending a message. */}
-            {connectionStatus === 'paused' && (
-              <View className="mx-6 mt-4 flex-row items-center justify-between gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-                <Text className="flex-1 text-body text-stone-600 dark:text-stone-400">
-                  This connection is paused. No reminders will fire until you resume it.
-                </Text>
-                <Pressable onPress={handleResume}>
-                  <Text className="text-caption font-semibold text-accent-500">Resume</Text>
-                </Pressable>
-              </View>
-            )}
-
-            {honestExitSent ? (
-              <View className="px-6 pt-4">
-                <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-                  <Text className="text-body text-stone-700 dark:text-stone-300">{HONEST_EXIT_SENDER_TEXT}</Text>
-                </View>
-              </View>
-            ) : (
-              noGhostPrompt &&
-              myId &&
-              connectionId &&
-              otherId && (
-                <>
-                  <View className="px-6 pt-4">
-                    <CoachMark
-                      markKey="no_ghost_prompt"
-                      text="A reply hasn't come yet. This isn't about pressure, delays happen for lots of reasons. This is just a gentle nudge, not a guilt trip."
-                    />
-                  </View>
-                  <View className="px-6 pt-4">
-                    <SpotlightTarget markKey="no_ghost_prompt">
-                      <ConversationFlowPromptCard
-                        prompt={noGhostPrompt}
-                        otherName={other?.display_name ?? 'them'}
-                        otherId={otherId}
-                        viewerId={myId}
-                        connectionId={connectionId}
-                        recentMessages={replyAssistContext}
-                        onResolved={handleNoGhostResolved}
-                        onExitConfirmed={handleExitConfirmed}
-                        onBlocked={handleBlocked}
-                      />
-                    </SpotlightTarget>
-                  </View>
-                </>
-              )
-            )}
-
-            {/* F19: only shown when no no-ghost prompt is active, a
-                connection escalating toward silence takes priority over a
-                reflection prompt about a healthy conversation. */}
-            {!noGhostPrompt && followUpReflection && (
-              <View className="px-6 pt-4">
-                <FollowUpReflectionCard
-                  reflection={followUpReflection}
-                  otherName={other?.display_name ?? 'them'}
-                  onHelpMeSayIt={() => setReplyAssistVisible(true)}
-                  onResolved={loadFollowUpReflection}
-                />
-              </View>
-            )}
-
-            {/* 2026-07-28 milestone redesign: an unresolved checkin (fired
-                either by the elapsed-time cron job, or waiting on this
-                user's own answer after the other side already reported)
-                takes priority over the outcome card below, there's nothing
-                to show a resolved branch for until this resolves. */}
-            {checkinStatus && !checkinStatus.my_resolved_at && (
-              <>
-                <View className="px-6 pt-4">
-                  <CoachMark
-                    markKey="meetup_checkin"
-                    text="This check-in isn't a test. However it went, there's no wrong answer, we just want to help you reflect and remember."
-                  />
-                </View>
-                <View className="px-6 pt-4">
-                  <SpotlightTarget markKey="meetup_checkin">
-                    <MeetupCheckinCard
-                      checkinId={checkinStatus.checkin_id}
-                      otherName={other?.display_name ?? 'them'}
-                      otherReportedOutcome={checkinStatus.other_reported_outcome}
-                      onResolved={loadCheckinStatus}
-                    />
-                  </SpotlightTarget>
-                </View>
-              </>
-            )}
-
-            {checkinStatus?.branch && !checkinStatus.outcome_dismissed && myId && connectionId && (
-              <View className="px-6 pt-4">
-                <MeetupOutcomeCard
-                  connectionId={connectionId}
-                  senderId={myId}
-                  otherName={other?.display_name ?? 'them'}
-                  branch={checkinStatus.branch}
-                  onOpenActivitySuggestions={() => setActivitySuggestionsVisible(true)}
-                  onResolved={loadCheckinStatus}
-                  onDismiss={handleDismissCheckinOutcome}
-                  onExitConfirmed={handleExitConfirmed}
-                />
-              </View>
-            )}
-
-            {/* Graduation foundation: a genuinely separate signal from
-                checkinStatus above, can appear regardless of whether this
-                viewer's own checkin exists, is unresolved, or already has
-                a branch, since it's about confirming the OTHER
-                participant's report, not this viewer's own record. */}
-            {pendingMeetupConfirmation && (
-              <View className="px-6 pt-4">
-                <MeetupConfirmationCard
-                  requestId={pendingMeetupConfirmation.id}
-                  otherName={other?.display_name ?? 'them'}
-                  reportedMeetupDate={pendingMeetupConfirmation.reported_meetup_date}
-                  onResolved={() => {
-                    setPendingMeetupConfirmation(null);
-                    loadMeetupLog();
-                    checkGraduationEligibility();
-                  }}
-                  onDismissed={() => setPendingMeetupConfirmation(null)}
-                />
-              </View>
-            )}
-
-            {showMeetupSuggestion && (
-              <View className="px-6 pt-4">
-                <MeetupSuggestionBanner
-                  onYes={handlePlanSomething}
-                  onNotYet={handleMeetupSuggestionNotYet}
-                  onDontRemindMe={handleMeetupSuggestionDontRemindMe}
-                />
-              </View>
             )}
           </>
         )}
@@ -1463,6 +1043,12 @@ export default function ThreadScreen() {
               <Text className="text-caption font-semibold text-accent-500">View profile</Text>
             </Pressable>
           </View>
+        ) : connectionStatus === 'paused' ? (
+          <Text className="py-3 text-center text-caption text-stone-400 dark:text-stone-600">
+            {pause?.paused_by_me
+              ? 'Messages are paused. Tap "Resume now" above to open the chat again.'
+              : 'Messages are paused for now.'}
+          </Text>
         ) : waitingForMutualInterest ? (
           <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
             <Text className="text-body text-stone-600 dark:text-stone-400">
@@ -1583,12 +1169,6 @@ export default function ThreadScreen() {
         </View>
       </SafeAreaView>
 
-      <ReplyAssistPanel
-        visible={replyAssistVisible}
-        onClose={() => setReplyAssistVisible(false)}
-        onSend={sendMessage}
-        recentMessages={replyAssistContext}
-      />
 
       {connectionId && myId && (
         <FirstMeetupMilestoneModal
@@ -1642,6 +1222,16 @@ export default function ThreadScreen() {
           onEnded={handleExitConfirmed}
           connectionId={connectionId}
           otherName={other?.display_name ?? 'this person'}
+        />
+      )}
+
+      {connectionId && (
+        <PauseConnectionModal
+          visible={pauseModalVisible}
+          onClose={() => setPauseModalVisible(false)}
+          onPaused={handlePaused}
+          connectionId={connectionId}
+          otherName={other?.display_name ?? 'They'}
         />
       )}
 

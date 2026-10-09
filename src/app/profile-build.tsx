@@ -1,9 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { decode } from 'base64-arraybuffer';
 import { PHOTO_RULES_TEXT, pickProfilePhoto } from '@/lib/photo-picker';
 import { ProfileBasicsCard } from '@/components/profile-basics-card';
-import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {

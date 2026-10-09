@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoachMark } from '@/components/coach-mark';
 import { UpcomingMeetupsStrip } from '@/components/upcoming-meetups-strip';
 import { track } from '@/lib/analytics';
+import { getPauseDetails, type PauseDetails } from '@/lib/friendship-journey';
 import { checkAndMarkGraduationContinuation } from '@/lib/graduation';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { subscribeToMessages } from '@/lib/realtime-messages';
@@ -22,6 +23,8 @@ type NewMutual = {
   other_user_id: string;
   display_name: string | null;
   created_at: string;
+  opened_at: string;
+  closes_at: string;
 };
 
 type Conversation = {
@@ -41,7 +44,24 @@ type Conversation = {
 type CapacityStatus = {
   active_count: number;
   active_cap: number;
+  pending_count: number;
+  pending_cap: number;
 };
+
+// Calm, plain wording for the conversation limits (2026-10-09).
+function capacityLine(c: CapacityStatus): string {
+  const room = c.active_cap - c.active_count;
+  if (room <= 0) {
+    return `${c.active_count} of ${c.active_cap} active conversations. Limen keeps it to ${c.active_cap} at a time so each one gets real attention. Paused chats don't count, so to make room you can pause or end one.`;
+  }
+  return `${c.active_count} of ${c.active_cap} active conversations · room for ${room} more`;
+}
+
+function shortDay(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -76,6 +96,7 @@ export default function InboxScreen() {
   const [iBlocked, setIBlocked] = useState<Set<string>>(new Set());
   const [capacity, setCapacity] = useState<CapacityStatus | null>(null);
   const [newMutual, setNewMutual] = useState<NewMutual[]>([]);
+  const [pauses, setPauses] = useState<Map<string, PauseDetails>>(new Map());
   const [loadCount, setLoadCount] = useState(0);
 
   const load = useCallback(async () => {
@@ -90,7 +111,7 @@ export default function InboxScreen() {
       setLoaded(true);
       return;
     }
-    const [{ data }, { data: reminderRows }, { data: capacityRows }, { data: mutualRows }, { data: blockRows }] = await Promise.all([
+    const [{ data }, { data: reminderRows }, { data: capacityRows }, { data: mutualRows }, { data: blockRows }, pauseRows] = await Promise.all([
       supabase.from('inbox_conversations').select('*').order('last_message_at', { ascending: false }),
       // 2026-10-08: "Your turn" now reads the reminders the app actually
       // sends (the old no-ghost and reflection tables are retired, so this
@@ -107,11 +128,13 @@ export default function InboxScreen() {
       supabase.rpc('my_connection_capacity'),
       supabase
         .from('new_mutual_connections')
-        .select('connection_id, other_user_id, display_name, created_at')
+        .select('connection_id, other_user_id, display_name, created_at, opened_at, closes_at')
         .order('created_at', { ascending: false }),
       // blocks is readable only by the blocker, so this is exactly "who I blocked".
       supabase.from('blocks').select('blocked_id').eq('blocker_id', user.id),
+      getPauseDetails(),
     ]);
+    setPauses(new Map(pauseRows.map((p) => [p.connection_id, p])));
     setIBlocked(new Set(((blockRows ?? []) as { blocked_id: string }[]).map((b) => b.blocked_id)));
     setNewMutual((mutualRows ?? []) as NewMutual[]);
     const loadedConversations = (data ?? []) as Conversation[];
@@ -277,7 +300,13 @@ export default function InboxScreen() {
         ) : c.connection_status === 'graduated' ? (
           <Text className="text-caption font-semibold text-accent-500">Graduated</Text>
         ) : c.connection_status === 'paused' ? (
-          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Paused</Text>
+          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">
+            {pauses.get(c.connection_id)
+              ? `${pauses.get(c.connection_id)?.paused_by_me ? 'You paused' : 'Paused'} until ${shortDay(
+                  pauses.get(c.connection_id)!.paused_until
+                )}`
+              : 'Paused'}
+          </Text>
         ) : c.connection_status === 'inactive' ? (
           // Inline label only, deliberately no dedicated section (unlike
           // Paused/Blocked/Ended above): 'inactive' accrues automatically
@@ -317,12 +346,14 @@ export default function InboxScreen() {
               blueprint's own "avoid shaming labels" instruction for this
               screen. */}
           {capacity && (
-            <Text className="text-caption text-stone-400 dark:text-stone-600">
-              {capacity.active_count} of {capacity.active_cap} active conversations
-              {capacity.active_count >= capacity.active_cap
-                ? '. Wrap up or pause one to make room for another.'
-                : ''}
-            </Text>
+            <View className="gap-0.5">
+              <Text className="text-caption text-stone-400 dark:text-stone-600">{capacityLine(capacity)}</Text>
+              {capacity.pending_count > 0 && (
+                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                  {capacity.pending_count} of {capacity.pending_cap} hellos waiting for a reply
+                </Text>
+              )}
+            </View>
           )}
 
           <UpcomingMeetupsStrip names={openChatNames} refreshKey={loadCount} />
@@ -355,7 +386,11 @@ export default function InboxScreen() {
                     {m.display_name ?? 'A member'}
                   </Text>
                   <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    You both said Interested. Say hello when you&apos;re ready.
+                    {Date.now() - new Date(m.opened_at).getTime() >= 2 * DAY_MS
+                      ? `You both said Interested. A short hello is plenty. If neither of you writes by ${shortDay(
+                          m.closes_at
+                        )}, this match closes quietly.`
+                      : "You both said Interested. Say hello when you're ready."}
                   </Text>
                 </Pressable>
               ))}

@@ -3,8 +3,6 @@ import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 
 import { blockUser } from '@/lib/report-block';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
-
 type Props = {
   visible: boolean;
   onClose: () => void;

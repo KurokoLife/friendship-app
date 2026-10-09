@@ -22,7 +22,6 @@ import {
 } from '@/lib/friendship-journey';
 import {
   downloadIcs,
-  formatMeetupTime,
   formatWhen,
   isValidIsoDate,
   mapLinks,

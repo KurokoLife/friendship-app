@@ -11,16 +11,14 @@ export type ConnectionResult =
   | { ok: true; connectionId: string }
   | { ok: false; error: CapacityErrorReason };
 
-// Fix #3, capacity system: calm, specific copy per blueprint's own
-// framing ("avoid shaming labels", "calmly"). No exact wording was
-// given verbatim for this specific message (unlike F17's), so this is
-// original copy, written to match the app's existing tone elsewhere
-// (no em dashes, no urgency, no guilt).
+// Capacity limits (flat for everyone): 3 active conversations, 5 hellos
+// waiting for a reply. Calm wording that says why the limit exists and
+// what to do, never a warning (2026-10-09).
 export const CAPACITY_ERROR_MESSAGES: Record<CapacityErrorReason, string> = {
   active_cap_reached:
-    "You're at your active-conversation limit for now. Wrap up, pause, or close an existing one to make room for a new connection.",
+    "You already have 3 active conversations, the most Limen keeps at once so each one gets real attention. To make room, pause or end one of them in your Inbox, then come back here.",
   pending_cap_reached:
-    "You've reached your limit of outgoing Say Hi messages awaiting a reply. Give one of them a little more time, or close one out, before starting another.",
+    "You have 5 hellos still waiting for a reply. Give them a little time, or end one you've stopped waiting on, before saying hello to someone new.",
   blocked: "You can't start a conversation with this person.",
   // 20260817000000: this connection was genuinely ended (Honest Exit),
   // not just closed automatically. create_connection_with_capacity_check
