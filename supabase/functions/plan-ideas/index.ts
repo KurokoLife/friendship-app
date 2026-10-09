@@ -127,7 +127,7 @@ Do not repeat or closely resemble any of these: ${ctx.avoid.join('; ') || 'nothi
 
 Write exactly three ideas:
 1. slot "easy": low effort and relaxed, about an hour.
-2. slot "both_like": built on an interest they both listed. If none, built on one person's interest, and say whose in interest_note, using their name, for example "${ctx.their_name || 'B'} likes golf". If they both listed it, interest_note is "You both like <interest>".
+2. slot "both_like": built on one interest from the lists above, preferably one they both listed. Put that interest, copied exactly as written in the list, in "interest". The idea must be a plain, direct example of that interest itself (for golf: a driving range or mini golf; not a general fitness class). If no interest fits well, set "interest" to null.
 3. slot "new": something likely new to both of them.
 
 Rules, never break them:
@@ -139,7 +139,7 @@ Rules, never break them:
 - Plain, warm, short. No em dashes.
 
 Answer with JSON only:
-{"ideas":[{"slot":"easy","title":"max 60 chars","description":"one sentence, max 160 chars","cost_label":"like Free or About $10","duration_label":"like About 1 hour","style":"talk|side_by_side|mix","first_meetup_ok":true,"interest_note":null,"home_of":null}, ...]}
+{"ideas":[{"slot":"easy","title":"max 60 chars","description":"one sentence, max 160 chars","cost_label":"like Free or About $10","duration_label":"like About 1 hour","style":"talk|side_by_side|mix","first_meetup_ok":true,"interest":null,"home_of":null}, ...]}
 first_meetup_ok is true when the idea is easy, public and low pressure for people meeting for the first time.`;
 }
 
@@ -152,6 +152,21 @@ function parseJson(text: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+// The heading on the "both like" idea is written here, never by the AI, so
+// it can only name an interest one of them really listed.
+function interestNote(ctx: Context, value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const want = value.trim().toLowerCase().replace(/\s+/g, '_');
+  const find = (list: string[]) => list.find((k) => k.toLowerCase() === want || label(k).toLowerCase() === value.trim().toLowerCase());
+  const shared = find(ctx.shared_interests);
+  if (shared) return `You both like ${label(shared)}`.slice(0, 80);
+  const mine = find(ctx.my_interests);
+  if (mine && ctx.my_name) return `${ctx.my_name} likes ${label(mine)}`.slice(0, 80);
+  const theirs = find(ctx.their_interests);
+  if (theirs && ctx.their_name) return `${ctx.their_name} likes ${label(theirs)}`.slice(0, 80);
+  return null;
 }
 
 const clean = (v: unknown, max: number) =>
@@ -231,7 +246,7 @@ Deno.serve(async (req: Request) => {
         duration_label: clean(r.duration_label, 30),
         style: r.style === 'talk' || r.style === 'side_by_side' || r.style === 'mix' ? r.style : 'mix',
         first_meetup_ok: r.first_meetup_ok === true && !homeAllowed,
-        interest_note: slot === 'both_like' ? clean(r.interest_note, 80) || null : null,
+        interest_note: slot === 'both_like' ? interestNote(ctx, r.interest) : null,
         home_of: homeAllowed ? homeOf : null,
       };
       if (!idea.title || !isSafe(idea, homeAllowed)) continue;

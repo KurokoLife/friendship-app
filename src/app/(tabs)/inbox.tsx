@@ -9,7 +9,7 @@ import { UpcomingMeetupsStrip } from '@/components/upcoming-meetups-strip';
 import { track } from '@/lib/analytics';
 import { getPauseDetails, type PauseDetails } from '@/lib/friendship-journey';
 import { checkAndMarkGraduationContinuation } from '@/lib/graduation';
-import { fetchMyPlanTurns, type PlanTurn } from '@/lib/plan-board';
+import { PLAN_STAGE_LABELS, fetchMyPlanTurns, type PlanTurn } from '@/lib/plan-board';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { subscribeToMessages } from '@/lib/realtime-messages';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -334,7 +334,8 @@ export default function InboxScreen() {
                 className={`text-caption ${
                   planTurns[c.connection_id].waitingOnMe ? 'font-semibold text-accent-500' : 'text-stone-500 dark:text-stone-400'
                 }`}>
-                {planTurns[c.connection_id].waitingOnMe ? 'Planning together: your turn' : 'Planning together'}
+                {PLAN_STAGE_LABELS[planTurns[c.connection_id].stage]?.[planTurns[c.connection_id].waitingOnMe ? 'mine' : 'theirs'] ??
+                  'Planning together'}
                 {Date.now() - (new Date(planTurns[c.connection_id].closesAt).getTime() - 14 * 86400000) >= 3 * 86400000
                   ? ` · closes ${shortDay(planTurns[c.connection_id].closesAt)}`
                   : ''}

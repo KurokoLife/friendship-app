@@ -2166,3 +2166,17 @@ Migration `20261009000004_plan_together.sql` (bumps `limen_db_version()` to `202
 - **Safety:** the server function's prompt plus word filters drop anything romantic, adult, risky or drinking-focused, and any home idea nobody agreed to; the database drops home ideas again on save. Ideas never repeat past meetups or earlier ideas on the card. Idea headings never claim a shared interest that isn't there ("David likes golf" / "An idea for you two").
 - **Inbox:** "Planning together: your turn" / "Planning together · closes Oct 23". **Test tab:** "Planning together: make it 3 / 14 days quiet".
 - Verified locally: qa-plan (new) 52/52, qa-oct9 37/37. Not checked locally: the AI ideas themselves (the local copy has no server functions; the hand-written fallback path was tested).
+
+### Session, October 9, 2026 (6): planning card, Save my picks and matching
+
+Migration `20261009000005_plan_save_and_match.sql` (bumps `limen_db_version()` to `20261009000005`). The `plan-ideas` server function changed too and needs redeploying (paste the new file in the Supabase dashboard).
+
+- **Save my picks:** marks are a private draft (`plan_picks`, now own-row only). "Save my picks" copies them to `plan_saved_picks`; the other person only ever sees saved picks, and an idea someone added only once it's saved. "Edit my picks" and Cancel (`plan_revert_picks`). Cards already open keep their earlier marks as saved.
+- **Shown openly after saving** (founder's call): the second person sees the first person's picks first, labelled "Maria picked this", with "Pick any you'd enjoy, theirs or others."
+- **Match:** an idea in both saved picks. Both see "You both picked: ..." and each other's other picks. Either person can choose it (`plan_choose_idea` now needs both saved picks). The second saver gets an optional "Send a note" with starters ("We both picked "X"!", ""X" sounds good to me because", "Which one sounds best to you?") they finish themselves.
+- **No match:** both lists, "No match yet. That's common. Different tastes are part of getting to know someone.", and equal options: look at their picks again ("open to it is enough"), ask in the chat, add your own or see new ideas. After 2 no-match saves (`plan_boards.no_match_rounds`) the card suggests coffee or a walk, with a one-tap "Add coffee and a walk to my picks".
+- **Chat keeps the card open:** a new message trigger moves the card's last activity, so it doesn't close or say "closes on" while people are talking.
+- **Inbox:** `my_plan_turns()` returns a stage: your turn to pick / waiting for their picks / you matched, suggest one (or talk it over) / no match yet / mark when you are free.
+- **Idea heading fix:** the AI now returns which listed interest an idea is built on; the server writes "You both like X" or "David likes X" only from a real listed interest (no more "You both like fitness" over a pickleball idea).
+- Starters wrap instead of running off the screen.
+- Verified locally: 29 database checks (drafts private, added ideas hidden until saved, matching, rounds, revert, chosen idea let go when unpicked, saved picks kept on new ideas, chat keeps the card open, outsiders see nothing), the update re-run twice and on a card with older marks, and the on-screen suites: qa-plan 77/77 (rewritten for Save, match, note, no match, look again, simple suggestion), qa-oct9 37/37, qa-oct9b 62/62, qa-oct9c 20/20, qa-meetups 54/54, qa-noghost 34/34, qa-mochi 6/6, qa-testtab 27/27. Not checked locally: the real AI ideas (the local copy has no server functions).

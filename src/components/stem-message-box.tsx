@@ -63,7 +63,7 @@ export function StemMessageBox({
               setStem(s);
               setText(s);
             }}
-            className={`rounded-full border px-3 py-1.5 ${
+            className={`max-w-full rounded-2xl border px-3 py-1.5 ${
               stem === s ? 'border-accent-500 bg-accent-500/10' : 'border-stone-300 dark:border-stone-700'
             }`}>
             <Text className="text-caption text-stone-700 dark:text-stone-300">{s.trim()}...</Text>

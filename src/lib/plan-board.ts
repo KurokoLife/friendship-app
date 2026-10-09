@@ -21,7 +21,11 @@ export type PlanIdea = {
   interest_note: string | null;
   home_of: string | null;
   set_number: number;
+  // In my draft (private until I save).
   picked_by_me: boolean;
+  // In my saved picks (what the other person sees).
+  saved_by_me: boolean;
+  // In the other person's saved picks.
   picked_by_other: boolean;
 };
 
@@ -40,6 +44,9 @@ export type PlanBoard = {
   created_at: string;
   last_activity_at: string;
   closes_at: string;
+  my_saved_at: string | null;
+  other_saved_at: string | null;
+  no_match_rounds: number;
   ideas: PlanIdea[];
   my_times: PlanSlot[];
   other_times: PlanSlot[];
@@ -96,6 +103,19 @@ export async function togglePick(ideaId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Saves my draft picks; the other person sees them from now on.
+export async function savePicks(boardId: string): Promise<{ other_saved: boolean; shared: number }> {
+  const { data, error } = await supabase.rpc('plan_save_picks', { p_board_id: boardId });
+  if (error) throw new Error(error.message);
+  return data as { other_saved: boolean; shared: number };
+}
+
+// Puts my draft back to what I last saved.
+export async function revertPicks(boardId: string): Promise<void> {
+  const { error } = await supabase.rpc('plan_revert_picks', { p_board_id: boardId });
+  if (error) throw new Error(error.message);
+}
+
 export async function chooseIdea(boardId: string, ideaId: string): Promise<void> {
   const { error } = await supabase.rpc('plan_choose_idea', { p_board_id: boardId, p_idea_id: ideaId });
   if (error) throw new Error(error.message);
@@ -143,15 +163,24 @@ export async function setHomePref(connectionId: string, canHost: boolean, canVis
   if (error) throw new Error(error.message);
 }
 
-export type PlanTurn = { waitingOnMe: boolean; closesAt: string };
+export type PlanStage = 'pick' | 'waiting' | 'matched' | 'no_match' | 'times';
+export type PlanTurn = { stage: PlanStage; waitingOnMe: boolean; closesAt: string };
+
+export const PLAN_STAGE_LABELS: Record<PlanStage, { mine: string; theirs: string }> = {
+  pick: { mine: 'Planning together: your turn to pick', theirs: 'Planning together: your turn to pick' },
+  waiting: { mine: 'Planning together: waiting for their picks', theirs: 'Planning together: waiting for their picks' },
+  matched: { mine: 'Planning together: you matched, suggest one', theirs: 'Planning together: you matched, talk it over' },
+  no_match: { mine: 'Planning together: no match yet, take a look', theirs: 'Planning together: no match yet' },
+  times: { mine: 'Planning together: mark when you are free', theirs: 'Planning together: picking a time' },
+};
 
 // Chats with an open planning card (for Inbox).
 export async function fetchMyPlanTurns(): Promise<Record<string, PlanTurn>> {
   const { data, error } = await supabase.rpc('my_plan_turns');
   if (error) return {};
   const out: Record<string, PlanTurn> = {};
-  for (const row of (data ?? []) as { connection_id: string; waiting_on_me: boolean; closes_at: string }[]) {
-    out[row.connection_id] = { waitingOnMe: row.waiting_on_me, closesAt: row.closes_at };
+  for (const row of (data ?? []) as { connection_id: string; stage: PlanStage; waiting_on_me: boolean; closes_at: string }[]) {
+    out[row.connection_id] = { stage: row.stage, waitingOnMe: row.waiting_on_me, closesAt: row.closes_at };
   }
   return out;
 }

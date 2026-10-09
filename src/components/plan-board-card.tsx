@@ -25,6 +25,8 @@ import {
   setPlanPrefs,
   setTimes,
   slotKey,
+  revertPicks,
+  savePicks,
   togglePick,
   usualTimes,
   type PlanBudget,
@@ -39,9 +41,14 @@ import { supabase } from '@/lib/supabase';
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 const QUIET_NUDGE_DAYS = 3;
 const HOME_WORDS = /\b(home|house|apartment|my place|your place|backyard)\b/i;
+// After this many saves with no match, the card suggests starting simple.
+const SIMPLE_AFTER_ROUNDS = 2;
+const SIMPLE_IDEA = 'Coffee and a short walk';
 
 // "Let's plan something" (2026-10-09): one card both people see.
-//   What:  mark any ideas you'd like; an idea you both marked can be chosen.
+//   What:  mark any ideas you'd like, then "Save my picks". After saving,
+//          both see each other's picks; an idea in both can be chosen by
+//          either person, after talking it over in the chat.
 //   When:  mark rough times over the next 2 weeks; pick one you share.
 //   Where: pick the exact time and place in the normal plan card, which
 //          sends it to the other person to confirm.
@@ -61,11 +68,6 @@ type Props = {
 
 function firstName(name: string) {
   return name.split(' ')[0] || name;
-}
-
-function joinOr(items: string[]) {
-  if (items.length <= 1) return items[0] ?? '';
-  return `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
 }
 
 function shortDate(iso: string) {
@@ -130,6 +132,10 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   const [ownIdea, setOwnIdea] = useState('');
   const [askOpen, setAskOpen] = useState(false);
   const [askSent, setAskSent] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [lookAgain, setLookAgain] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteSent, setNoteSent] = useState(false);
   const [dismissedEnding, setDismissedEnding] = useState<string | null>(null);
   const [myTimes, setMyTimes] = useState<Set<string>>(new Set());
   const [availability, setAvailability] = useState<string[]>([]);
@@ -174,7 +180,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   // Live: the other person's marks and times show up without a reload.
   useEffect(() => {
     const channel = supabase.channel(`plan-${connectionId}-${Math.random().toString(36).slice(2)}`);
-    for (const table of ['plan_boards', 'plan_ideas', 'plan_picks', 'plan_times']) {
+    for (const table of ['plan_boards', 'plan_ideas', 'plan_picks', 'plan_times', 'plan_saves', 'plan_saved_picks']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `connection_id=eq.${connectionId}` }, () =>
         load()
       );
@@ -236,6 +242,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
       else if (/not_both_picked/.test(message)) setError(`${name} hasn't marked that one yet.`);
       else if (/not_both_free/.test(message)) setError(`${name} isn't free then anymore.`);
       else if (/too_many_ideas/.test(message)) setError('That is plenty of added ideas for one plan.');
+      else if (/no_picks/.test(message)) setError('Pick at least one idea first.');
       else setError(fail);
       await load();
     } finally {
@@ -486,159 +493,326 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   }
 
   // ---- What ----
+  // Marks are a private draft until "Save my picks". After saving, both
+  // people see each other's picks: noticing what the other person would
+  // enjoy is part of planning together.
   const titlesOf = (list: PlanIdea[]) => list.map((i) => i.title);
-  const mine = ideas.filter((i) => i.picked_by_me);
+  const draft = ideas.filter((i) => i.picked_by_me);
+  const savedMine = ideas.filter((i) => i.saved_by_me);
   const theirs = ideas.filter((i) => i.picked_by_other);
-  const shared = ideas.filter((i) => i.picked_by_me && i.picked_by_other);
+  const shared = ideas.filter((i) => i.saved_by_me && i.picked_by_other);
+  const iSaved = !!board.my_saved_at;
+  const theySaved = !!board.other_saved_at;
+  const draftChanged =
+    iSaved && (draft.length !== savedMine.length || draft.some((i) => !i.saved_by_me));
+  const picking = !iSaved || editing || draftChanged;
+  const secondSaver = iSaved && theySaved && new Date(board.my_saved_at!).getTime() > new Date(board.other_saved_at!).getTime();
   const refreshesLeft = limitReached ? 0 : board.refreshes_left;
   const ownIdeaHomeNote = meetupCount === 0 && HOME_WORDS.test(ownIdea);
 
-  let status: ReactNode;
-  let summary: string;
-  if (shared.length === 1) {
-    summary = `You both picked ${shared[0].title}.`;
-    status = (
-      <View className="gap-2">
-        <Text className="text-body text-stone-700 dark:text-stone-300">You both picked {shared[0].title}.</Text>
-        <PrimaryButton label="Go with this" disabled={busy} onPress={() => run(() => chooseIdea(board.id, shared[0].id))} />
-      </View>
-    );
-  } else if (shared.length > 1) {
-    summary = 'You both picked a few ideas. Choose one.';
-    status = (
-      <View className="gap-2">
-        <Text className="text-body text-stone-700 dark:text-stone-300">You both picked a few. Choose one:</Text>
-        <View className="flex-row flex-wrap gap-2">
-          {shared.map((i) => (
-            <Chip key={i.id} label={i.title} selected={false} disabled={busy} onPress={() => run(() => chooseIdea(board.id, i.id))} />
-          ))}
-        </View>
-      </View>
-    );
-  } else if (theirs.length > 0 && mine.length === 0) {
-    summary = `${name} would like ${joinOr(titlesOf(theirs))}. Mark any you'd like too.`;
-    status = (
-      <Text className="text-body text-stone-700 dark:text-stone-300">
-        {name} would like {joinOr(titlesOf(theirs))}. Mark any you&apos;d like too, or suggest something else.
-      </Text>
-    );
-  } else if (mine.length > 0 && theirs.length === 0) {
-    summary = `You picked ${joinOr(titlesOf(mine))}. Waiting for ${name}.`;
-    status = (
-      <Text className="text-body text-stone-700 dark:text-stone-300">
-        You picked {joinOr(titlesOf(mine))}. {name} will see your picks here.
-      </Text>
-    );
-  } else if (mine.length > 0 && theirs.length > 0) {
-    summary = `${name} wants to try ${joinOr(titlesOf(theirs))}. You picked ${joinOr(titlesOf(mine))}.`;
-    status = (
-      <View className="gap-2">
+  const save = () =>
+    run(async () => {
+      await savePicks(board.id);
+      setEditing(false);
+      setLookAgain(false);
+    });
+
+  if (picking) {
+    // Their picks first, so the second person sees them straight away.
+    const ordered = theySaved ? [...theirs, ...ideas.filter((i) => !i.picked_by_other)] : ideas;
+    let intro: ReactNode;
+    if (lookAgain && theySaved) {
+      intro = (
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          {name} wants to try {joinOr(titlesOf(theirs))}. You picked {joinOr(titlesOf(mine))}.
+          Anything of {name}&apos;s you&apos;d be open to? It doesn&apos;t have to be your favorite. Mark it, then save.
         </Text>
-        <View className="flex-row flex-wrap gap-2">
-          {theirs.map((i) => (
-            <Chip
-              key={i.id}
-              label={theirs.length === 1 ? `Try ${name}'s idea` : `Try ${i.title}`}
-              selected={false}
-              disabled={busy}
+      );
+    } else if (theySaved) {
+      intro = (
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          {name} picked {theirs.length === 1 ? theirs[0].title : `${theirs.length} ideas`}. Pick any you&apos;d enjoy,
+          theirs or others. You can also add your own.
+        </Text>
+      );
+    } else if (iSaved) {
+      intro = <Text className="text-body text-stone-700 dark:text-stone-300">Change your picks, then save again.</Text>;
+    } else {
+      intro = (
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Pick any ideas you&apos;d enjoy, as many as you like. Then save, and {name} will see them.
+        </Text>
+      );
+    }
+    const summary = draftChanged && !editing
+      ? "You changed your picks but haven't saved them."
+      : theySaved && !iSaved
+        ? `${name} picked ${theirs.length === 1 ? theirs[0].title : `${theirs.length} ideas`}. Your turn to pick.`
+        : generating && !hasIdeas
+          ? 'Finding a few ideas...'
+          : "Pick ideas you'd enjoy, then save.";
+    return shell(
+      <>
+        {intro}
+        {draftChanged && !editing && (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            You changed your picks but haven&apos;t saved them yet. {name} still sees your last saved picks.
+          </Text>
+        )}
+        {generating && !hasIdeas ? (
+          <View className="flex-row items-center gap-2 py-2">
+            <ActivityIndicator color={MUTED_ICON_COLOR} />
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Finding a few ideas...</Text>
+          </View>
+        ) : (
+          <View className="gap-2">
+            {ordered.map((idea) => (
+              <IdeaRow key={idea.id} idea={idea} name={name} myId={myId} meetupCount={meetupCount} disabled={busy}
+                onToggle={() => run(() => togglePick(idea.id))} />
+            ))}
+          </View>
+        )}
+
+        <View className="gap-1">
+          <View className="flex-row items-center gap-4">
+            <PrimaryButton label={iSaved ? 'Save my picks again' : 'Save my picks'} disabled={busy || draft.length === 0} onPress={save} />
+            {iSaved && (
+              <LinkButton
+                label="Cancel"
+                muted
+                disabled={busy}
+                onPress={() =>
+                  run(async () => {
+                    await revertPicks(board.id);
+                    setEditing(false);
+                    setLookAgain(false);
+                  })
+                }
+              />
+            )}
+          </View>
+          <Text className="text-caption text-stone-400 dark:text-stone-500">
+            {draft.length === 0
+              ? 'Pick at least one idea to save.'
+              : `${draft.length} picked. ${name} sees your picks once you save.`}
+          </Text>
+        </View>
+
+        {refreshesLeft > 0 ? (
+          <LinkButton
+            label={generating && hasIdeas ? 'Finding new ideas...' : `Show new ideas (${refreshesLeft} left)`}
+            disabled={generating || busy}
+            onPress={() => newIdeas(board.id)}
+          />
+        ) : (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            That&apos;s all the new ideas for this plan. Add your own idea, or talk it over in the chat.
+          </Text>
+        )}
+
+        <View className="gap-2">
+          <View className="flex-row items-center gap-2">
+            <TextInput
+              value={ownIdea}
+              onChangeText={setOwnIdea}
+              placeholder="Add your own idea"
+              placeholderTextColor={MUTED_ICON_COLOR}
+              maxLength={80}
+              className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+            />
+            <LinkButton
+              label="Add"
+              disabled={busy || ownIdea.trim().length < 2}
               onPress={() =>
                 run(async () => {
-                  await togglePick(i.id);
-                  await chooseIdea(board.id, i.id);
+                  await addOwnIdea(board.id, ownIdea);
+                  setOwnIdea('');
                 })
               }
             />
-          ))}
-          <Chip label={`Ask ${name} in the chat`} selected={askOpen} onPress={() => setAskOpen((v) => !v)} />
+          </View>
+          {ownIdeaHomeNote && (
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              For a first meetup, a public place is usually more comfortable for both of you.
+            </Text>
+          )}
         </View>
-        {askOpen && !askSent && (
-          <StemMessageBox
-            stems={[`Would you be up for ${mine[0].title.toLowerCase()}? `, 'Is there something else you would like to do? ']}
-            onSend={async (text) => {
-              const ok = await sendChatMessage(connectionId, text);
-              if (ok) setAskSent(true);
-              return ok;
-            }}
-            onCancel={() => setAskOpen(false)}
-          />
-        )}
-        {askSent && <Text className="text-caption text-stone-500 dark:text-stone-400">Sent. Keep talking it over in the chat.</Text>}
-      </View>
-    );
-  } else {
-    summary = generating ? 'Finding a few ideas...' : "Mark any ideas you'd like.";
-    status = (
-      <Text className="text-body text-stone-700 dark:text-stone-300">
-        Mark any ideas you&apos;d like, as many as you want. {name} can mark theirs too.
-      </Text>
+
+        <View className="flex-row flex-wrap gap-4">
+          <LinkButton label="My limits" muted onPress={() => setEditingPrefs(true)} />
+          {meetupCount >= 1 && <LinkButton label="Home ideas" muted onPress={() => setEditingHome(true)} />}
+        </View>
+      </>,
+      summary
     );
   }
 
+  const editLink = (
+    <LinkButton
+      label="Edit my picks"
+      muted
+      disabled={busy}
+      onPress={() => {
+        setEditing(true);
+        setLookAgain(false);
+      }}
+    />
+  );
+  const listLine = (label: string, list: PlanIdea[]) =>
+    list.length > 0 ? (
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        {label}: {titlesOf(list).join(', ')}
+      </Text>
+    ) : null;
+
+  // Saved, waiting for the other person.
+  if (!theySaved) {
+    return shell(
+      <>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Saved. {name} will see your picks and choose theirs. They can pick any of yours or suggest something else.
+        </Text>
+        {listLine('Your picks', savedMine)}
+        {editLink}
+      </>,
+      `Saved. Waiting for ${name} to pick.`
+    );
+  }
+
+  // Both saved and there is a match: talk it over, then either person
+  // taps the one they chose.
+  if (shared.length > 0) {
+    const sharedTitles = titlesOf(shared);
+    const noteStems =
+      shared.length === 1
+        ? [`We both picked "${sharedTitles[0]}"! `, `What made you pick "${sharedTitles[0]}"? `]
+        : [
+            `"${sharedTitles[0]}" sounds good to me because `,
+            'Which one sounds best to you? ',
+            'Have you done any of these before? ',
+          ];
+    return shell(
+      <>
+        <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+          You both picked: {sharedTitles.join(', ')}
+        </Text>
+        {listLine('Your other picks', savedMine.filter((i) => !i.picked_by_other))}
+        {listLine(`${name}'s other picks`, theirs.filter((i) => !i.saved_by_me))}
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          {secondSaver
+            ? shared.length === 1
+              ? `You picked second, so you could start the conversation. Then either of you can tap it below.`
+              : `You picked second, so you could suggest one in the chat. Then either of you can tap the one you chose.`
+            : shared.length === 1
+              ? `${name} may send a note about it. Either of you can tap it below when you're ready.`
+              : `${name} may suggest one in the chat. Talk it over, then either of you can tap the one you chose.`}
+        </Text>
+        {secondSaver && !noteSent && (
+          noteOpen ? (
+            <StemMessageBox
+              stems={noteStems}
+              onSend={async (text) => {
+                const ok = await sendChatMessage(connectionId, text);
+                if (ok) setNoteSent(true);
+                return ok;
+              }}
+              onCancel={() => setNoteOpen(false)}
+            />
+          ) : (
+            <Chip label={`Send a note to ${name}`} selected={false} onPress={() => setNoteOpen(true)} />
+          )
+        )}
+        {noteSent && <Text className="text-caption text-stone-500 dark:text-stone-400">Sent. Keep talking it over in the chat.</Text>}
+        {shared.length === 1 ? (
+          <PrimaryButton label={`Go with ${sharedTitles[0]}`} disabled={busy} onPress={() => run(() => chooseIdea(board.id, shared[0].id))} />
+        ) : (
+          <View className="gap-2">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">When you&apos;ve decided, tap the one you chose:</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {shared.map((i) => (
+                <Chip key={i.id} label={i.title} selected={false} disabled={busy} onPress={() => run(() => chooseIdea(board.id, i.id))} />
+              ))}
+            </View>
+          </View>
+        )}
+        {editLink}
+      </>,
+      shared.length === 1
+        ? `You both picked ${sharedTitles[0]}.`
+        : `You both picked ${shared.length} ideas. Talk it over, then choose one.`
+    );
+  }
+
+  // Both saved, no match yet. Every way forward is offered equally.
+  const myTurn = !secondSaver;
+  const askStems = [
+    'None of those are quite me. How about ',
+    ...(theirs.length > 0 ? [`What draws you to "${theirs[0].title}"? `] : []),
+  ];
   return shell(
     <>
-      {status}
-      {generating && !hasIdeas ? (
-        <View className="flex-row items-center gap-2 py-2">
-          <ActivityIndicator color={MUTED_ICON_COLOR} />
-          <Text className="text-caption text-stone-500 dark:text-stone-400">Finding a few ideas...</Text>
-        </View>
-      ) : (
-        <View className="gap-2">
-          {ideas.map((idea) => (
-            <IdeaRow key={idea.id} idea={idea} name={name} myId={myId} meetupCount={meetupCount} disabled={busy}
-              onToggle={() => run(() => togglePick(idea.id))} />
-          ))}
-        </View>
-      )}
-
-      {refreshesLeft > 0 ? (
-        <LinkButton
-          label={generating && hasIdeas ? 'Finding new ideas...' : `Show new ideas (${refreshesLeft} left)`}
-          disabled={generating || busy}
-          onPress={() => newIdeas(board.id)}
-        />
-      ) : (
-        <Text className="text-caption text-stone-500 dark:text-stone-400">
-          That&apos;s all the new ideas for this plan. Add your own idea, or talk it over in the chat.
-        </Text>
-      )}
-
-      <View className="gap-2">
-        <View className="flex-row items-center gap-2">
-          <TextInput
-            value={ownIdea}
-            onChangeText={setOwnIdea}
-            placeholder="Add your own idea"
-            placeholderTextColor={MUTED_ICON_COLOR}
-            maxLength={80}
-            className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-          />
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        No match yet. That&apos;s common. Different tastes are part of getting to know someone.
+      </Text>
+      {listLine('Your picks', savedMine)}
+      {listLine(`${name}'s picks`, theirs)}
+      {board.no_match_rounds >= SIMPLE_AFTER_ROUNDS && (
+        <View className="gap-2 rounded-xl border border-stone-200 p-3 dark:border-stone-700">
+          <Text className="text-caption text-stone-600 dark:text-stone-300">
+            A coffee or a walk is a fine plan too. The bigger idea can come later.
+          </Text>
           <LinkButton
-            label="Add"
-            disabled={busy || ownIdea.trim().length < 2}
+            label="Add coffee and a walk to my picks"
+            disabled={busy}
             onPress={() =>
               run(async () => {
-                await addOwnIdea(board.id, ownIdea);
-                setOwnIdea('');
+                const existing = ideas.find((i) => i.title.toLowerCase() === SIMPLE_IDEA.toLowerCase());
+                if (existing) {
+                  if (!existing.picked_by_me) await togglePick(existing.id);
+                } else {
+                  await addOwnIdea(board.id, SIMPLE_IDEA);
+                }
+                await savePicks(board.id);
               })
             }
           />
         </View>
-        {ownIdeaHomeNote && (
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            For a first meetup, a public place is usually more comfortable for both of you.
-          </Text>
-        )}
+      )}
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        {myTurn ? `${name} picked different ideas. A few ways forward:` : `${name} will see your picks. Meanwhile:`}
+      </Text>
+      <View className="flex-row flex-wrap gap-2">
+        <Chip
+          label={`Look at ${name}'s picks again`}
+          selected={false}
+          onPress={() => {
+            setEditing(true);
+            setLookAgain(true);
+          }}
+        />
+        <Chip label="Ask in the chat" selected={askOpen} onPress={() => setAskOpen((v) => !v)} />
+        <Chip
+          label="Add your own or see new ideas"
+          selected={false}
+          onPress={() => {
+            setEditing(true);
+            setLookAgain(false);
+          }}
+        />
       </View>
-
-      <View className="flex-row flex-wrap gap-4">
-        <LinkButton label="My limits" muted onPress={() => setEditingPrefs(true)} />
-        {meetupCount >= 1 && <LinkButton label="Home ideas" muted onPress={() => setEditingHome(true)} />}
-      </View>
+      {askOpen && !askSent && (
+        <StemMessageBox
+          stems={askStems}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) setAskSent(true);
+            return ok;
+          }}
+          onCancel={() => setAskOpen(false)}
+        />
+      )}
+      {askSent && <Text className="text-caption text-stone-500 dark:text-stone-400">Sent. Keep talking it over in the chat.</Text>}
     </>,
-    summary
+    myTurn ? `No match yet. Take a look at ${name}'s picks.` : `No match yet. ${name} will see your picks.`
   );
 }
 
@@ -678,7 +852,7 @@ function IdeaRow({
       : idea.picked_by_me
         ? "You'd like this"
         : idea.picked_by_other
-          ? `${name} would like this`
+          ? `${name} picked this`
           : null;
   return (
     <Pressable
