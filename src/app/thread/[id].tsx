@@ -19,6 +19,7 @@ import { MirrorSheet } from '@/components/mirror-sheet';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { NextMeetupIndicatorV2 } from '@/components/next-meetup-indicator-v2';
 import { PlanBoardCard } from '@/components/plan-board-card';
+import { MeetNudgeCard } from '@/components/meet-nudge-card';
 import { PauseConnectionModal } from '@/components/pause-connection-modal';
 import { PrimaryInterventionCard } from '@/components/primary-intervention-card';
 import { RememberReminderCard } from '@/components/remember-reminder-card';
@@ -233,7 +234,7 @@ export default function ThreadScreen() {
   const [planEditorRequest, setPlanEditorRequest] = useState<{
     mode: 'change' | 'details' | 'new';
     n: number;
-    prefill?: { date?: string; startTime?: string; activity?: string };
+    prefill?: { date?: string; startTime?: string; activity?: string; note?: string };
   } | null>(null);
   const [planRefreshKey, setPlanRefreshKey] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -967,6 +968,17 @@ export default function ThreadScreen() {
                 onGoToPlan={(prefill) => setPlanEditorRequest((r) => ({ mode: 'new', n: (r?.n ?? 0) + 1, prefill }))}
               />
             )}
+            {/* Gentle nudge to meet in person after weeks of only chatting
+                (2026-10-09). Only when no other prompt card is showing. */}
+            {myId && connectionId && !newSystemIntervention && (
+              <MeetNudgeCard
+                connectionId={connectionId}
+                otherName={other?.display_name ?? 'them'}
+                refreshKey={planBoardKey + planRefreshKey}
+                onPlan={handlePlanSomething}
+                onEnd={() => setEndConnectionVisible(true)}
+              />
+            )}
             {newSystemIntervention && connectionId && (
               <View className="px-6 pt-4">
                 <PrimaryInterventionCard
@@ -1020,6 +1032,9 @@ export default function ThreadScreen() {
               This is the start of your conversation.
             </Text>
           )}
+          <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
+            Limen is for meeting in person. Chatting is how you get there.
+          </Text>
           {messages.map((m) => {
             const label = dateLabel(m.created_at);
             const showDivider = label !== lastDateLabel;

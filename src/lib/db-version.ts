@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 
 // The newest database update this version of the app needs (2026-10-09).
 // Bump together with limen_db_version() in the newest migration.
-export const REQUIRED_DB_VERSION = '20261009000005';
+export const REQUIRED_DB_VERSION = '20261009000006';
 
 // Database updates the Test tab points to when something is missing, in the
 // order to run them. Each one is safe to run again.
@@ -16,6 +16,7 @@ export const RECENT_DB_UPDATES = [
   '20261009000003_selfie_approved_only.sql',
   '20261009000004_plan_together.sql',
   '20261009000005_plan_save_and_match.sql',
+  '20261009000006_plan_one_turn_meet_nudges.sql',
 ];
 
 export const MIGRATION_URL_BASE =

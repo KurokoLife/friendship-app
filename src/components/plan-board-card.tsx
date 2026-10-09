@@ -12,14 +12,11 @@ import {
   STYLE_LABELS,
   TRAVEL_OPTIONS,
   addOwnIdea,
-  backToIdeas,
-  chooseIdea,
-  chooseTime,
   closePlanBoard,
   dayLabel,
   getPlanBoard,
+  isoDay,
   loadNewIdeas,
-  longDayLabel,
   nextTwoWeeks,
   setHomePref,
   setPlanPrefs,
@@ -28,6 +25,7 @@ import {
   revertPicks,
   savePicks,
   togglePick,
+  usualLabel,
   usualTimes,
   type PlanBudget,
   type PlanDuration,
@@ -46,14 +44,16 @@ const SIMPLE_AFTER_ROUNDS = 2;
 const SIMPLE_IDEA = 'Coffee and a short walk';
 
 // "Let's plan something" (2026-10-09): one card both people see.
-//   What:  mark any ideas you'd like, then "Save my picks". After saving,
-//          both see each other's picks; an idea in both can be chosen by
-//          either person, after talking it over in the chat.
-//   When:  mark rough times over the next 2 weeks; pick one you share.
-//   Where: pick the exact time and place in the normal plan card, which
-//          sends it to the other person to confirm.
-// It ends with a confirmed plan, "Not now", or 14 quiet days. The AI only
-// suggests the starting ideas; the two people decide everything else.
+//   1. The first person picks ideas and marks when they're free, then
+//      "Save and send". Their usual times from the profile start filled in.
+//   2. The other person sees those picks and times, adds theirs and sends.
+//      If an idea and a time match, the person who sent second suggests the
+//      plan: the plan editor opens filled in (exact time and place), with
+//      an optional note they write themselves.
+//   3. The first person confirms the plan in the plan card.
+// No match: calm options and starters for asking in the chat. It ends with
+// a confirmed plan, "Not now", or 14 quiet days. The AI only suggests the
+// starting ideas; the two people decide everything else.
 
 type Props = {
   connectionId: string;
@@ -63,7 +63,7 @@ type Props = {
   // Bumped when this person taps "Let's plan something": opens the card.
   openRequest?: number;
   onStart: () => void;
-  onGoToPlan: (prefill: { date: string; startTime: string; activity: string }) => void;
+  onGoToPlan: (prefill: { date: string; startTime: string; activity: string; note?: string }) => void;
 };
 
 function firstName(name: string) {
@@ -135,7 +135,8 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   const [editing, setEditing] = useState(false);
   const [lookAgain, setLookAgain] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
-  const [noteSent, setNoteSent] = useState(false);
+  const [pickedIdea, setPickedIdea] = useState<string | null>(null);
+  const [pickedTime, setPickedTime] = useState<string | null>(null);
   const [dismissedEnding, setDismissedEnding] = useState<string | null>(null);
   const [myTimes, setMyTimes] = useState<Set<string>>(new Set());
   const [availability, setAvailability] = useState<string[]>([]);
@@ -145,6 +146,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   // never when they simply open a card the other person started.
   const [askFlow, setAskFlow] = useState(false);
   const generatedFor = useRef<string | null>(null);
+  const autofilledFor = useRef<string | null>(null);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
 
   const load = useCallback(async () => {
@@ -180,7 +182,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   // Live: the other person's marks and times show up without a reload.
   useEffect(() => {
     const channel = supabase.channel(`plan-${connectionId}-${Math.random().toString(36).slice(2)}`);
-    for (const table of ['plan_boards', 'plan_ideas', 'plan_picks', 'plan_times', 'plan_saves', 'plan_saved_picks']) {
+    for (const table of ['plan_boards', 'plan_ideas', 'plan_picks', 'plan_times', 'plan_saves', 'plan_saved_picks', 'plan_saved_times']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `connection_id=eq.${connectionId}` }, () =>
         load()
       );
@@ -230,6 +232,19 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
     newIdeas(board.id);
   }, [board, open, hasIdeas, needsPrefs, needsHome, generating, newIdeas, myId]);
 
+  // Usual times from the profile start filled in on someone's first turn.
+  // They see them highlighted and can change them before sending.
+  useEffect(() => {
+    if (!board || !open || board.my_saved_at || availability.length === 0) return;
+    if (autofilledFor.current === board.id) return;
+    autofilledFor.current = board.id;
+    if (board.my_times.length > 0) return;
+    const slots = usualTimes(availability);
+    if (slots.length === 0) return;
+    setMyTimes(new Set(slots.map(slotKey)));
+    saveChain.current = saveChain.current.then(() => setTimes(board.id, slots)).catch(() => undefined);
+  }, [board, open, availability]);
+
   const run = async (fn: () => Promise<void>, fail = "That didn't save. Please try again.") => {
     setBusy(true);
     setError(null);
@@ -239,10 +254,10 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
     } catch (e) {
       const message = e instanceof Error ? e.message : '';
       if (/plan_closed|chat_not_open/.test(message)) setError('This plan has ended.');
-      else if (/not_both_picked/.test(message)) setError(`${name} hasn't marked that one yet.`);
-      else if (/not_both_free/.test(message)) setError(`${name} isn't free then anymore.`);
       else if (/too_many_ideas/.test(message)) setError('That is plenty of added ideas for one plan.');
       else if (/no_picks/.test(message)) setError('Pick at least one idea first.');
+      else if (/home_first_meetup/.test(message))
+        setError('Before your first meetup, pick a public place, so it feels comfortable for both of you.');
       else setError(fail);
       await load();
     } finally {
@@ -305,7 +320,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
                 <LinkButton label="Close" onPress={() => setSheetOpen(false)} />
               </View>
             </View>
-            <ScrollView contentContainerClassName="gap-3 pb-4">
+            <ScrollView contentContainerClassName="gap-3 pb-4" keyboardShouldPersistTaps="handled">
               {children}
               {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
               {nudge}
@@ -350,305 +365,59 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   }
 
   const ideas = board.ideas;
-  const chosen = ideas.find((i) => i.id === board.chosen_idea_id) ?? null;
-
-  // ---- Where: hand over to the plan card ----
-  if (chosen && board.chosen_day && board.chosen_part) {
-    const part = board.chosen_part;
-    return shell(
-      <>
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          {chosen.title}, {longDayLabel(board.chosen_day)}, {PART_LABELS[part].toLowerCase()}.
-        </Text>
-        <Text className="text-caption text-stone-500 dark:text-stone-400">
-          Last step: pick the exact time and the place, then send it to {name} to confirm. Either of you can do
-          this.
-        </Text>
-        <PrimaryButton
-          label="Choose time and place"
-          onPress={() => {
-            setSheetOpen(false);
-            onGoToPlan({ date: board.chosen_day!, startTime: PART_START_TIME[part], activity: chosen.title });
-          }}
-        />
-        <LinkButton label="Pick a different time" muted disabled={busy} onPress={() => run(() => chooseTime(board.id, null))} />
-      </>,
-      `${chosen.title}, ${dayLabel(board.chosen_day)}, ${PART_LABELS[part].toLowerCase()}. Last step: the exact time and place.`
-    );
-  }
-
-  // ---- When ----
-  if (chosen) {
-    const otherTimes = new Set(board.other_times.map(slotKey));
-    const days = nextTwoWeeks();
-    const shared: PlanSlot[] = [];
-    for (const day of days) for (const part of PARTS) {
-      const k = slotKey({ day, part });
-      if (myTimes.has(k) && otherTimes.has(k)) shared.push({ day, part });
-    }
-    const saveTimes = (next: Set<string>) => {
-      setMyTimes(next);
-      const slots = [...next].map((k) => {
-        const [day, part] = k.split('|');
-        return { day, part: part as PlanPart };
-      });
-      saveChain.current = saveChain.current
-        .then(() => setTimes(board.id, slots))
-        .catch(() => setError("Couldn't save your times. Please try again."));
-    };
-    const toggle = (k: string) => {
-      const next = new Set(myTimes);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      saveTimes(next);
-    };
-    return shell(
-      <>
-        <View className="flex-row flex-wrap items-center justify-between gap-2">
-          <Text className="flex-1 text-body text-stone-700 dark:text-stone-300">Going with: {chosen.title}</Text>
-          <LinkButton label="Change idea" muted disabled={busy} onPress={() => run(() => backToIdeas(board.id))} />
-        </View>
-        <Text className="text-caption text-stone-500 dark:text-stone-400">
-          When are you free over the next 2 weeks? Mark rough times. You&apos;ll pick the exact time at the end.
-        </Text>
-        {availability.length > 0 && (
-          <LinkButton
-            label="Use my usual times"
-            onPress={() => {
-              const next = new Set(myTimes);
-              for (const s of usualTimes(availability, days)) next.add(slotKey(s));
-              saveTimes(next);
-            }}
-          />
-        )}
-        <Text className="text-caption text-stone-400 dark:text-stone-500">
-          Filled: you&apos;re free. Orange outline: {name} is free. Orange: you&apos;re both free.
-        </Text>
-        <View className="gap-1.5">
-          {days.map((day) => (
-            <View key={day} className="flex-row items-center gap-2">
-              <Text className="w-24 text-caption text-stone-600 dark:text-stone-300">{dayLabel(day)}</Text>
-              {PARTS.map((part) => {
-                const k = slotKey({ day, part });
-                const mine = myTimes.has(k);
-                const theirs = otherTimes.has(k);
-                const cls =
-                  mine && theirs
-                    ? 'border-accent-500 bg-accent-500'
-                    : mine
-                      ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50'
-                      : theirs
-                        ? 'border-accent-500'
-                        : 'border-stone-300 dark:border-stone-700';
-                const textCls =
-                  mine && theirs
-                    ? 'text-white'
-                    : mine
-                      ? 'text-stone-50 dark:text-stone-900'
-                      : 'text-stone-600 dark:text-stone-300';
-                return (
-                  <Pressable
-                    key={part}
-                    accessibilityLabel={`${dayLabel(day)} ${PART_LABELS[part]}`}
-                    onPress={() => toggle(k)}
-                    className={`flex-1 items-center rounded-lg border py-1.5 ${cls}`}>
-                    <Text className={`text-caption ${textCls}`}>{PART_LABELS[part]}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-        {shared.length > 0 ? (
-          <View className="gap-2">
-            <Text className="text-body text-stone-700 dark:text-stone-300">You&apos;re both free:</Text>
-            <View className="flex-row flex-wrap gap-2">
-              {shared.map((s) => (
-                <Chip
-                  key={slotKey(s)}
-                  label={`${dayLabel(s.day)}, ${PART_LABELS[s.part].toLowerCase()}`}
-                  selected={false}
-                  disabled={busy}
-                  onPress={() => run(() => saveChain.current.then(() => chooseTime(board.id, s)))}
-                />
-              ))}
-            </View>
-            <Text className="text-caption text-stone-400 dark:text-stone-500">Tap one to go with it.</Text>
-          </View>
-        ) : board.other_times.length === 0 ? (
-          <Text className="text-caption text-stone-500 dark:text-stone-400">{name} hasn&apos;t marked times yet.</Text>
-        ) : (
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            No shared times yet. Add a few more, or talk it over in the chat.
-          </Text>
-        )}
-      </>,
-      `Going with ${chosen.title}. ` +
-        (shared.length > 0
-          ? "You have times in common. Pick one."
-          : board.other_times.length === 0 && myTimes.size > 0
-            ? `Waiting for ${name} to mark times.`
-            : "Mark when you're free.")
-    );
-  }
-
-  // ---- What ----
-  // Marks are a private draft until "Save my picks". After saving, both
-  // people see each other's picks: noticing what the other person would
-  // enjoy is part of planning together.
   const titlesOf = (list: PlanIdea[]) => list.map((i) => i.title);
+  const today = isoDay(new Date());
+  const days = nextTwoWeeks();
+
+  // Ideas
   const draft = ideas.filter((i) => i.picked_by_me);
   const savedMine = ideas.filter((i) => i.saved_by_me);
   const theirs = ideas.filter((i) => i.picked_by_other);
   const shared = ideas.filter((i) => i.saved_by_me && i.picked_by_other);
+
+  // Times
+  const mySavedTimes = new Set(board.my_saved_times.map(slotKey));
+  const otherTimes = new Set(board.other_times.map(slotKey));
+  const sharedTimes: PlanSlot[] = board.my_saved_times
+    .filter((s) => s.day >= today && otherTimes.has(slotKey(s)))
+    .sort((a, b) => a.day.localeCompare(b.day) || PARTS.indexOf(a.part) - PARTS.indexOf(b.part));
+  const otherUsualLabel = usualLabel(state.other_usual);
+  const otherUsual = new Set(usualTimes(state.other_usual, days).map(slotKey));
+
   const iSaved = !!board.my_saved_at;
   const theySaved = !!board.other_saved_at;
+  const timesChanged = myTimes.size !== mySavedTimes.size || [...myTimes].some((k) => !mySavedTimes.has(k));
   const draftChanged =
-    iSaved && (draft.length !== savedMine.length || draft.some((i) => !i.saved_by_me));
+    iSaved && (draft.length !== savedMine.length || draft.some((i) => !i.saved_by_me) || timesChanged);
   const picking = !iSaved || editing || draftChanged;
   const secondSaver = iSaved && theySaved && new Date(board.my_saved_at!).getTime() > new Date(board.other_saved_at!).getTime();
   const refreshesLeft = limitReached ? 0 : board.refreshes_left;
-  const ownIdeaHomeNote = meetupCount === 0 && HOME_WORDS.test(ownIdea);
+  const ownIdeaHomeBlocked = meetupCount === 0 && HOME_WORDS.test(ownIdea);
 
   const save = () =>
     run(async () => {
+      await saveChain.current;
       await savePicks(board.id);
       setEditing(false);
       setLookAgain(false);
+      setAskOpen(false);
+      setAskSent(false);
     });
 
-  if (picking) {
-    // Their picks first, so the second person sees them straight away.
-    const ordered = theySaved ? [...theirs, ...ideas.filter((i) => !i.picked_by_other)] : ideas;
-    let intro: ReactNode;
-    if (lookAgain && theySaved) {
-      intro = (
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          Anything of {name}&apos;s you&apos;d be open to? It doesn&apos;t have to be your favorite. Mark it, then save.
-        </Text>
-      );
-    } else if (theySaved) {
-      intro = (
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          {name} picked {theirs.length === 1 ? theirs[0].title : `${theirs.length} ideas`}. Pick any you&apos;d enjoy,
-          theirs or others. You can also add your own.
-        </Text>
-      );
-    } else if (iSaved) {
-      intro = <Text className="text-body text-stone-700 dark:text-stone-300">Change your picks, then save again.</Text>;
-    } else {
-      intro = (
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          Pick any ideas you&apos;d enjoy, as many as you like. Then save, and {name} will see them.
-        </Text>
-      );
-    }
-    const summary = draftChanged && !editing
-      ? "You changed your picks but haven't saved them."
-      : theySaved && !iSaved
-        ? `${name} picked ${theirs.length === 1 ? theirs[0].title : `${theirs.length} ideas`}. Your turn to pick.`
-        : generating && !hasIdeas
-          ? 'Finding a few ideas...'
-          : "Pick ideas you'd enjoy, then save.";
-    return shell(
-      <>
-        {intro}
-        {draftChanged && !editing && (
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            You changed your picks but haven&apos;t saved them yet. {name} still sees your last saved picks.
-          </Text>
-        )}
-        {generating && !hasIdeas ? (
-          <View className="flex-row items-center gap-2 py-2">
-            <ActivityIndicator color={MUTED_ICON_COLOR} />
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Finding a few ideas...</Text>
-          </View>
-        ) : (
-          <View className="gap-2">
-            {ordered.map((idea) => (
-              <IdeaRow key={idea.id} idea={idea} name={name} myId={myId} meetupCount={meetupCount} disabled={busy}
-                onToggle={() => run(() => togglePick(idea.id))} />
-            ))}
-          </View>
-        )}
-
-        <View className="gap-1">
-          <View className="flex-row items-center gap-4">
-            <PrimaryButton label={iSaved ? 'Save my picks again' : 'Save my picks'} disabled={busy || draft.length === 0} onPress={save} />
-            {iSaved && (
-              <LinkButton
-                label="Cancel"
-                muted
-                disabled={busy}
-                onPress={() =>
-                  run(async () => {
-                    await revertPicks(board.id);
-                    setEditing(false);
-                    setLookAgain(false);
-                  })
-                }
-              />
-            )}
-          </View>
-          <Text className="text-caption text-stone-400 dark:text-stone-500">
-            {draft.length === 0
-              ? 'Pick at least one idea to save.'
-              : `${draft.length} picked. ${name} sees your picks once you save.`}
-          </Text>
-        </View>
-
-        {refreshesLeft > 0 ? (
-          <LinkButton
-            label={generating && hasIdeas ? 'Finding new ideas...' : `Show new ideas (${refreshesLeft} left)`}
-            disabled={generating || busy}
-            onPress={() => newIdeas(board.id)}
-          />
-        ) : (
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            That&apos;s all the new ideas for this plan. Add your own idea, or talk it over in the chat.
-          </Text>
-        )}
-
-        <View className="gap-2">
-          <View className="flex-row items-center gap-2">
-            <TextInput
-              value={ownIdea}
-              onChangeText={setOwnIdea}
-              placeholder="Add your own idea"
-              placeholderTextColor={MUTED_ICON_COLOR}
-              maxLength={80}
-              className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-            />
-            <LinkButton
-              label="Add"
-              disabled={busy || ownIdea.trim().length < 2}
-              onPress={() =>
-                run(async () => {
-                  await addOwnIdea(board.id, ownIdea);
-                  setOwnIdea('');
-                })
-              }
-            />
-          </View>
-          {ownIdeaHomeNote && (
-            <Text className="text-caption text-stone-500 dark:text-stone-400">
-              For a first meetup, a public place is usually more comfortable for both of you.
-            </Text>
-          )}
-        </View>
-
-        <View className="flex-row flex-wrap gap-4">
-          <LinkButton label="My limits" muted onPress={() => setEditingPrefs(true)} />
-          {meetupCount >= 1 && <LinkButton label="Home ideas" muted onPress={() => setEditingHome(true)} />}
-        </View>
-      </>,
-      summary
-    );
-  }
+  const saveTimes = (next: Set<string>) => {
+    setMyTimes(next);
+    const slots = [...next].map((k) => {
+      const [day, part] = k.split('|');
+      return { day, part: part as PlanPart };
+    });
+    saveChain.current = saveChain.current
+      .then(() => setTimes(board.id, slots))
+      .catch(() => setError("Couldn't save your times. Please try again."));
+  };
 
   const editLink = (
     <LinkButton
-      label="Edit my picks"
+      label="Edit my picks and times"
       muted
       disabled={busy}
       onPress={() => {
@@ -663,86 +432,378 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
         {label}: {titlesOf(list).join(', ')}
       </Text>
     ) : null;
+  const slotLabel = (s: PlanSlot) => `${dayLabel(s.day)}, ${PART_LABELS[s.part].toLowerCase()}`;
+  const timesLine = (label: string, list: PlanSlot[]) => {
+    const future = list.filter((s) => s.day >= today);
+    if (future.length === 0) return null;
+    const shown = future.slice(0, 4).map(slotLabel).join('; ');
+    return (
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        {label}: {shown}
+        {future.length > 4 ? `, and ${future.length - 4} more` : ''}
+      </Text>
+    );
+  };
 
-  // Saved, waiting for the other person.
-  if (!theySaved) {
+  // "Ask in the chat": a short message they finish in their own words.
+  const askBox = (stems: string[], label: string) =>
+    askSent ? (
+      <Text className="text-caption text-stone-500 dark:text-stone-400">Sent. Keep talking it over in the chat.</Text>
+    ) : askOpen ? (
+      <StemMessageBox
+        stems={stems}
+        onSend={async (text) => {
+          const ok = await sendChatMessage(connectionId, text);
+          if (ok) setAskSent(true);
+          return ok;
+        }}
+        onCancel={() => setAskOpen(false)}
+      />
+    ) : (
+      <Chip label={label} selected={false} onPress={() => setAskOpen(true)} />
+    );
+
+  // ---- Your turn: ideas and times together, then one save ----
+  if (picking) {
+    // Their picks first, so the second person sees them straight away.
+    const ordered = theySaved ? [...theirs, ...ideas.filter((i) => !i.picked_by_other)] : ideas;
+    let intro: ReactNode;
+    if (lookAgain && theySaved) {
+      intro = (
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Anything of {name}&apos;s you&apos;d be open to? It doesn&apos;t have to be your favorite. Mark it, then send.
+        </Text>
+      );
+    } else if (theySaved) {
+      intro = (
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          {name} picked {theirs.length === 1 ? theirs[0].title : `${theirs.length} ideas`} and marked when they&apos;re
+          free. Pick any ideas you&apos;d enjoy, theirs or others, and mark your times.
+        </Text>
+      );
+    } else if (iSaved) {
+      intro = <Text className="text-body text-stone-700 dark:text-stone-300">Change your picks or times, then send again.</Text>;
+    } else {
+      intro = (
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Pick any ideas you&apos;d enjoy and mark when you&apos;re free. Then send, and {name} does the same.
+        </Text>
+      );
+    }
+    const summary = draftChanged && !editing
+      ? "You changed your picks but haven't sent them."
+      : theySaved && !iSaved
+        ? `${name} picked ${theirs.length === 1 ? theirs[0].title : `${theirs.length} ideas`}. Your turn.`
+        : generating && !hasIdeas
+          ? 'Finding a few ideas...'
+          : 'Pick ideas and times, then send.';
+    const askStems = theySaved
+      ? [
+          ...(theirs.length > 0 ? [`What made you pick "${theirs[0].title}"? `] : []),
+          'None of these are quite me. How about ',
+          'What do you usually like to do on weekends? ',
+        ]
+      : ["Is there anything you've been wanting to try? ", 'What do you usually like to do on weekends? '];
     return shell(
       <>
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          Saved. {name} will see your picks and choose theirs. They can pick any of yours or suggest something else.
+        {intro}
+        {draftChanged && !editing && (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            You changed your picks or times but haven&apos;t sent them yet. {name} still sees what you sent before.
+          </Text>
+        )}
+
+        <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">1. What</Text>
+        {generating && !hasIdeas ? (
+          <View className="flex-row items-center gap-2 py-2">
+            <ActivityIndicator color={MUTED_ICON_COLOR} />
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Finding a few ideas...</Text>
+          </View>
+        ) : (
+          <View className="gap-2">
+            {ordered.map((idea) => (
+              <IdeaRow key={idea.id} idea={idea} name={name} myId={myId} meetupCount={meetupCount} disabled={busy}
+                onToggle={() => run(() => togglePick(idea.id))} />
+            ))}
+          </View>
+        )}
+        {refreshesLeft > 0 ? (
+          <LinkButton
+            label={generating && hasIdeas ? 'Finding new ideas...' : `Show new ideas (${refreshesLeft} left)`}
+            disabled={generating || busy}
+            onPress={() => newIdeas(board.id)}
+          />
+        ) : (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            That&apos;s all the new ideas for this plan. Add your own idea, or ask {name} in the chat.
+          </Text>
+        )}
+        <View className="gap-2">
+          <View className="flex-row items-center gap-2">
+            <TextInput
+              value={ownIdea}
+              onChangeText={setOwnIdea}
+              placeholder="Add your own idea"
+              placeholderTextColor={MUTED_ICON_COLOR}
+              maxLength={80}
+              className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+            />
+            <LinkButton
+              label="Add"
+              disabled={busy || ownIdea.trim().length < 2 || ownIdeaHomeBlocked}
+              onPress={() =>
+                run(async () => {
+                  await addOwnIdea(board.id, ownIdea);
+                  setOwnIdea('');
+                })
+              }
+            />
+          </View>
+          {ownIdeaHomeBlocked && (
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              Before your first meetup, pick a public place, so it feels comfortable for both of you.
+            </Text>
+          )}
+        </View>
+        {askBox(askStems, `Not sure? Ask ${name} in the chat`)}
+
+        <Text className="mt-2 text-caption font-semibold text-stone-600 dark:text-stone-300">2. When are you free?</Text>
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Rough times over the next 2 weeks. You&apos;ll pick the exact time at the end.
         </Text>
-        {listLine('Your picks', savedMine)}
-        {editLink}
+        {otherUsualLabel.length > 0 && (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            {name} is usually free: {otherUsualLabel}.
+          </Text>
+        )}
+        {availability.length > 0 && (
+          <LinkButton
+            label="Use my usual times"
+            onPress={() => {
+              const next = new Set(myTimes);
+              for (const s of usualTimes(availability, days)) next.add(slotKey(s));
+              saveTimes(next);
+            }}
+          />
+        )}
+        <Text className="text-caption text-stone-400 dark:text-stone-500">
+          {theySaved && otherTimes.size > 0
+            ? `Filled: you're free. Orange outline: ${name} is free. Orange: you're both free.`
+            : otherUsual.size > 0
+              ? `Filled: you're free. Dotted: when ${name} is usually free.`
+              : "Filled: you're free."}
+        </Text>
+        <View className="gap-1.5">
+          {days.map((day) => (
+            <View key={day} className="flex-row items-center gap-2">
+              <Text className="w-24 text-caption text-stone-600 dark:text-stone-300">{dayLabel(day)}</Text>
+              {PARTS.map((part) => {
+                const k = slotKey({ day, part });
+                const mine = myTimes.has(k);
+                const theirsFree = theySaved && otherTimes.size > 0 ? otherTimes.has(k) : false;
+                const usual = !(theySaved && otherTimes.size > 0) && otherUsual.has(k);
+                const cls =
+                  mine && theirsFree
+                    ? 'border-accent-500 bg-accent-500'
+                    : mine
+                      ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50'
+                      : theirsFree
+                        ? 'border-accent-500'
+                        : usual
+                          ? 'border-dashed border-accent-500/60'
+                          : 'border-stone-300 dark:border-stone-700';
+                const textCls =
+                  mine && theirsFree
+                    ? 'text-white'
+                    : mine
+                      ? 'text-stone-50 dark:text-stone-900'
+                      : 'text-stone-600 dark:text-stone-300';
+                return (
+                  <Pressable
+                    key={part}
+                    accessibilityLabel={`${dayLabel(day)} ${PART_LABELS[part]}`}
+                    accessibilityState={{ selected: mine }}
+                    onPress={() => {
+                      const next = new Set(myTimes);
+                      if (next.has(k)) next.delete(k);
+                      else next.add(k);
+                      saveTimes(next);
+                    }}
+                    className={`flex-1 items-center rounded-lg border py-1.5 ${cls}`}>
+                    <Text className={`text-caption ${textCls}`}>{PART_LABELS[part]}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+
+        <View className="mt-2 gap-1">
+          <View className="flex-row items-center gap-4">
+            <PrimaryButton
+              label={iSaved ? 'Send my changes' : `Save and send to ${name}`}
+              disabled={busy || draft.length === 0}
+              onPress={save}
+            />
+            {iSaved && (
+              <LinkButton
+                label="Cancel"
+                muted
+                disabled={busy}
+                onPress={() =>
+                  run(async () => {
+                    await saveChain.current;
+                    await revertPicks(board.id);
+                    setEditing(false);
+                    setLookAgain(false);
+                  })
+                }
+              />
+            )}
+          </View>
+          <Text className="text-caption text-stone-400 dark:text-stone-500">
+            {draft.length === 0
+              ? 'Pick at least one idea to send.'
+              : myTimes.size === 0
+                ? `${draft.length} picked, no times yet. Adding a few times makes it easier to find one together.`
+                : `${draft.length} picked, ${myTimes.size} times. ${name} sees them once you send.`}
+          </Text>
+        </View>
+
+        <View className="flex-row flex-wrap gap-4">
+          <LinkButton label="My limits" muted onPress={() => setEditingPrefs(true)} />
+          {meetupCount >= 1 && <LinkButton label="Home ideas" muted onPress={() => setEditingHome(true)} />}
+        </View>
       </>,
-      `Saved. Waiting for ${name} to pick.`
+      summary
     );
   }
 
-  // Both saved and there is a match: talk it over, then either person
-  // taps the one they chose.
-  if (shared.length > 0) {
-    const sharedTitles = titlesOf(shared);
-    const noteStems =
-      shared.length === 1
-        ? [`We both picked "${sharedTitles[0]}"! `, `What made you pick "${sharedTitles[0]}"? `]
-        : [
-            `"${sharedTitles[0]}" sounds good to me because `,
-            'Which one sounds best to you? ',
-            'Have you done any of these before? ',
-          ];
+  // Sent, waiting for the other person.
+  if (!theySaved) {
+    const quietSinceSave = (Date.now() - new Date(board.my_saved_at!).getTime()) / 86400000;
+    return shell(
+      <>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Sent. {name} will see your picks and times and add theirs. They can pick any of yours or suggest something
+          else.
+        </Text>
+        {listLine('Your picks', savedMine)}
+        {timesLine('Your times', board.my_saved_times)}
+        {quietSinceSave >= QUIET_NUDGE_DAYS &&
+          askBox(
+            ['No rush, I saved a few ideas for us when you have a moment. ', 'Did any of the ideas sound good to you? '],
+            `Send ${name} a short note`
+          )}
+        {editLink}
+      </>,
+      `Sent. Waiting for ${name}.`
+    );
+  }
+
+  // An idea and a time in common: suggest the plan. The person who sent
+  // second suggests it; the other one can step in.
+  if (shared.length > 0 && sharedTimes.length > 0) {
+    const idea = shared.find((i) => i.id === pickedIdea) ?? shared[0];
+    const slot = sharedTimes.find((s) => slotKey(s) === pickedTime) ?? sharedTimes[0];
+    const goToPlan = (note?: string) => {
+      setSheetOpen(false);
+      setNoteOpen(false);
+      onGoToPlan({ date: slot.day, startTime: PART_START_TIME[slot.part], activity: idea.title, note });
+    };
     return shell(
       <>
         <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
-          You both picked: {sharedTitles.join(', ')}
-        </Text>
-        {listLine('Your other picks', savedMine.filter((i) => !i.picked_by_other))}
-        {listLine(`${name}'s other picks`, theirs.filter((i) => !i.saved_by_me))}
-        <Text className="text-caption text-stone-500 dark:text-stone-400">
-          {secondSaver
-            ? shared.length === 1
-              ? `You picked second, so you could start the conversation. Then either of you can tap it below.`
-              : `You picked second, so you could suggest one in the chat. Then either of you can tap the one you chose.`
+          {shared.length === 1 && sharedTimes.length === 1
+            ? `You both picked ${idea.title}, and you're both free ${slotLabel(slot)}.`
             : shared.length === 1
-              ? `${name} may send a note about it. Either of you can tap it below when you're ready.`
-              : `${name} may suggest one in the chat. Talk it over, then either of you can tap the one you chose.`}
+              ? `You both picked ${idea.title}, and you have ${sharedTimes.length} times in common.`
+              : `You both picked ${shared.length} ideas, and you have ${sharedTimes.length === 1 ? 'a time' : 'times'} in common.`}
         </Text>
-        {secondSaver && !noteSent && (
-          noteOpen ? (
-            <StemMessageBox
-              stems={noteStems}
-              onSend={async (text) => {
-                const ok = await sendChatMessage(connectionId, text);
-                if (ok) setNoteSent(true);
-                return ok;
-              }}
-              onCancel={() => setNoteOpen(false)}
-            />
-          ) : (
-            <Chip label={`Send a note to ${name}`} selected={false} onPress={() => setNoteOpen(true)} />
-          )
-        )}
-        {noteSent && <Text className="text-caption text-stone-500 dark:text-stone-400">Sent. Keep talking it over in the chat.</Text>}
-        {shared.length === 1 ? (
-          <PrimaryButton label={`Go with ${sharedTitles[0]}`} disabled={busy} onPress={() => run(() => chooseIdea(board.id, shared[0].id))} />
-        ) : (
-          <View className="gap-2">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">When you&apos;ve decided, tap the one you chose:</Text>
+        {shared.length > 1 && (
+          <View className="gap-1">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Which idea?</Text>
             <View className="flex-row flex-wrap gap-2">
               {shared.map((i) => (
-                <Chip key={i.id} label={i.title} selected={false} disabled={busy} onPress={() => run(() => chooseIdea(board.id, i.id))} />
+                <Chip key={i.id} label={i.title} selected={i.id === idea.id} onPress={() => setPickedIdea(i.id)} />
               ))}
             </View>
           </View>
         )}
+        {sharedTimes.length > 1 && (
+          <View className="gap-1">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Which time? You&apos;re both free:</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {sharedTimes.slice(0, 8).map((s) => (
+                <Chip key={slotKey(s)} label={slotLabel(s)} selected={slotKey(s) === slotKey(slot)} onPress={() => setPickedTime(slotKey(s))} />
+              ))}
+            </View>
+          </View>
+        )}
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          {secondSaver
+            ? `You sent second, so you can suggest the plan. Next you pick the exact time and the place, and ${name} confirms.`
+            : `${name} will likely suggest the plan. You can also do it: pick the exact time and the place, and ${name} confirms.`}
+        </Text>
+        {noteOpen ? (
+          <StemMessageBox
+            stems={[`Looking forward to "${idea.title}"! `, `"${idea.title}" sounds fun because `, 'I could also do ']}
+            sendLabel="Next: time and place"
+            onSend={async (text) => {
+              goToPlan(text);
+              return true;
+            }}
+            onCancel={() => setNoteOpen(false)}
+          />
+        ) : (
+          <View className="gap-2">
+            <PrimaryButton label="Suggest this plan" disabled={busy} onPress={() => goToPlan()} />
+            <LinkButton label={`Add a note for ${name} (optional)`} muted onPress={() => setNoteOpen(true)} />
+          </View>
+        )}
+        {listLine('Your other picks', savedMine.filter((i) => !i.picked_by_other))}
+        {listLine(`${name}'s other picks`, theirs.filter((i) => !i.saved_by_me))}
         {editLink}
       </>,
-      shared.length === 1
-        ? `You both picked ${sharedTitles[0]}.`
-        : `You both picked ${shared.length} ideas. Talk it over, then choose one.`
+      secondSaver ? `You matched: ${idea.title}. Suggest the plan.` : `You matched: ${idea.title}.`
     );
   }
 
-  // Both saved, no match yet. Every way forward is offered equally.
+  // An idea in common, but no time yet.
+  if (shared.length > 0) {
+    const myTurn = !secondSaver;
+    return shell(
+      <>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          You both picked {titlesOf(shared).join(', ')}. No time in common yet.
+        </Text>
+        {timesLine(`${name} is free`, board.other_times)}
+        {timesLine('You are free', board.my_saved_times)}
+        {board.other_times.length === 0 && otherUsualLabel.length > 0 && (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            {name} is usually free: {otherUsualLabel}.
+          </Text>
+        )}
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          {myTurn ? 'Add a few more times, or ask in the chat.' : `${name} will see your times. Meanwhile:`}
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          <Chip
+            label="Mark more times"
+            selected={false}
+            onPress={() => {
+              setEditing(true);
+              setLookAgain(false);
+            }}
+          />
+        </View>
+        {askBox(['What days usually work for you? ', 'Would a weekend work for you? ', 'I could do '], 'Ask in the chat')}
+      </>,
+      myTurn ? 'Same idea, no time in common yet.' : `Same idea. ${name} will see your times.`
+    );
+  }
+
+  // Both sent, no idea in common yet. Every way forward is offered equally.
   const myTurn = !secondSaver;
   const askStems = [
     'None of those are quite me. How about ',
@@ -771,6 +832,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
                 } else {
                   await addOwnIdea(board.id, SIMPLE_IDEA);
                 }
+                await saveChain.current;
                 await savePicks(board.id);
               })
             }
@@ -789,7 +851,6 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
             setLookAgain(true);
           }}
         />
-        <Chip label="Ask in the chat" selected={askOpen} onPress={() => setAskOpen((v) => !v)} />
         <Chip
           label="Add your own or see new ideas"
           selected={false}
@@ -799,18 +860,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
           }}
         />
       </View>
-      {askOpen && !askSent && (
-        <StemMessageBox
-          stems={askStems}
-          onSend={async (text) => {
-            const ok = await sendChatMessage(connectionId, text);
-            if (ok) setAskSent(true);
-            return ok;
-          }}
-          onCancel={() => setAskOpen(false)}
-        />
-      )}
-      {askSent && <Text className="text-caption text-stone-500 dark:text-stone-400">Sent. Keep talking it over in the chat.</Text>}
+      {askBox(askStems, 'Ask in the chat')}
     </>,
     myTurn ? `No match yet. Take a look at ${name}'s picks.` : `No match yet. ${name} will see your picks.`
   );
@@ -896,8 +946,11 @@ function PrefsForm({
   const [travel, setTravel] = useState<number | null>(initial?.travel_minutes ?? null);
   const ready = budget && duration && travel;
   return (
-    <View className="gap-3">
-      <Text className="text-body text-stone-700 dark:text-stone-300">A few quick questions, so ideas fit you.</Text>
+    <View className="gap-2">
+      <View className="flex-row items-center justify-between gap-2">
+        <Text className="flex-1 text-body text-stone-700 dark:text-stone-300">So ideas fit you (optional)</Text>
+        <LinkButton label={editing ? 'Cancel' : 'Skip'} onPress={() => onDone(null)} />
+      </View>
       <Text className="text-caption text-stone-500 dark:text-stone-400">
         Ideas use whichever answer is lower for the two of you. {name} never sees your answers.
       </Text>
@@ -919,15 +972,14 @@ function PrefsForm({
           <Chip key={o.value} label={o.label} selected={travel === o.value} onPress={() => setTravel(o.value)} />
         ))}
       </View>
-      <View className="flex-row items-center gap-4">
+      <View className="mt-1 flex-row items-center gap-4">
         <PrimaryButton
-          label="Save"
+          label={editing ? 'Save' : 'Show ideas'}
           disabled={!ready}
           onPress={() => ready && onDone({ budget: budget!, duration: duration!, travel: travel! })}
         />
-        <LinkButton label={editing ? 'Cancel' : 'Skip for now'} muted onPress={() => onDone(null)} />
+        <Text className="flex-1 text-caption text-stone-400 dark:text-stone-500">Change these anytime in My limits.</Text>
       </View>
-      <Text className="text-caption text-stone-400 dark:text-stone-500">You can change these anytime.</Text>
     </View>
   );
 }

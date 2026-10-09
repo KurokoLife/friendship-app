@@ -38,9 +38,6 @@ export type PlanBoard = {
   closed_by: string | null;
   started_by: string;
   refreshes_left: number;
-  chosen_idea_id: string | null;
-  chosen_day: string | null;
-  chosen_part: PlanPart | null;
   created_at: string;
   last_activity_at: string;
   closes_at: string;
@@ -48,7 +45,11 @@ export type PlanBoard = {
   other_saved_at: string | null;
   no_match_rounds: number;
   ideas: PlanIdea[];
+  // My draft times (private until I save).
   my_times: PlanSlot[];
+  // What I last saved (what the other person sees).
+  my_saved_times: PlanSlot[];
+  // The other person's saved times.
   other_times: PlanSlot[];
 };
 
@@ -60,6 +61,8 @@ export type PlanState = {
   has_upcoming_plan: boolean;
   my_prefs: { budget: PlanBudget; duration: PlanDuration; travel_minutes: number } | null;
   my_home: { can_host: boolean; can_visit: boolean } | null;
+  // The other person's "When you're generally free" from their profile.
+  other_usual: string[];
   board: PlanBoard | null;
 };
 
@@ -103,40 +106,21 @@ export async function togglePick(ideaId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-// Saves my draft picks; the other person sees them from now on.
-export async function savePicks(boardId: string): Promise<{ other_saved: boolean; shared: number }> {
+// Saves my draft picks and times; the other person sees them from now on.
+export async function savePicks(boardId: string): Promise<{ other_saved: boolean; shared: number; shared_times: number }> {
   const { data, error } = await supabase.rpc('plan_save_picks', { p_board_id: boardId });
   if (error) throw new Error(error.message);
-  return data as { other_saved: boolean; shared: number };
+  return data as { other_saved: boolean; shared: number; shared_times: number };
 }
 
-// Puts my draft back to what I last saved.
+// Puts my draft picks and times back to what I last saved.
 export async function revertPicks(boardId: string): Promise<void> {
   const { error } = await supabase.rpc('plan_revert_picks', { p_board_id: boardId });
   if (error) throw new Error(error.message);
 }
 
-export async function chooseIdea(boardId: string, ideaId: string): Promise<void> {
-  const { error } = await supabase.rpc('plan_choose_idea', { p_board_id: boardId, p_idea_id: ideaId });
-  if (error) throw new Error(error.message);
-}
-
-export async function backToIdeas(boardId: string): Promise<void> {
-  const { error } = await supabase.rpc('plan_unchoose', { p_board_id: boardId });
-  if (error) throw new Error(error.message);
-}
-
 export async function setTimes(boardId: string, slots: PlanSlot[]): Promise<void> {
   const { error } = await supabase.rpc('plan_set_times', { p_board_id: boardId, p_slots: slots });
-  if (error) throw new Error(error.message);
-}
-
-export async function chooseTime(boardId: string, slot: PlanSlot | null): Promise<void> {
-  const { error } = await supabase.rpc('plan_choose_time', {
-    p_board_id: boardId,
-    p_day: slot?.day ?? null,
-    p_part: slot?.part ?? null,
-  });
   if (error) throw new Error(error.message);
 }
 
@@ -163,15 +147,15 @@ export async function setHomePref(connectionId: string, canHost: boolean, canVis
   if (error) throw new Error(error.message);
 }
 
-export type PlanStage = 'pick' | 'waiting' | 'matched' | 'no_match' | 'times';
+export type PlanStage = 'pick' | 'waiting' | 'matched' | 'no_time' | 'no_match';
 export type PlanTurn = { stage: PlanStage; waitingOnMe: boolean; closesAt: string };
 
 export const PLAN_STAGE_LABELS: Record<PlanStage, { mine: string; theirs: string }> = {
   pick: { mine: 'Planning together: your turn to pick', theirs: 'Planning together: your turn to pick' },
   waiting: { mine: 'Planning together: waiting for their picks', theirs: 'Planning together: waiting for their picks' },
-  matched: { mine: 'Planning together: you matched, suggest one', theirs: 'Planning together: you matched, talk it over' },
+  matched: { mine: 'Planning together: you matched, suggest the plan', theirs: 'Planning together: you matched' },
+  no_time: { mine: 'Planning together: same idea, find a time', theirs: 'Planning together: same idea, finding a time' },
   no_match: { mine: 'Planning together: no match yet, take a look', theirs: 'Planning together: no match yet' },
-  times: { mine: 'Planning together: mark when you are free', theirs: 'Planning together: picking a time' },
 };
 
 // Chats with an open planning card (for Inbox).
@@ -261,6 +245,11 @@ export function dayLabel(day: string): string {
 
 export function longDayLabel(day: string): string {
   return parseDay(day).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+// Plain list of the profile's "When you're generally free", lowercase.
+export function usualLabel(availability: string[] | null | undefined): string {
+  return (availability ?? []).filter(Boolean).map((a) => a.toLowerCase()).join(', ');
 }
 
 // Fills the 2 weeks from the profile's "When you're generally free".

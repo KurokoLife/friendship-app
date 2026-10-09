@@ -418,6 +418,28 @@ export default function TestToolsScreen() {
             </Section>
           )}
 
+          {chat && chat.has_messages && (
+            <Section
+              title="Nudge to meet in person"
+              hint={`Makes your chat with ${chat.name} look like you've been talking this long, then shows the card if you've never met and nothing is being planned. Both people need to have written.`}>
+              <View className="flex-row flex-wrap gap-2">
+                {[
+                  { label: 'Talking 3 weeks', days: 22 },
+                  { label: 'Talking 2 months', days: 61 },
+                  { label: 'Talking 6 months', days: 181 },
+                ].map((o) => (
+                  <Button
+                    key={o.label}
+                    label={o.label}
+                    busy={busy === 'meetnudge'}
+                    onPress={() => rpc('meetnudge', 'test_talking_age', { p_connection_id: chat.connection_id, p_days: o.days }, (d) => String(d))}
+                  />
+                ))}
+              </View>
+              <Status text={status.meetnudge} />
+            </Section>
+          )}
+
           {chat && <MeetupTestPanel chatId={chat.connection_id} chatName={chat.name} />}
 
           {!chat && (

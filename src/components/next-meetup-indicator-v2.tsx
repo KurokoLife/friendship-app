@@ -55,7 +55,7 @@ type Props = {
   editorRequest?: {
     mode: 'change' | 'details' | 'new';
     n: number;
-    prefill?: { date?: string; startTime?: string; activity?: string };
+    prefill?: { date?: string; startTime?: string; activity?: string; note?: string };
   } | null;
   onEndConnection?: () => void;
   // The pace question card is showing under this one: don't ask twice.
@@ -116,6 +116,9 @@ export function NextMeetupIndicatorV2({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showFirstMeetupOffer, setShowFirstMeetupOffer] = useState(false);
+  // A note the person wrote in the planning card. It goes to the other
+  // person together with the plan, once the plan is sent.
+  const [noteToSend, setNoteToSend] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -187,9 +190,10 @@ export function NextMeetupIndicatorV2({
   }, [firstMeetupOfferVisible, onVideoOfferChange]);
 
   const openEditor = useCallback(
-    (mode: EditMode, prefill?: { date?: string; startTime?: string; activity?: string }) => {
+    (mode: EditMode, prefill?: { date?: string; startTime?: string; activity?: string; note?: string }) => {
       setError(null);
       setPanel('none');
+      setNoteToSend(mode === 'new' ? prefill?.note?.trim() || null : null);
       if (mode === 'new') {
         setDateText(prefill?.date ?? '');
         setTimeText(prefill?.startTime ?? '');
@@ -305,6 +309,10 @@ export function NextMeetupIndicatorV2({
         placeLat: place.lat,
         placeLng: place.lng,
       });
+      if (noteToSend && editMode === 'new') {
+        await sendChatMessage(connectionId, noteToSend);
+        setNoteToSend(null);
+      }
       await afterChange();
     } catch {
       setError("Couldn't save the plan. Please try again.");
@@ -364,6 +372,15 @@ export function NextMeetupIndicatorV2({
     return (
       <View className="mx-6 mt-4 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{title}</Text>
+        {editMode === 'new' && noteToSend && (
+          <View className="gap-1 rounded-xl border border-stone-200 p-3 dark:border-stone-700">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Your note, sent with the plan:</Text>
+            <Text className="text-body text-stone-700 dark:text-stone-300">{noteToSend}</Text>
+            <Pressable onPress={() => setNoteToSend(null)} className="self-start">
+              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Remove note</Text>
+            </Pressable>
+          </View>
+        )}
         {editMode === 'change' && plan?.status === 'confirmed' && (
           <Text className="text-caption text-stone-500 dark:text-stone-400">
             {otherName} will need to confirm the new plan. Until then, the current plan is on hold.
