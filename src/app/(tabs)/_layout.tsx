@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import { SpotlightTarget } from '@/components/spotlight-target';
+import { useAccountKey } from '@/lib/account-key';
 import { useTestTools } from '@/lib/test-mode';
 
 const ACCENT_COLOR = '#B5643B'; // accent-500
@@ -21,9 +22,11 @@ export default function TabsLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { allowed: showTestTab } = useTestTools();
+  const accountKey = useAccountKey();
 
   return (
     <Tabs
+      key={accountKey}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: ACCENT_COLOR,

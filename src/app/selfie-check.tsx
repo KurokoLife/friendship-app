@@ -111,7 +111,7 @@ export default function SelfieCheckScreen() {
                 soon as it&apos;s been checked.
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                You can keep browsing your suggestions in the meantime.
+                You only do this once. You can already say Interested and start chatting while we check it.
               </Text>
             </View>
           ) : (

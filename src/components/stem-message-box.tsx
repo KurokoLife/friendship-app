@@ -30,7 +30,8 @@ export function StemMessageBox({
 }: {
   stems: string[];
   sendLabel?: string;
-  onSend: (text: string) => Promise<boolean>;
+  // true when sent; false or a message to show when it didn't go through.
+  onSend: (text: string) => Promise<boolean | string>;
   onCancel?: () => void;
   cancelLabel?: string;
 }) {
@@ -46,9 +47,10 @@ export function StemMessageBox({
     if (!addedOwnWords) return;
     setBusy(true);
     setError(null);
-    const ok = await onSend(trimmed);
+    const result = await onSend(trimmed);
     setBusy(false);
-    if (!ok) setError("That didn't send. Please try again.");
+    if (typeof result === 'string') setError(result);
+    else if (!result) setError("That didn't send. Please try again.");
   };
 
   return (

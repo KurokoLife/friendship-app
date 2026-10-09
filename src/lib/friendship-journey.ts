@@ -287,6 +287,9 @@ const PAUSE_ERRORS: Record<string, string> = {
   pause_length: 'A pause can last up to 2 weeks.',
   pause_limit: "You've paused this chat twice in the last month. If you need more space, you can end the connection instead.",
   only_pauser_can_resume: 'Only the person who paused this chat can resume it early. It opens again on its own on the end date.',
+  pause_note_required: 'Write a short note first, so they know why the chat is pausing.',
+  pause_note_too_long: 'Please keep the note under 1,000 characters.',
+  no_messages_yet: "There's nothing to pause yet. Say hello first.",
 };
 
 // An error whose message is safe and helpful to show as-is.
@@ -297,11 +300,18 @@ function pauseErrorMessage(message: string): string {
   return key ? PAUSE_ERRORS[key] : 'Something went wrong. Please try again.';
 }
 
-export async function pauseConnectionWithDuration(connectionId: string, duration: PauseDuration): Promise<void> {
+// A pause always comes with a short note the person writes themselves. The
+// note is sent as a message in the same step, just before the chat pauses.
+export async function pauseConnectionWithDuration(
+  connectionId: string,
+  duration: PauseDuration,
+  message: string
+): Promise<void> {
   const days = PAUSE_OPTIONS.find((o) => o.key === duration)?.days ?? 7;
   const { error } = await supabase.rpc('pause_connection_with_duration', {
     p_connection_id: connectionId,
     p_paused_until: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
+    p_message: message.trim(),
   });
   if (error) throw new FriendlyError(pauseErrorMessage(error.message ?? ''));
 }

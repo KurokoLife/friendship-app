@@ -291,11 +291,24 @@ export default function ThreadScreen() {
     await loadNewSystemIntervention();
   }, [connectionId, loadConnectionStatus, loadNewSystemIntervention]);
 
+  // Re-reads the messages, for changes made by the server on the person's
+  // behalf (the pause note) in case the live update is slow to arrive.
+  const reloadMessages = useCallback(async () => {
+    if (!connectionId) return;
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('connection_id', connectionId)
+      .order('created_at', { ascending: true });
+    if (data) setMessages(data as Message[]);
+  }, [connectionId]);
+
   const handlePaused = useCallback(async () => {
     setPauseModalVisible(false);
+    await reloadMessages();
     await loadConnectionStatus();
     await loadNewSystemIntervention();
-  }, [loadConnectionStatus, loadNewSystemIntervention]);
+  }, [reloadMessages, loadConnectionStatus, loadNewSystemIntervention]);
 
   // Report & Block: blocking is immediate and needs no further
   // confirmation step here, block_user() already did the real work
@@ -396,6 +409,7 @@ export default function ThreadScreen() {
         { data: myProfile },
         { data: myUserRow },
         mutual,
+        { data: selfieDone },
       ] = await Promise.all([
           // 2026-08-11 fix: was discovery_profiles, keyed by user_id, whose
           // WHERE clause hard-filters on gender/pause compatibility, a
@@ -423,10 +437,13 @@ export default function ThreadScreen() {
           supabase.from('profiles').select('photo_url').eq('user_id', user.id).maybeSingle(),
           supabase.from('users').select('gender_identity, selfie_verified_at').eq('id', user.id).maybeSingle(),
           connectionHasMutualInterest(connectionId),
+          // The selfie check is done once per account: a selfie that was
+          // sent (waiting for review) or approved counts (2026-10-09).
+          supabase.rpc('selfie_check_done', { p_user: user.id }),
         ]);
       if (cancelled) return;
 
-      setMySelfieVerified(Boolean(myUserRow?.selfie_verified_at));
+      setMySelfieVerified(Boolean(myUserRow?.selfie_verified_at) || Boolean(selfieDone));
       setHasMutualInterest(mutual);
 
       setOther(otherProfile ?? null);
@@ -913,6 +930,10 @@ export default function ThreadScreen() {
                   otherName={other?.display_name ?? 'them'}
                   onResolved={() => {
                     loadNewSystemIntervention();
+                    // "I need more time" pauses the chat from inside the card
+                    // and sends the note with it.
+                    loadConnectionStatus();
+                    reloadMessages();
                     // A card can change the plan or the meetup count ("Did
                     // you meet?" both yes), so the plan card reloads too.
                     setPlanRefreshKey((k) => k + 1);

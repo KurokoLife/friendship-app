@@ -449,6 +449,18 @@ export default function TestToolsScreen() {
             </View>
             <Status text={status.fresh} />
             <View className="gap-2 border-t border-stone-200 pt-3 dark:border-stone-700">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                To try the 3-chat limit: gives this test account real chats with other test accounts until it has 3
+                active conversations.
+              </Text>
+              <Button
+                label="Fill my chats to the limit"
+                busy={busy === 'fill'}
+                onPress={() => rpc('fill', 'test_fill_my_chats', {}, (d) => String(d))}
+              />
+              <Status text={status.fill} />
+            </View>
+            <View className="gap-2 border-t border-stone-200 pt-3 dark:border-stone-700">
               {!confirmMine ? (
                 <Button label="Reset this account's chats and matches" tone="danger" onPress={() => setConfirmMine(true)} />
               ) : (

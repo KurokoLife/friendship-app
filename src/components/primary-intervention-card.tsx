@@ -23,7 +23,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { formatMeetupTime, formatWhen } from '@/lib/meetup-format';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
-import { PauseChoices, pauseExplainer } from '@/components/pause-connection-modal';
+import { PauseForm, pauseExplainer } from '@/components/pause-connection-modal';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { nameThenPeriod } from '@/lib/names';
@@ -335,10 +335,7 @@ function NoGhostR2R3({
       {mode === 'defer' && (
         <View className="gap-2">
           <Text className="text-caption text-stone-500 dark:text-stone-400">{pauseExplainer(otherName)}</Text>
-          <PauseChoices connectionId={connectionId} onPaused={onResolved} />
-          <Pressable onPress={() => setMode('none')} className="self-start">
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Back</Text>
-          </Pressable>
+          <PauseForm connectionId={connectionId} otherName={otherName} onPaused={onResolved} onCancel={() => setMode('none')} />
         </View>
       )}
       {mode === 'reply' && (
