@@ -12,13 +12,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ActivitySuggestionsModal } from '@/components/activity-suggestions-modal';
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
 import { MirrorSheet } from '@/components/mirror-sheet';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { NextMeetupIndicatorV2 } from '@/components/next-meetup-indicator-v2';
+import { PlanBoardCard } from '@/components/plan-board-card';
 import { PauseConnectionModal } from '@/components/pause-connection-modal';
 import { PrimaryInterventionCard } from '@/components/primary-intervention-card';
 import { RememberReminderCard } from '@/components/remember-reminder-card';
@@ -35,6 +35,7 @@ import {
   type PauseDetails,
 } from '@/lib/friendship-journey';
 import { recordPlanActivity } from '@/lib/meetup-milestones';
+import { startPlanBoard } from '@/lib/plan-board';
 import { goBack } from '@/lib/navigation';
 import { HONEST_EXIT_RECEIVER_TEXT, HONEST_EXIT_SENDER_TEXT, senderReassuranceLine } from '@/lib/no-ghost';
 import { subscribeToMessages } from '@/lib/realtime-messages';
@@ -156,7 +157,10 @@ export default function ThreadScreen() {
   // screen after the chat flips to ended.
   const [honestExitSent, setHonestExitSent] = useState(false);
   const [rhythmNoteDismissed, setRhythmNoteDismissed] = useState(false);
-  const [activitySuggestionsVisible, setActivitySuggestionsVisible] = useState(false);
+  // "Let's plan something" (2026-10-09): the shared planning card.
+  const [planBoardKey, setPlanBoardKey] = useState(0);
+  const [planBoardOpenRequest, setPlanBoardOpenRequest] = useState(0);
+  const [planNotice, setPlanNotice] = useState<string | null>(null);
   const [mirrorVisible, setMirrorVisible] = useState(false);
   const [otherCareStyle, setOtherCareStyle] = useState<string | null>(null);
   useEffect(() => {
@@ -226,7 +230,11 @@ export default function ThreadScreen() {
   const [video6OfferActive, setVideo6OfferActive] = useState(false);
   // Meetup plans (2026-10-08): prompt cards can open the plan card's editor
   // and ask it to reload after they change the plan.
-  const [planEditorRequest, setPlanEditorRequest] = useState<{ mode: 'change' | 'details'; n: number } | null>(null);
+  const [planEditorRequest, setPlanEditorRequest] = useState<{
+    mode: 'change' | 'details' | 'new';
+    n: number;
+    prefill?: { date?: string; startTime?: string; activity?: string };
+  } | null>(null);
   const [planRefreshKey, setPlanRefreshKey] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -659,18 +667,35 @@ export default function ThreadScreen() {
     if (note) {
       setRememberReminderNote(note);
     } else {
-      setActivitySuggestionsVisible(true);
+      await openPlanBoard();
+    }
+  };
+
+  // Opens (or reopens) the shared planning card.
+  const openPlanBoard = async () => {
+    if (!connectionId) return;
+    setPlanNotice(null);
+    try {
+      await startPlanBoard(connectionId);
+      setPlanBoardKey((k) => k + 1);
+      setPlanBoardOpenRequest((k) => k + 1);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '';
+      if (/plan_exists/.test(message)) setPlanNotice('You already have a plan. You can change it in the plan card above.');
+      else if (/no_messages_yet/.test(message)) setPlanNotice('Say hello first, then you can plan something together.');
+      else if (/chat_not_open/.test(message)) setPlanNotice("You can't plan in this chat right now.");
+      else setPlanNotice("Couldn't start planning right now. Please try again.");
     }
   };
 
   const handleRememberReminderContinue = () => {
     setRememberReminderNote(null);
-    setActivitySuggestionsVisible(true);
+    openPlanBoard();
   };
 
   const handleFirstMilestoneClose = () => {
     setShowFirstMilestone(false);
-    setActivitySuggestionsVisible(true);
+    openPlanBoard();
   };
 
   const handleDismissRhythmNote = async () => {
@@ -919,12 +944,27 @@ export default function ThreadScreen() {
                 connectionId={connectionId}
                 myId={myId}
                 otherName={other?.display_name ?? 'them'}
-                onChanged={() => loadNewSystemIntervention()}
+                onChanged={() => {
+                  loadNewSystemIntervention();
+                  // A plan made or withdrawn shows or hides the planning card.
+                  setPlanBoardKey((k) => k + 1);
+                }}
                 onVideoOfferChange={setVideo3OfferActive}
                 refreshKey={planRefreshKey}
                 editorRequest={planEditorRequest}
                 onEndConnection={() => setEndConnectionVisible(true)}
                 paceAskedBelow={newSystemIntervention?.intervention_type === 'rhythm_reminder'}
+              />
+            )}
+            {myId && connectionId && (
+              <PlanBoardCard
+                connectionId={connectionId}
+                myId={myId}
+                otherName={other?.display_name ?? 'them'}
+                refreshKey={planBoardKey + planRefreshKey}
+                openRequest={planBoardOpenRequest}
+                onStart={openPlanBoard}
+                onGoToPlan={(prefill) => setPlanEditorRequest((r) => ({ mode: 'new', n: (r?.n ?? 0) + 1, prefill }))}
               />
             )}
             {newSystemIntervention && connectionId && (
@@ -1105,7 +1145,7 @@ export default function ThreadScreen() {
              footer, matching the same pattern the blocked state above
              already uses (replace, don't overlay). Deliberately hides
              "Let's plan something" too, since that also leads to a real
-             message send (via ActivitySuggestionsModal) and would
+             message send (via the planning card) and would
              otherwise be a second, ungated way to send this same first
              message. */
           <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
@@ -1121,7 +1161,7 @@ export default function ThreadScreen() {
           /* Part 1, 2026-08-14: same replace-the-footer pattern as the
              photo gate above, same "Let's plan something" hide for the
              same reason (it's a second path to the same gated first
-             message via ActivitySuggestionsModal). Deliberately doesn't
+             message via the planning card). Deliberately doesn't
              say WHICH of the two rules (a specific gender match, or
              "only I message first") blocked it, only that it did,
              matching this app's own established "ambiguous, not
@@ -1146,6 +1186,7 @@ export default function ThreadScreen() {
           <Pressable onPress={handlePlanSomething} className="self-start">
             <Text className="text-caption font-semibold text-accent-500">Let&apos;s plan something</Text>
           </Pressable>
+          {planNotice && <Text className="text-caption text-stone-500 dark:text-stone-400">{planNotice}</Text>}
 
           {sendError && (
             <Text className="text-caption text-red-600 dark:text-red-400">{sendError}</Text>
@@ -1214,15 +1255,6 @@ export default function ThreadScreen() {
         note={rememberReminderNote ?? ''}
         onContinue={handleRememberReminderContinue}
       />
-
-      {connectionId && (
-        <ActivitySuggestionsModal
-          visible={activitySuggestionsVisible}
-          onClose={() => setActivitySuggestionsVisible(false)}
-          connectionId={connectionId}
-          onSend={sendMessage}
-        />
-      )}
 
       {otherId && (
         <ReportModal

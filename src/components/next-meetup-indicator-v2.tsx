@@ -50,7 +50,13 @@ type Props = {
   // Set by the thread when a prompt card asks to move the plan ("Need to
   // move it") or add missing details; opens that editor here. `n` changes
   // on every request so the same mode can be asked for twice.
-  editorRequest?: { mode: 'change' | 'details'; n: number } | null;
+  // prefill (2026-10-09): the planning card hands over the idea and day
+  // it settled on, so a new plan starts filled in.
+  editorRequest?: {
+    mode: 'change' | 'details' | 'new';
+    n: number;
+    prefill?: { date?: string; startTime?: string; activity?: string };
+  } | null;
   onEndConnection?: () => void;
   // The pace question card is showing under this one: don't ask twice.
   paceAskedBelow?: boolean;
@@ -181,14 +187,14 @@ export function NextMeetupIndicatorV2({
   }, [firstMeetupOfferVisible, onVideoOfferChange]);
 
   const openEditor = useCallback(
-    (mode: EditMode) => {
+    (mode: EditMode, prefill?: { date?: string; startTime?: string; activity?: string }) => {
       setError(null);
       setPanel('none');
       if (mode === 'new') {
-        setDateText('');
-        setTimeText('');
+        setDateText(prefill?.date ?? '');
+        setTimeText(prefill?.startTime ?? '');
         setPlace(EMPTY_PLACE);
-        setActivityText('');
+        setActivityText((prefill?.activity ?? '').slice(0, 120));
       } else if (plan) {
         setDateText(plan.date);
         setTimeText(plan.start_time ?? '');
@@ -213,7 +219,7 @@ export function NextMeetupIndicatorV2({
   // "Need to move it" / "Add details" from a prompt card opens the editor.
   useEffect(() => {
     if (!editorRequest) return;
-    if (!plan) openEditor('new');
+    if (!plan || editorRequest.mode === 'new') openEditor('new', editorRequest.prefill);
     else openEditor(editorRequest.mode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorRequest?.n]);

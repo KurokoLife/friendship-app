@@ -398,6 +398,26 @@ export default function TestToolsScreen() {
             </Section>
           )}
 
+          {chat && chat.has_messages && (
+            <Section
+              title="Planning together"
+              hint={`Tap "Let's plan something" in your chat with ${chat.name} first. From 3 quiet days both people see when it will close; at 14 quiet days it closes.`}>
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  label="Make it 3 days quiet"
+                  busy={busy === 'planboard'}
+                  onPress={() => rpc('planboard', 'test_plan_board_age', { p_connection_id: chat.connection_id, p_days: 3 }, (d) => String(d))}
+                />
+                <Button
+                  label="Make it 14 days quiet"
+                  busy={busy === 'planboard'}
+                  onPress={() => rpc('planboard', 'test_plan_board_age', { p_connection_id: chat.connection_id, p_days: 14 }, (d) => String(d))}
+                />
+              </View>
+              <Status text={status.planboard} />
+            </Section>
+          )}
+
           {chat && <MeetupTestPanel chatId={chat.connection_id} chatName={chat.name} />}
 
           {!chat && (

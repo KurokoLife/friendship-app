@@ -9,6 +9,7 @@ import { UpcomingMeetupsStrip } from '@/components/upcoming-meetups-strip';
 import { track } from '@/lib/analytics';
 import { getPauseDetails, type PauseDetails } from '@/lib/friendship-journey';
 import { checkAndMarkGraduationContinuation } from '@/lib/graduation';
+import { fetchMyPlanTurns, type PlanTurn } from '@/lib/plan-board';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { subscribeToMessages } from '@/lib/realtime-messages';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -97,6 +98,7 @@ export default function InboxScreen() {
   const [capacity, setCapacity] = useState<CapacityStatus | null>(null);
   const [newMutual, setNewMutual] = useState<NewMutual[]>([]);
   const [pauses, setPauses] = useState<Map<string, PauseDetails>>(new Map());
+  const [planTurns, setPlanTurns] = useState<Record<string, PlanTurn>>({});
   const [loadCount, setLoadCount] = useState(0);
 
   const load = useCallback(async () => {
@@ -134,6 +136,7 @@ export default function InboxScreen() {
       supabase.from('blocks').select('blocked_id').eq('blocker_id', user.id),
       getPauseDetails(),
     ]);
+    fetchMyPlanTurns().then(setPlanTurns);
     setPauses(new Map(pauseRows.map((p) => [p.connection_id, p])));
     setIBlocked(new Set(((blockRows ?? []) as { blocked_id: string }[]).map((b) => b.blocked_id)));
     setNewMutual((mutualRows ?? []) as NewMutual[]);
@@ -326,6 +329,17 @@ export default function InboxScreen() {
         ) : (
           <>
             {showReplyReminder && <Text className="text-caption font-semibold text-accent-500">Your turn to reply</Text>}
+            {planTurns[c.connection_id] && (
+              <Text
+                className={`text-caption ${
+                  planTurns[c.connection_id].waitingOnMe ? 'font-semibold text-accent-500' : 'text-stone-500 dark:text-stone-400'
+                }`}>
+                {planTurns[c.connection_id].waitingOnMe ? 'Planning together: your turn' : 'Planning together'}
+                {Date.now() - (new Date(planTurns[c.connection_id].closesAt).getTime() - 14 * 86400000) >= 3 * 86400000
+                  ? ` · closes ${shortDay(planTurns[c.connection_id].closesAt)}`
+                  : ''}
+              </Text>
+            )}
           </>
         )}
       </Pressable>
