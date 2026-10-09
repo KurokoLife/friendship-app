@@ -1,9 +1,9 @@
-import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -60,7 +60,7 @@ export default function AdminSelfiesScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerClassName="gap-5 px-6 pb-10 pt-10">
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => goBack('/dev')}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
           <Text className="text-display text-stone-900 dark:text-stone-50">Selfie checks</Text>

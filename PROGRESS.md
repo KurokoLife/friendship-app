@@ -2112,3 +2112,21 @@ Two real bugs did turn up, both live-reproduced, not hypothesized: (1) the alrea
 **Verified:** `npx tsc --noEmit` clean throughout, checked after every edit and once more in the final state. No em dashes in any new code or copy. Migration `20260903000000_redesign_post_meetup_flow.sql` applied via `supabase db query --linked --file`, its 4 pieces (retimed evaluator with the `confirmed_date` payload addition, the `cancel_meetup` insert-fallback fix, the new `meetup_cancellation_reasons` table, and the new `submit_meetup_cancellation_reason` RPC) independently re-confirmed live via direct query and RPC calls, not assumed correct from the migration file alone. All test data on the Jordan/Sam connection (the FK self-reference on `meetups.superseded_by` required nulling before delete, one real gotcha hit and resolved before the cleanup query would succeed) was fully deleted afterward, independently re-confirmed via a zero-row requery across `meetups`, `connection_interventions`, `meetup_cancellation_reasons`, and `pre_meetup_concerns` for that connection. Temporary Playwright test scripts and screenshots were removed after use; `_lv_helpers.js` (the shared session-injection harness) was deliberately left in place, still needed for Parts 4-8.
 
 **Not built:** no changes to the `post_meetup_reflection` intervention itself (deliberately reused as-is for "how did it go," per the reasoning above). No persistence of the local sub-flow's exact step on reload beyond returning to the initial "ask" state, a deliberate, smaller-scope fix than a full state resume, flagged rather than silently assumed to be a complete solution.
+
+### Session, October 8-9, 2026 (meetup plans, reminder/Test-tab rebuild, testing fixes)
+
+Verified on a full local copy (real Postgres with every migration, PostgREST, a small auth stand-in, the exported web app, Playwright). Suites: qa-oct9 37/37, qa-noghost 33/33, qa-meetups 54/54, qa-mochi 6/6, qa-testtab 27/27.
+
+**Oct 8 (commits bc4e17f, d6cfd01, 159a0cb):** meetup plans with time/place/activity, moving plans with re-confirm, day-before "Still on?", morning-of support, "Did you meet?", no-show; first + last name (shown as "Maria S."); phone date/time pickers; live plan updates; reminder cards that can actually be put away (`dismiss_intervention`, `raise_intervention_once`); meetup prompts outrank reply reminders; repeat "more time?" question removed; meetup history rebuilt; Test tab rebuilt and `dev_*` functions locked behind `is_test_operator()` wrappers. Migrations 20261008000000/1/2.
+
+**Oct 9 (migration `20261009000000_places_pace_profiles.sql`):**
+- Test banner swallowed taps on Back/Report/Block: react-native-web drops a `pointerEvents: 'box-none'` *style*; must be the prop. Same fix in `spotlight-host.tsx`.
+- `goBack(fallback)` (`src/lib/navigation.ts`) replaces bare `router.back()` everywhere; dead-end "not available" screens got a Go back link.
+- Inbox: a chat blocked by the other person shows "Not available" under "Closed", never "Blocked" (only the blocker sees Blocked).
+- `connected_profiles` view: a past chat's profile opens even if it no longer matches search filters; past ended/inactive chats show "Say hello again" (the old Interested rows made the button look already done).
+- Place search via Photon/OpenStreetMap (no key), saves name/address/position; plan card shows address plus Google Maps / Apple Maps links; calendar invite includes the address.
+- Changing only "what you'll do" no longer counts as moving the plan (`update_meetup_activity`).
+- Meeting pace in the chat (`get_pace_summary`): you see your own; "You both said ..." only when both picked the same. The other person's different answer is never returned.
+- `limen_db_version()` + Test tab notice listing the migrations to run when the database is behind.
+
+**Open:** the "First Meetup Does Not Need to Be Perfect" video is also offered on the morning of later meetups; its content/title should be made general (founder decision). Batch 2 items (capacity copy, mutual-match nudge/auto-close, pause rules) not started.

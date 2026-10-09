@@ -1,8 +1,8 @@
-import { router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { JOURNEY_PRICE_OPTIONS, MONETIZATION_PHASE } from '@/lib/monetization';
+import { goBack } from '@/lib/navigation';
 
 // Limen v2 (2026-10-03): this route used to sell "Premium" ($5.99/month)
 // for more suggestions, more active conversations, and more pending
@@ -25,7 +25,7 @@ export default function SupportLimenScreen() {
   return (
     <SafeAreaView className="flex-1 bg-stone-50 dark:bg-stone-900">
       <ScrollView contentContainerClassName="gap-5 px-6 py-6">
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => goBack('/settings')}>
           <Text className="text-body text-stone-500 dark:text-stone-400">Back</Text>
         </Pressable>
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateField, FieldLabel, TimeField } from '@/components/date-time-field';
+import { EMPTY_PLACE, PlaceField, type PlaceValue } from '@/components/place-field';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { getSeenCoachMarks, markCoachMarkSeen } from '@/lib/coach-marks';
 import {
@@ -10,16 +11,23 @@ import {
   cancelMeetup,
   confirmMeetup,
   getMeetupPlan,
+  getPaceSummary,
+  PACE_LABELS,
   proposeMeetup,
   respondToMeetupPrompt,
+  submitRhythmPreference,
+  updateMeetupActivity,
   type MeetupPlan,
+  type PaceKey,
 } from '@/lib/friendship-journey';
 import {
   downloadIcs,
   formatMeetupTime,
   formatWhen,
   isValidIsoDate,
+  mapLinks,
   openGoogleCalendar,
+  openUrl,
   parseTimeInput,
   toIsoDate,
   type CalendarPlan,
@@ -45,6 +53,8 @@ type Props = {
   // on every request so the same mode can be asked for twice.
   editorRequest?: { mode: 'change' | 'details'; n: number } | null;
   onEndConnection?: () => void;
+  // The pace question card is showing under this one: don't ask twice.
+  paceAskedBelow?: boolean;
 };
 
 type EditMode = 'new' | 'change' | 'details';
@@ -86,6 +96,7 @@ export function NextMeetupIndicatorV2({
   refreshKey,
   editorRequest,
   onEndConnection,
+  paceAskedBelow,
 }: Props) {
   const [plan, setPlan] = useState<MeetupPlan | null>(null);
   const [meetupCount, setMeetupCount] = useState(0);
@@ -95,7 +106,7 @@ export function NextMeetupIndicatorV2({
   const [panel, setPanel] = useState<Panel>('none');
   const [dateText, setDateText] = useState('');
   const [timeText, setTimeText] = useState('');
-  const [placeText, setPlaceText] = useState('');
+  const [place, setPlace] = useState<PlaceValue>(EMPTY_PLACE);
   const [activityText, setActivityText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -177,16 +188,21 @@ export function NextMeetupIndicatorV2({
       if (mode === 'new') {
         setDateText('');
         setTimeText('');
-        setPlaceText('');
+        setPlace(EMPTY_PLACE);
         setActivityText('');
       } else if (plan) {
         setDateText(plan.date);
         setTimeText(plan.start_time ?? '');
-        setPlaceText(plan.place ?? '');
+        setPlace({
+          name: plan.place ?? '',
+          address: plan.place_address ?? null,
+          lat: plan.place_lat ?? null,
+          lng: plan.place_lng ?? null,
+        });
         setActivityText(plan.activity ?? '');
         if (mode === 'details') {
           setTimeText('');
-          setPlaceText('');
+          setPlace(EMPTY_PLACE);
           setActivityText('');
         }
       }
@@ -225,13 +241,20 @@ export function NextMeetupIndicatorV2({
     }
     if (editMode === 'details') {
       if (!plan) return;
-      if (!time.value && !placeText.trim() && !activityText.trim()) {
+      if (!time.value && !place.name.trim() && !activityText.trim()) {
         setError('Add at least one detail.');
         return;
       }
       setBusy(true);
       try {
-        await addMeetupDetails(plan.id, { startTime: time.value, place: placeText, activity: activityText });
+        await addMeetupDetails(plan.id, {
+          startTime: time.value,
+          place: place.name,
+          activity: activityText,
+          placeAddress: place.address,
+          placeLat: place.lat,
+          placeLng: place.lng,
+        });
         await afterChange();
       } catch {
         setError("Couldn't save that. Please try again.");
@@ -248,24 +271,34 @@ export function NextMeetupIndicatorV2({
       setError('Pick today or a later date.');
       return;
     }
-    if (
+    const sameWhenWhere =
       editMode === 'change' &&
       plan &&
       dateText === plan.date &&
       (time.value ?? null) === (plan.start_time ?? null) &&
-      (placeText.trim() || null) === (plan.place ?? null) &&
-      (activityText.trim() || null) === (plan.activity ?? null)
-    ) {
+      (place.name.trim() || null) === (plan.place ?? null) &&
+      (place.address ?? null) === (plan.place_address ?? null);
+    if (sameWhenWhere && (activityText.trim() || null) === (plan.activity ?? null)) {
       setError('Nothing has changed yet.');
       return;
     }
     setBusy(true);
     try {
+      // Only "what you'll do" changed: update it in place. Date, time and
+      // place are the same, so there's nothing to confirm again (2026-10-09).
+      if (sameWhenWhere && plan) {
+        await updateMeetupActivity(plan.id, activityText);
+        await afterChange();
+        return;
+      }
       await proposeMeetup(connectionId, {
         date: dateText,
         startTime: time.value,
-        place: placeText,
+        place: place.name,
         activity: activityText,
+        placeAddress: place.address,
+        placeLat: place.lat,
+        placeLng: place.lng,
       });
       await afterChange();
     } catch {
@@ -295,9 +328,12 @@ export function NextMeetupIndicatorV2({
     startTime: p.start_time,
     timeZone: p.time_zone,
     place: p.place,
+    placeAddress: p.place_address ?? null,
     activity: p.activity,
     otherName,
   });
+
+  const paceLine = <PaceLine connectionId={connectionId} meetupCount={meetupCount} refreshKey={refreshKey} hideAsk={paceAskedBelow} />;
 
   const historyLink =
     meetupCount > 0 ? (
@@ -343,15 +379,7 @@ export function NextMeetupIndicatorV2({
         {(editMode !== 'details' || !plan?.place) && (
           <View className="gap-1">
             <FieldLabel label="Place" optional={editMode !== 'details'} />
-            <TextInput
-              value={placeText}
-              onChangeText={setPlaceText}
-              placeholder="e.g. Blue Bottle on 3rd St"
-              placeholderTextColor={MUTED_ICON_COLOR}
-              maxLength={120}
-              editable={!busy}
-              className="rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-            />
+            <PlaceField value={place} onChange={setPlace} disabled={busy} />
           </View>
         )}
         {(editMode !== 'details' || !plan?.activity) && (
@@ -401,6 +429,7 @@ export function NextMeetupIndicatorV2({
             <Text className="text-caption font-semibold text-accent-500">Plan a meetup</Text>
           </Pressable>
         </View>
+        {paceLine}
         {historyLink}
       </View>
     );
@@ -416,6 +445,21 @@ export function NextMeetupIndicatorV2({
         {formatWhen(plan.date, plan.start_time)}
       </Text>
       {plan.place && <Text className="text-body text-stone-700 dark:text-stone-300">{plan.place}</Text>}
+      {plan.place_address && (
+        <Text className="text-caption text-stone-500 dark:text-stone-400">{plan.place_address}</Text>
+      )}
+      {plan.place && (
+        <View className="flex-row gap-3 pt-0.5">
+          <Pressable
+            onPress={() => openUrl(mapLinks(plan.place!, plan.place_address, plan.place_lat, plan.place_lng).google)}>
+            <Text className="text-caption font-semibold text-accent-500">Google Maps</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => openUrl(mapLinks(plan.place!, plan.place_address, plan.place_lat, plan.place_lng).apple)}>
+            <Text className="text-caption font-semibold text-accent-500">Apple Maps</Text>
+          </Pressable>
+        </View>
+      )}
       {plan.activity && <Text className="text-caption text-stone-500 dark:text-stone-400">{plan.activity}</Text>}
       {plan.move_count > 0 && (
         <Text className="text-caption text-stone-400 dark:text-stone-500">
@@ -568,6 +612,7 @@ export function NextMeetupIndicatorV2({
           </Pressable>
         </View>
         {messagePanel}
+        {paceLine}
         {historyLink}
       </View>
     );
@@ -632,7 +677,93 @@ export function NextMeetupIndicatorV2({
           </Pressable>
         </View>
       )}
+      {paceLine}
       {historyLink}
+    </View>
+  );
+}
+
+// Meeting pace in the chat (2026-10-09). Each person picks privately how
+// often they'd like to meet. You always see your own answer; when you both
+// picked the same pace, you both see that you agree. A different answer is
+// never shown to the other person.
+const PACE_ORDER: PaceKey[] = ['weekly', 'few_weeks', 'monthly', 'occasional', 'not_sure'];
+
+function PaceLine({
+  connectionId,
+  meetupCount,
+  refreshKey,
+  hideAsk,
+}: {
+  connectionId: string;
+  meetupCount: number;
+  refreshKey?: number;
+  hideAsk?: boolean;
+}) {
+  const [pace, setPace] = useState<{ mine: PaceKey | null; bothSame: boolean } | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setPace(await getPaceSummary(connectionId));
+  }, [connectionId]);
+
+  useEffect(() => {
+    load();
+  }, [load, refreshKey]);
+
+  if (!pace) return null;
+  // Asked once you've met; before that, only shown if already answered.
+  if (!pace.mine && (meetupCount < 1 || hideAsk)) return null;
+
+  if (picking) {
+    return (
+      <View className="gap-2 border-t border-stone-200 pt-3 dark:border-stone-700">
+        <Text className="text-caption text-stone-600 dark:text-stone-300">
+          How often would you like to get together? Only you see your answer. If you both pick the same pace, you&apos;ll
+          both see that you agree.
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {PACE_ORDER.map((k) => (
+            <Pressable
+              key={k}
+              disabled={busy}
+              onPress={async () => {
+                setBusy(true);
+                try {
+                  await submitRhythmPreference(connectionId, k);
+                  await load();
+                  setPicking(false);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              className={`rounded-full border px-3 py-1.5 ${
+                pace.mine === k ? 'border-accent-500 bg-accent-500/10' : 'border-stone-300 dark:border-stone-700'
+              }`}>
+              <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">{PACE_LABELS[k]}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable onPress={() => setPicking(false)} className="self-start">
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Close</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
+      <Text className="text-caption text-stone-600 dark:text-stone-300">
+        {!pace.mine
+          ? 'How often would you like to meet?'
+          : pace.bothSame
+            ? `You both said: ${PACE_LABELS[pace.mine].toLowerCase()}`
+            : `Your pace: ${pace.mine === 'not_sure' ? 'not sure yet' : PACE_LABELS[pace.mine].toLowerCase()} (only you see this)`}
+      </Text>
+      <Pressable onPress={() => setPicking(true)}>
+        <Text className="text-caption font-semibold text-accent-500">{pace.mine ? 'Change' : 'Set your pace'}</Text>
+      </Pressable>
     </View>
   );
 }

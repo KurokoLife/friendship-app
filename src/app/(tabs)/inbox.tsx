@@ -70,6 +70,10 @@ export default function InboxScreen() {
   const [loaded, setLoaded] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [yourTurn, setYourTurn] = useState<Set<string>>(new Set());
+  // People this account blocked. A chat that is blocked by the OTHER person
+  // must not say "Blocked" here (2026-10-09): the blocked person only ever
+  // sees that the chat isn't available, the same as in the chat itself.
+  const [iBlocked, setIBlocked] = useState<Set<string>>(new Set());
   const [capacity, setCapacity] = useState<CapacityStatus | null>(null);
   const [newMutual, setNewMutual] = useState<NewMutual[]>([]);
   const [loadCount, setLoadCount] = useState(0);
@@ -86,7 +90,7 @@ export default function InboxScreen() {
       setLoaded(true);
       return;
     }
-    const [{ data }, { data: reminderRows }, { data: capacityRows }, { data: mutualRows }] = await Promise.all([
+    const [{ data }, { data: reminderRows }, { data: capacityRows }, { data: mutualRows }, { data: blockRows }] = await Promise.all([
       supabase.from('inbox_conversations').select('*').order('last_message_at', { ascending: false }),
       // 2026-10-08: "Your turn" now reads the reminders the app actually
       // sends (the old no-ghost and reflection tables are retired, so this
@@ -105,7 +109,10 @@ export default function InboxScreen() {
         .from('new_mutual_connections')
         .select('connection_id, other_user_id, display_name, created_at')
         .order('created_at', { ascending: false }),
+      // blocks is readable only by the blocker, so this is exactly "who I blocked".
+      supabase.from('blocks').select('blocked_id').eq('blocker_id', user.id),
     ]);
+    setIBlocked(new Set(((blockRows ?? []) as { blocked_id: string }[]).map((b) => b.blocked_id)));
     setNewMutual((mutualRows ?? []) as NewMutual[]);
     const loadedConversations = (data ?? []) as Conversation[];
     setConversations(loadedConversations);
@@ -194,8 +201,11 @@ export default function InboxScreen() {
   const ended: Conversation[] = [];
   const graduated: Conversation[] = [];
   const rest: Conversation[] = [];
+  const blockedByThem = (c: Conversation) => c.connection_status === 'blocked' && !iBlocked.has(c.other_user_id);
   for (const c of conversations) {
-    if (c.connection_status === 'blocked') {
+    if (blockedByThem(c)) {
+      ended.push(c);
+    } else if (c.connection_status === 'blocked') {
       blocked.push(c);
     } else if (c.connection_status === 'ended') {
       ended.push(c);
@@ -258,7 +268,9 @@ export default function InboxScreen() {
             Met {c.meetup_count} {c.meetup_count === 1 ? 'time' : 'times'}
           </Text>
         )}
-        {c.connection_status === 'blocked' ? (
+        {blockedByThem(c) ? (
+          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Not available</Text>
+        ) : c.connection_status === 'blocked' ? (
           <Text className="text-caption font-semibold text-red-500 dark:text-red-400">Blocked</Text>
         ) : c.connection_status === 'ended' ? (
           <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Ended</Text>
@@ -401,7 +413,7 @@ export default function InboxScreen() {
           {ended.length > 0 && (
             <View className="gap-3">
               <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                Ended
+                Closed
               </Text>
               {ended.map(renderConversation)}
             </View>

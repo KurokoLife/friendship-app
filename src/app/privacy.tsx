@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { goBack } from '@/lib/navigation';
 
 // Placeholder content only, same status and reasoning as terms.tsx.
 export default function PrivacyScreen() {
@@ -8,7 +8,7 @@ export default function PrivacyScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="flex-row items-center px-6 pt-4">
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => goBack('/settings')}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
         </View>

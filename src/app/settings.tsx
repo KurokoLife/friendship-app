@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { track } from '@/lib/analytics';
 import { resetCoachMarks } from '@/lib/coach-marks';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -200,7 +201,7 @@ export default function SettingsScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="flex-row items-center justify-between px-6 pt-4">
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => goBack('/profile')}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
           <Text className="text-title text-stone-900 dark:text-stone-50">Settings</Text>

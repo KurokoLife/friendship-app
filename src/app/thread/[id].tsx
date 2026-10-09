@@ -92,6 +92,7 @@ import {
   SCAM_CHECK_EARLY_MESSAGE_COUNT,
   SCAM_NOTE_COPY,
 } from '@/lib/safety';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -760,10 +761,13 @@ export default function ThreadScreen() {
 
   if (notFound || !myId) {
     return (
-      <View className="flex-1 items-center justify-center bg-stone-50 dark:bg-stone-900 px-6">
+      <View className="flex-1 items-center justify-center gap-4 bg-stone-50 dark:bg-stone-900 px-6">
         <Text className="text-center text-body text-stone-500 dark:text-stone-400">
           That conversation isn&apos;t available.
         </Text>
+        <Pressable onPress={() => goBack('/inbox')}>
+          <Text className="text-caption font-semibold text-accent-500">Go back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -942,7 +946,7 @@ export default function ThreadScreen() {
       <SafeAreaView className="flex-1">
         <View className="gap-1 border-b border-stone-200 px-6 pb-4 pt-4 dark:border-stone-800">
           <View className="flex-row items-center justify-between">
-            <Pressable onPress={() => router.replace('/home')}>
+            <Pressable onPress={() => goBack('/inbox')}>
               <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
             </Pressable>
             {/* Report & Block: always reachable from Chat regardless of
@@ -1123,6 +1127,7 @@ export default function ThreadScreen() {
                 refreshKey={planRefreshKey}
                 editorRequest={planEditorRequest}
                 onEndConnection={() => setEndConnectionVisible(true)}
+                paceAskedBelow={newSystemIntervention?.intervention_type === 'rhythm_reminder'}
               />
             )}
             {newSystemIntervention && connectionId && (

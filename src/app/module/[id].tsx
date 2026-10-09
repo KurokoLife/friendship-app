@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { VideoPlaceholder } from '@/components/video-placeholder';
 import { getModule } from '@/lib/modules-data';
 import { getModuleVideoUrl } from '@/lib/module-videos';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 const ACCENT_COLOR = '#B5643B'; // accent-500
@@ -73,14 +74,14 @@ export default function ModuleDetailScreen() {
       return;
     }
 
-    router.back();
+    goBack('/guides');
   };
 
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="px-6 pt-10">
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => goBack('/guides')}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
         </View>

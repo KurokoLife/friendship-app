@@ -98,9 +98,40 @@ export type CalendarPlan = {
   startTime: string | null;
   timeZone: string;
   place: string | null;
+  placeAddress?: string | null;
   activity: string | null;
   otherName: string;
 };
+
+// "Blue Bottle Coffee, 300 Webster St, Oakland" for calendar invites.
+function calendarLocation(plan: CalendarPlan): string | null {
+  if (!plan.place) return null;
+  return plan.placeAddress ? `${plan.place}, ${plan.placeAddress}` : plan.place;
+}
+
+// Links that open a place in Google Maps or Apple Maps (2026-10-09). Work
+// with just a typed name too; a picked place adds its address and position.
+export function mapLinks(
+  place: string,
+  address?: string | null,
+  lat?: number | null,
+  lng?: number | null
+): { google: string; apple: string } {
+  const query = address ? `${place}, ${address}` : place;
+  const google = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  const apple = new URLSearchParams({ q: place });
+  if (address) apple.set('address', address);
+  if (lat != null && lng != null) apple.set('ll', `${lat},${lng}`);
+  return { google, apple: `https://maps.apple.com/?${apple.toString()}` };
+}
+
+export async function openUrl(url: string): Promise<void> {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  await Linking.openURL(url);
+}
 
 const MEETUP_LENGTH_MS = 2 * 60 * 60 * 1000;
 
@@ -128,7 +159,8 @@ function buildIcs(plan: CalendarPlan): string {
     lines.push(`DTSTART;VALUE=DATE:${plan.date.replace(/-/g, '')}`, `DTEND;VALUE=DATE:${toIsoDate(next).replace(/-/g, '')}`);
   }
   lines.push(`SUMMARY:${icsEscape(calendarTitle(plan))}`);
-  if (plan.place) lines.push(`LOCATION:${icsEscape(plan.place)}`);
+  const location = calendarLocation(plan);
+  if (location) lines.push(`LOCATION:${icsEscape(location)}`);
   lines.push('DESCRIPTION:Planned in Limen.', 'END:VEVENT', 'END:VCALENDAR');
   return lines.join('\r\n');
 }
@@ -149,7 +181,8 @@ export function googleCalendarUrl(plan: CalendarPlan): string {
     dates,
     details: 'Planned in Limen.',
   });
-  if (plan.place) params.set('location', plan.place);
+  const location = calendarLocation(plan);
+  if (location) params.set('location', location);
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 

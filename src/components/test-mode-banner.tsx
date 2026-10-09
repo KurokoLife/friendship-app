@@ -15,7 +15,10 @@ export function TestModeBanner() {
     // At the top of the screen (2026-10-08): at the bottom it sat exactly
     // where first-time tips appear above the tab bar, and a tip could cover
     // the "Back to my account" button.
-    <View style={{ position: 'absolute', left: 0, right: 0, top: 6, alignItems: 'center', pointerEvents: 'box-none', zIndex: 1000 }}>
+    // pointerEvents must be the prop, not a style: react-native-web drops a
+    // 'box-none' style, which made this full-width strip swallow taps on the
+    // Back / Report / Block row underneath it (2026-10-09).
+    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, top: 6, alignItems: 'center', zIndex: 1000 }}>
       <View className="flex-row items-center gap-2 rounded-full bg-accent-500 py-1 pl-3 pr-1 shadow">
         <Text className="text-caption font-semibold text-white">Testing as {actingAs}</Text>
         <Pressable

@@ -59,6 +59,10 @@ export type MeetupPlanInput = {
   startTime?: string | null; // HH:MM, 24-hour
   place?: string | null;
   activity?: string | null;
+  // Set when the place was picked from the map search.
+  placeAddress?: string | null;
+  placeLat?: number | null;
+  placeLng?: number | null;
 };
 
 export function deviceTimeZone(): string | null {
@@ -77,6 +81,9 @@ export async function proposeMeetup(connectionId: string, plan: MeetupPlanInput)
     p_place: plan.place?.trim() || null,
     p_activity: plan.activity?.trim() || null,
     p_time_zone: deviceTimeZone(),
+    p_place_address: plan.placeAddress?.trim() || null,
+    p_place_lat: plan.placeLat ?? null,
+    p_place_lng: plan.placeLng ?? null,
   });
   if (error) throw error;
   return data as string;
@@ -86,15 +93,51 @@ export async function proposeMeetup(connectionId: string, plan: MeetupPlanInput)
 // so no re-confirm is needed.
 export async function addMeetupDetails(
   meetupId: string,
-  details: { startTime?: string | null; place?: string | null; activity?: string | null }
+  details: {
+    startTime?: string | null;
+    place?: string | null;
+    activity?: string | null;
+    placeAddress?: string | null;
+    placeLat?: number | null;
+    placeLng?: number | null;
+  }
 ): Promise<void> {
   const { error } = await supabase.rpc('add_meetup_details', {
     p_meetup_id: meetupId,
     p_start_time: details.startTime || null,
     p_place: details.place?.trim() || null,
     p_activity: details.activity?.trim() || null,
+    p_place_address: details.placeAddress?.trim() || null,
+    p_place_lat: details.placeLat ?? null,
+    p_place_lng: details.placeLng ?? null,
   });
   if (error) throw error;
+}
+
+// Only "what you'll do" changed: no re-confirm needed (2026-10-09).
+export async function updateMeetupActivity(meetupId: string, activity: string): Promise<void> {
+  const { error } = await supabase.rpc('update_meetup_activity', { p_meetup_id: meetupId, p_activity: activity });
+  if (error) throw error;
+}
+
+export type PaceKey = 'weekly' | 'few_weeks' | 'monthly' | 'occasional' | 'not_sure';
+export const PACE_LABELS: Record<PaceKey, string> = {
+  weekly: 'Every week or two',
+  few_weeks: 'Every few weeks',
+  monthly: 'About once a month',
+  occasional: 'Occasionally',
+  not_sure: "I'm not sure yet",
+};
+
+// Your own meeting pace for a chat, and whether the other person picked
+// the same one. Their answer itself is never returned.
+export async function getPaceSummary(
+  connectionId: string
+): Promise<{ mine: PaceKey | null; bothSame: boolean } | null> {
+  const { data, error } = await supabase.rpc('get_pace_summary', { p_connection_id: connectionId });
+  if (error || !data) return null;
+  const d = data as { mine: PaceKey | null; both_same: boolean };
+  return { mine: d.mine, bothSame: Boolean(d.both_same) };
 }
 
 export type MeetupPlan = {
@@ -103,6 +146,9 @@ export type MeetupPlan = {
   date: string;
   start_time: string | null;
   place: string | null;
+  place_address?: string | null;
+  place_lat?: number | null;
+  place_lng?: number | null;
   activity: string | null;
   time_zone: string;
   proposed_by: string;

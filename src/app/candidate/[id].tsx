@@ -15,6 +15,7 @@ import {
   WAITING_FOR_INTEREST_COPY,
 } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 const ACCENT_COLOR = '#B5643B'; // accent-500
@@ -42,6 +43,10 @@ export default function CandidateProfileScreen() {
   // Set when a live connection already has a conversation or mutual
   // interest, so the main button opens the chat instead.
   const [openConnectionId, setOpenConnectionId] = useState<string | null>(null);
+  // A past chat that ended or closed (2026-10-09). The old "Interested"
+  // choices are still on file, so the button showed "Interested" as already
+  // done and nothing could be tapped. It now offers "Say hello again".
+  const [pastChat, setPastChat] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [state, setState] = useState<ConnectionState>({ saved: false, status: null });
   const [loaded, setLoaded] = useState(false);
@@ -87,6 +92,7 @@ export default function CandidateProfileScreen() {
       ]);
 
       const live = (anyConnections ?? []).find((c) => LIVE_STATUSES.has(c.status as string | null));
+      setPastChat(!live && (anyConnections ?? []).some((c) => c.status === 'ended' || c.status === 'inactive'));
       if (live) {
         const [{ count }, mutual] = await Promise.all([
           supabase.from('messages').select('id', { count: 'exact', head: true }).eq('connection_id', live.id),
@@ -95,7 +101,20 @@ export default function CandidateProfileScreen() {
         if ((count ?? 0) > 0 || mutual) setOpenConnectionId(live.id);
       }
 
-      setProfile(profileRow as PublicProfile | null);
+      // Someone you already had a chat with may no longer match your search
+      // filters (distance, age range, a changed preference). Their profile
+      // still opens, so "Visit their profile to say hello again" works
+      // (2026-10-09). Blocked either way still hides it.
+      let shownProfile = profileRow as PublicProfile | null;
+      if (!shownProfile && (anyConnections ?? []).length > 0) {
+        const { data: connectedRow } = await supabase
+          .from('connected_profiles')
+          .select(PUBLIC_PROFILE_COLUMNS)
+          .eq('user_id', id)
+          .maybeSingle();
+        shownProfile = connectedRow as PublicProfile | null;
+      }
+      setProfile(shownProfile);
       setInterested(interestIds.has(id));
       setState({
         saved: Boolean(connectionRow?.saved),
@@ -133,7 +152,7 @@ export default function CandidateProfileScreen() {
     setPendingAction(null);
     setState((prev) => ({ ...prev, status }));
     if (status === 'passed') {
-      router.back();
+      goBack('/home');
     }
   };
 
@@ -188,10 +207,13 @@ export default function CandidateProfileScreen() {
 
   if (!profile) {
     return (
-      <View className="flex-1 items-center justify-center bg-stone-50 dark:bg-stone-900 px-6">
+      <View className="flex-1 items-center justify-center gap-4 bg-stone-50 px-6 dark:bg-stone-900">
         <Text className="text-center text-body text-stone-500 dark:text-stone-400">
           That profile isn&apos;t available anymore.
         </Text>
+        <Pressable onPress={() => goBack('/home')}>
+          <Text className="text-caption font-semibold text-accent-500">Go back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -200,7 +222,7 @@ export default function CandidateProfileScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="flex-row items-center justify-between px-6 pt-10">
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => goBack('/home')}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
           {/* Report & Block, reachable from the Other User Profile screen
@@ -249,16 +271,16 @@ export default function CandidateProfileScreen() {
             </Pressable>
             <Pressable
               onPress={handleInterested}
-              disabled={(interested && !openConnectionId) || pendingAction === 'interested'}
+              disabled={(interested && !openConnectionId && !pastChat) || pendingAction === 'interested'}
               className={`flex-1 flex-row items-center justify-center gap-1 rounded-full py-3 active:opacity-80 ${
-                interested && !openConnectionId ? 'border border-accent-500' : 'bg-stone-900 dark:bg-stone-50'
+                interested && !openConnectionId && !pastChat ? 'border border-accent-500' : 'bg-stone-900 dark:bg-stone-50'
               }`}>
-              {interested && !openConnectionId && <Ionicons name="checkmark" size={14} color={ACCENT_COLOR} />}
+              {interested && !openConnectionId && !pastChat && <Ionicons name="checkmark" size={14} color={ACCENT_COLOR} />}
               <Text
                 className={`text-caption font-semibold ${
-                  interested && !openConnectionId ? 'text-accent-500' : 'text-stone-50 dark:text-stone-900'
+                  interested && !openConnectionId && !pastChat ? 'text-accent-500' : 'text-stone-50 dark:text-stone-900'
                 }`}>
-                {openConnectionId ? 'Open chat' : 'Interested'}
+                {openConnectionId ? 'Open chat' : pastChat ? 'Say hello again' : 'Interested'}
               </Text>
             </Pressable>
           </View>
@@ -284,7 +306,7 @@ export default function CandidateProfileScreen() {
             // The blocker shouldn't keep seeing this profile once
             // blocked (discovery/browse already exclude it going
             // forward), same reasoning "Not for me" already uses.
-            router.back();
+            goBack('/home');
           }}
           blockedId={id}
           otherName={profile.display_name ?? 'this person'}

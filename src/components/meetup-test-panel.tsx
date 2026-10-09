@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { friendlyToolError } from '@/lib/db-version';
 import { supabase } from '@/lib/supabase';
 
 // Test tools for meetups (2026-10-08): move a chat's meetup in time so
@@ -22,7 +23,7 @@ export function MeetupTestPanel({ chatId, chatName }: { chatId: string; chatName
     setStatus(null);
     const { data, error } = await supabase.rpc('dev_meetup_test', { p_connection_id: chatId, p_action: key });
     setBusy(null);
-    setStatus(error ? error.message : (data as string));
+    setStatus(error ? friendlyToolError(error.message) : (data as string));
   };
 
   return (

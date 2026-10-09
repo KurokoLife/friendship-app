@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,6 +6,7 @@ import { GuideVideoPlayer } from '@/components/guide-video-player';
 import { getGuideOnlyEntry } from '@/lib/guide-only-entries';
 import { getModule } from '@/lib/modules-data';
 import { getGuideOnlyEntryVideoUrl, getModuleVideoUrl } from '@/lib/module-videos';
+import { goBack } from '@/lib/navigation';
 
 // A standalone Guide-library view, distinct from module/[id].tsx (the
 // real onboarding flow's own screen, untouched by this file). Reached
@@ -33,10 +34,13 @@ export default function GuideDetailScreen() {
 
   if (!title || !description || !videoUrl) {
     return (
-      <View className="flex-1 items-center justify-center bg-stone-50 px-6 dark:bg-stone-900">
+      <View className="flex-1 items-center justify-center gap-4 bg-stone-50 px-6 dark:bg-stone-900">
         <Text className="text-center text-body text-stone-500 dark:text-stone-400">
           That guide isn&apos;t available.
         </Text>
+        <Pressable onPress={() => goBack('/guides')}>
+          <Text className="text-caption font-semibold text-accent-500">Go back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -45,7 +49,7 @@ export default function GuideDetailScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="px-6 pt-10">
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => goBack('/guides')}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
         </View>

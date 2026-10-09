@@ -1375,7 +1375,8 @@ function RhythmReminder({
         You&apos;ve met a couple of times now. How often would you like to get together?
       </Text>
       <Text className="text-caption italic text-stone-400 dark:text-stone-600">
-        Only you see this. Limen will gently remind you when it&apos;s been about that long.
+        Only you see your answer. If you both pick the same pace, you&apos;ll both see that you agree. Limen will
+        gently remind you when it&apos;s been about that long.
       </Text>
       {errorText}
       <View className="gap-2">

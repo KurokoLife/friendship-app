@@ -43,8 +43,9 @@ export function SpotlightHost() {
     // nothing else on the screen could be pressed (including the test
     // banner's "Back to me"). Only the tip box itself takes taps now.
     <View
-      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, pointerEvents: 'box-none' }}>
-      <View className="flex-1" style={{ pointerEvents: 'box-none' }}>
+      pointerEvents="box-none"
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}>
+      <View className="flex-1" pointerEvents="box-none">
         {/* Purely visual: no pointerEvents set here used to mean the
             default 'auto', so these regions silently blocked taps to
             whatever real UI sat underneath them (confirmed live, 2026-08-23

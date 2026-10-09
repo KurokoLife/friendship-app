@@ -10,6 +10,7 @@ import { GUIDE_ONLY_ENTRIES } from '@/lib/guide-only-entries';
 import { getGuideOnlyEntryVideoUrl, getModuleVideoUrl } from '@/lib/module-videos';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { MODULES } from '@/lib/modules-data';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 const ACCENT_COLOR = '#B5643B'; // accent-500
@@ -140,7 +141,7 @@ export default function GuidesScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="px-6 pt-10">
-          <Pressable onPress={() => router.back()}>
+          <Pressable onPress={() => goBack('/profile')}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
           </Pressable>
         </View>

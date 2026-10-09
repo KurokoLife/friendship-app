@@ -1,11 +1,12 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { formatMeetupTime, parseIsoDate } from '@/lib/meetup-format';
 import { supabase } from '@/lib/supabase';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -59,7 +60,7 @@ export default function MeetupHistoryScreen() {
   return (
     <SafeAreaView className="flex-1 bg-stone-50 dark:bg-stone-900">
       <View className="flex-row items-center justify-between border-b border-stone-200 px-6 pb-4 pt-4 dark:border-stone-800">
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => goBack(`/thread/${connectionId}`)}>
           <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
         </Pressable>
         <Text className="text-title text-stone-900 dark:text-stone-50">Meetup history</Text>

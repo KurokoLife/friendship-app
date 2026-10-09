@@ -20,6 +20,7 @@ import {
   type RememberPerson,
 } from '@/lib/remember';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { goBack } from '@/lib/navigation';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -256,7 +257,7 @@ export default function RememberTimelineScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="flex-row items-center gap-3 px-6 pt-6">
-          <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Pressable onPress={() => goBack('/remember')} hitSlop={10}>
             <Ionicons name="chevron-back" size={22} color={MUTED_ICON_COLOR} />
           </Pressable>
           {person?.photo_url ? (

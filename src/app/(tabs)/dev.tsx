@@ -1,10 +1,11 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MeetupTestPanel } from '@/components/meetup-test-panel';
+import { checkDbVersion, friendlyToolError, MIGRATION_URL_BASE, RECENT_DB_UPDATES } from '@/lib/db-version';
 import { resetCoachMarks } from '@/lib/coach-marks';
 import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -96,6 +97,7 @@ export default function TestToolsScreen() {
   const [otherText, setOtherText] = useState('');
   const [confirmAll, setConfirmAll] = useState(false);
   const [confirmMine, setConfirmMine] = useState(false);
+  const [dbUpToDate, setDbUpToDate] = useState<boolean | null>(null);
 
   const say = (key: string, text: string | null) => setStatus((s) => ({ ...s, [key]: text }));
 
@@ -136,6 +138,7 @@ export default function TestToolsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadChats();
+      if (isSupabaseConfigured) checkDbVersion().then((r) => setDbUpToDate(r.upToDate));
     }, [loadChats])
   );
 
@@ -160,7 +163,7 @@ export default function TestToolsScreen() {
     say(key, null);
     const { data, error } = await supabase.rpc(fn, args);
     setBusy(null);
-    say(key, error ? error.message : ok(data));
+    say(key, error ? friendlyToolError(error.message) : ok(data));
     loadChats();
   };
 
@@ -189,6 +192,27 @@ export default function TestToolsScreen() {
               own account.
             </Text>
           </View>
+
+          {dbUpToDate === false && (
+            <View className="gap-2 rounded-2xl border border-amber-500 bg-amber-500/10 p-4">
+              <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+                The database needs an update
+              </Text>
+              <Text className="text-caption text-stone-700 dark:text-stone-300">
+                Some test tools won&apos;t work until it&apos;s done. In Supabase, open SQL Editor, then for each file
+                below, from top to bottom: open the link, copy everything, paste it into a new query and press Run.
+                It&apos;s fine if you already ran some of them, as long as you go through all of them in this order.
+              </Text>
+              {RECENT_DB_UPDATES.map((f) => (
+                <Pressable key={f} onPress={() => Linking.openURL(MIGRATION_URL_BASE + f)}>
+                  <Text className="text-caption font-semibold text-accent-500">{f}</Text>
+                </Pressable>
+              ))}
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                When it&apos;s done, come back to this tab and this note disappears.
+              </Text>
+            </View>
+          )}
 
           {testTools.actingAs && (
             <View className="gap-2 rounded-2xl border border-accent-500 bg-accent-500/10 p-4">
@@ -326,6 +350,19 @@ export default function TestToolsScreen() {
 
           {chat && <MeetupTestPanel chatId={chat.connection_id} chatName={chat.name} />}
 
+          {!chat && (
+            <Section
+              title="No-reply reminders and Meetups"
+              hint="Pick a chat above first. The no-reply reminder tools and the meetup tools (Make it tomorrow, Make it today, Make it yesterday, Add a past meetup) then appear here.">
+              {chats.length === 0 && (
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  This account has no chats yet. Act as another test account that has chats, or start one from
+                  Discover.
+                </Text>
+              )}
+            </Section>
+          )}
+
           <Section title="Safety" hint="A first message needs a passed selfie check. These work on test accounts only.">
             <View className="flex-row flex-wrap gap-2">
               <Button
@@ -421,7 +458,7 @@ export default function TestToolsScreen() {
                       say(
                         'all',
                         error
-                          ? error.message
+                          ? friendlyToolError(error.message)
                           : (r.error ??
                               `Reset. ${r.connections_deleted ?? 0} chat(s) and ${r.interests_deleted ?? 0} Interested choice(s) cleared.`)
                       );
