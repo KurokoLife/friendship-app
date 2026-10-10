@@ -100,6 +100,7 @@ export default function TestToolsScreen() {
   const [confirmAll, setConfirmAll] = useState(false);
   const [confirmMine, setConfirmMine] = useState(false);
   const [dbUpToDate, setDbUpToDate] = useState<boolean | null>(null);
+  const [dbVersion, setDbVersion] = useState<string | null>(null);
 
   const say = (key: string, text: string | null) => setStatus((s) => ({ ...s, [key]: text }));
 
@@ -147,7 +148,10 @@ export default function TestToolsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadChats();
-      if (isSupabaseConfigured) checkDbVersion().then((r) => setDbUpToDate(r.upToDate));
+      if (isSupabaseConfigured) checkDbVersion().then((r) => {
+        setDbUpToDate(r.upToDate);
+        setDbVersion(r.version);
+      });
     }, [loadChats])
   );
 
@@ -210,9 +214,13 @@ export default function TestToolsScreen() {
               <Text className="text-caption text-stone-700 dark:text-stone-300">
                 Some test tools won&apos;t work until it&apos;s done. In Supabase, open SQL Editor, then for each file
                 below, from top to bottom: open the link, copy everything, paste it into a new query and press Run.
-                It&apos;s fine if you already ran some of them, as long as you go through all of them in this order.
+                {dbVersion
+                  ? 'Only the ones your database is missing are listed.'
+                  : "It's fine if you already ran some of them, as long as you go through all of them in this order."}
               </Text>
-              {RECENT_DB_UPDATES.map((f) =>
+              {/* 2026-10-10: list only the updates newer than the live
+                  database's version, when it can be read. */}
+              {RECENT_DB_UPDATES.filter((f) => !dbVersion || f.slice(0, 14) > dbVersion).map((f) =>
                 // On the web this is a plain browser link (opens in a new
                 // tab), so it works even when a tap handler doesn't.
                 Platform.OS === 'web' ? (
