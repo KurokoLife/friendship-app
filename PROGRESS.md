@@ -2233,3 +2233,14 @@ Migration `20261010000002_share_reminder.sql` (bumps `limen_db_version()` to `20
 - **Test tab:** Meetups panel "Reminder due now" (`test_share_reminder_now`, acts on the account you're acting as).
 - Verified locally: qa-share (new) 21/21, qa-remind 42/42, qa-meetups 54/54, qa-testtab 27/27, qa-noghost 30/30.
 - **Founder decisions (Oct 9 evening):** a meetup added with "Met up already? Add it" keeps counting after a week without the other person's yes (kept as is, decided). The morning-of video "The First Meetup Does Not Need to Be Perfect" (also offered before later meetups) waits for now; a reminder is scheduled for Oct 17.
+
+### Session, October 10, 2026 (4): Remember review, decisions only
+
+No app code changed. Set up the local test copy on a new workspace (needed `npm ci` at the repo root before `qa/build.sh`; added to qa/README.md) and tried Remember as Aisha after one meetup with David: the tab, the per-person page, writing a note, both AI buttons (they fall back to an error locally, as expected), and the "Before you plan something" pop-up.
+
+Confirmed the handoff: Remember works, but both AI buttons still show "buy 50 credits" / "Upgrade to Premium" when a cap is hit, and nothing links from a chat to that person's notes. Also found: the note date is typed as YYYY-MM-DD instead of the date picker; the first "Let's plan something" tap shows the first-meetup feelings pop-up even when the two already met.
+
+Founder decided (docs/DECISIONS.md section 9): Remember moves into the chat as a "What I want to remember about X" bar and private page, organized by meetup, three friendship questions per meetup, a "Next time, ask X about..." list, notes coming back after a meetup / in the planning card / in the check-in, no AI, no Remember tab, notes kept after a chat ends (reached from Inbox), Export in Settings, mic icon kept.
+
+Next: ask the founder about the Guide, then build Remember.
+

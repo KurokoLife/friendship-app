@@ -14,7 +14,7 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 6. Reminders (no-ghost) | Decided 2026-10-10, built ("Quieter reminders" and "Remind me later" bullets in AGENTS.md) |
 | 7. Meetups | Decided 2026-10-08 to 10-10, built (meetup plans, planning by invite, counting meetups; AGENTS.md bullets). Open: the morning-of video should fit any meetup (waiting on founder) |
 | 8. Graduation | Not reviewed yet |
-| 9. Remember and Guide | Not reviewed yet (next area, see docs/HANDOFF_TABS.md) |
+| 9. Remember and Guide | Remember decided 2026-10-10, not built yet. Guide not reviewed yet |
 | 10. Money and settings | Not reviewed yet |
 
 ---
@@ -85,6 +85,20 @@ The 15 points that came from personality similarity move to life situation (+5, 
 5. **Selfie check before you can say Interested or send a first message.** Free option A: the app asks for a selfie doing a random pose, the founder compares it with the profile photo in an in-app review screen (Settings, visible to admins only) and approves or rejects. The selfie is deleted after review; only "verified" is kept. Clear consent is asked first. Can move to an automatic check (AWS Rekognition, about $0.016 per person) later without changing what users see.
 6. **Ghosting rule (real now).** If someone lets 2 or more conversations go silent until the 7-day auto-close (the other person wrote last, no reply, no honest exit) within 60 days, they are shown last in other people's suggestions for the next 30 days. Never shown, resets on its own, one slip doesn't count.
 7. **Suspend switch.** `users.suspended_at`. A suspended account is hidden from everyone and cannot start or send messages. Flip it from the Supabase dashboard after reviewing a report.
+
+## 9. Remember (decided 2026-10-10, not built yet)
+
+Remember moves into the chat. It helps in the moment and keeps a light record of the friendship, in friendship words, never work words.
+
+1. **No AI.** "Organize with AI" and "Summarize for me" are removed (and with them the old credits / Premium wording). The person writes everything in their own words.
+2. **Lives in the chat, no Remember tab.** A slim bar at the top of each chat, like the plan bar: "What I want to remember about David", tap to open, Hide to close, marked "Only you can see this". It opens a separate page; notes never appear among the messages. The Remember tab is removed; Export moves to Settings.
+3. **Organized by meetup.** One card per meetup that counts, newest first: "Your 2nd meetup · Sat, Oct 3 · Walk by the lake". Date and activity come from the plan, nobody types a date. Meetups added with "Met up already? Add it" get a card too. Notes written between meetups go under "Since your last meetup".
+4. **Three short, optional questions per meetup:** "What did you learn about David?", "What made you smile?", "Next time, I'd love to ask David...". Plus room for anything else. "Add an entry" becomes "Write something down". No "entry", "timeline", "organize" or "follow-up" in the copy.
+5. **"Next time, ask David about..."** at the top of the page collects the open questions from every meetup. "Asked" moves one off the list.
+6. **Notes come back at the right moment, only the person's own words:** after a meetup counts ("Anything you'd like to remember about David?", asked once), inside the planning card (replaces the separate "Before you plan something" pop-up), and in the quiet-chat check-in. The app still never reads messages. Light, and can be turned off like the other reminders.
+7. **After a chat ends or graduates**, notes stay and are reached from that chat's row in Inbox, with a line: "Your notes stay here after a chat ends. You can delete them anytime."
+8. **Mic icon stays** as a placeholder (the founder will work on voice input for all screens later).
+9. **No note icon on Inbox rows** for now.
 
 ## Founder to-do list (not code)
 

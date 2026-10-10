@@ -12,6 +12,7 @@ Supabase project. It never touches the real project.
 
 ```bash
 bash qa/setup.sh      # Postgres 16, PostgREST 12.2.3, node packages (safe to rerun)
+npm ci                # the app's own packages, if node_modules is missing (build.sh needs them)
 bash qa/start-db.sh   # starts Postgres on port 5433
 bash qa/apply.sh      # fresh database: bootstrap, every migration in order, seed people
 bash qa/build.sh      # exports the web app (about a minute)

@@ -51,7 +51,7 @@ The tab bar is set in `src/app/(tabs)/_layout.tsx`: Discover, Saved, Inbox, Reme
 | Discover | `(tabs)/home.tsx` | 3 suggestions per rolling week (`generate-match-suggestions`). Interested gate and approved-selfie check before the first message. Area 4 is only partly decided. |
 | Saved | `(tabs)/saved.tsx` | No expiry. A save disappears only if the account is deleted or the pair no longer fits gender or age (`saved_profiles` view). Not reviewed in v2. |
 | Inbox | `(tabs)/inbox.tsx` | Reviewed and rebuilt Oct 8 to 10: New hellos, invites to meet, planning stages, capacity line ("N of 3 active conversations"), Paused / Ended / Closed / Graduated sections. Considered done. |
-| Remember | `(tabs)/remember.tsx`, `remember/[connectionId].tsx` | Built July/August, **not reviewed**. See section 6. |
+| Remember | `(tabs)/remember.tsx`, `remember/[connectionId].tsx` | Built July/August. **Decided 2026-10-10 to move into the chat** (docs/DECISIONS.md section 9), not built yet. Section 6 describes what's there today. |
 | Profile | `(tabs)/profile.tsx` | Rebuilt Oct 6: your profile as others see it, private fields in an "Only you can see this" box. Links to Edit (`profile-build.tsx`), Guide (`guides.tsx`) and Settings. Area 2 decided. |
 | Guide (no tab) | `guides.tsx`, `guide/[id].tsx`, `module/[id].tsx` | Flat list: 2 onboarding videos, "The First Meetup Does Not Need to Be Perfect", "Friendship Grows a Little at a Time", then 9 text modules. Data in `src/lib/modules-data.ts`, `src/lib/guide-only-entries.ts`, `src/lib/module-videos.ts`. Reached only from Profile. |
 | Settings (no tab) | `settings.tsx` | Edit profile, Reminders and nudges (on/off for all chats), blocked accounts, reports, Terms/Privacy, delete account. Area 10 not reviewed. |
