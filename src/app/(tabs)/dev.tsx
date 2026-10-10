@@ -421,12 +421,12 @@ export default function TestToolsScreen() {
           {chat && chat.has_messages && (
             <Section
               title="Nudge to meet in person"
-              hint={`Makes your chat with ${chat.name} look like you've been talking this long, then shows the card if you've never met and nothing is being planned. Both people need to have written.`}>
+              hint={`If you two have never met: makes the chat look like you've been talking this long. If you have met: moves your last meetup this far back. The card shows when nothing is being planned. Both people need to have written.`}>
               <View className="flex-row flex-wrap gap-2">
                 {[
-                  { label: 'Talking 3 weeks', days: 22 },
-                  { label: 'Talking 2 months', days: 61 },
-                  { label: 'Talking 6 months', days: 181 },
+                  { label: '3 weeks', days: 22 },
+                  { label: '2 months', days: 61 },
+                  { label: '6 months', days: 181 },
                 ].map((o) => (
                   <Button
                     key={o.label}

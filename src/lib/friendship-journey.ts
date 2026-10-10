@@ -89,6 +89,48 @@ export async function proposeMeetup(connectionId: string, plan: MeetupPlanInput)
   return data as string;
 }
 
+// The other person picks a time from an invite (2026-10-10). A day and
+// part of the day the sender offered sets the plan right away
+// ('confirmed'); anything else goes to the sender to confirm ('proposed').
+export async function acceptPlanInvite(
+  inviteId: string,
+  plan: MeetupPlanInput
+): Promise<{ meetup_id: string; status: 'confirmed' | 'proposed' }> {
+  const { data, error } = await supabase.rpc('accept_plan_invite', {
+    p_invite_id: inviteId,
+    p_date: plan.date,
+    p_start_time: plan.startTime || null,
+    p_place: plan.place?.trim() || null,
+    p_activity: plan.activity?.trim() || null,
+    p_time_zone: deviceTimeZone(),
+    p_place_address: plan.placeAddress?.trim() || null,
+    p_place_lat: plan.placeLat ?? null,
+    p_place_lng: plan.placeLng ?? null,
+  });
+  if (error) throw error;
+  return data as { meetup_id: string; status: 'confirmed' | 'proposed' };
+}
+
+// "We met up": a meetup two people made outside the app (2026-10-10). The
+// other person is asked to confirm; it counts once they do, or after a
+// week with no answer.
+export async function logPastMeetup(connectionId: string, date: string, activity: string | null): Promise<void> {
+  const { error } = await supabase.rpc('log_past_meetup', {
+    p_connection_id: connectionId,
+    p_date: date,
+    p_activity: activity?.trim() || null,
+    p_time_zone: deviceTimeZone(),
+  });
+  if (error) {
+    if (/already_waiting/.test(error.message))
+      throw new Error("You already added a meetup that's waiting for the other person to confirm.");
+    if (/already_counted/.test(error.message)) throw new Error('A meetup on that day is already counted.');
+    if (/date_in_future/.test(error.message)) throw new Error('Pick today or an earlier day.');
+    if (/date_before_connected/.test(error.message)) throw new Error('Pick a day after you connected here.');
+    throw new Error("That didn't save. Please try again.");
+  }
+}
+
 // Fill in a detail that is still missing. Never changes an agreed detail,
 // so no re-confirm is needed.
 export async function addMeetupDetails(

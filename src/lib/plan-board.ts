@@ -106,22 +106,47 @@ export async function togglePick(ideaId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-// Saves my draft picks and times; the other person sees them from now on.
-export async function savePicks(boardId: string): Promise<{ other_saved: boolean; shared: number; shared_times: number }> {
-  const { data, error } = await supabase.rpc('plan_save_picks', { p_board_id: boardId });
-  if (error) throw new Error(error.message);
-  return data as { other_saved: boolean; shared: number; shared_times: number };
-}
-
-// Puts my draft picks and times back to what I last saved.
-export async function revertPicks(boardId: string): Promise<void> {
-  const { error } = await supabase.rpc('plan_revert_picks', { p_board_id: boardId });
-  if (error) throw new Error(error.message);
-}
-
 export async function setTimes(boardId: string, slots: PlanSlot[]): Promise<void> {
   const { error } = await supabase.rpc('plan_set_times', { p_board_id: boardId, p_slots: slots });
   if (error) throw new Error(error.message);
+}
+
+// Sends my picked ideas and times as one invite in the chat, with my own
+// note (optional). Ends the card.
+export async function sendPlanInvite(boardId: string, note: string | null): Promise<string> {
+  const { data, error } = await supabase.rpc('send_plan_invite', { p_board_id: boardId, p_note: note });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+export type PlanInvite = {
+  id: string;
+  connection_id: string;
+  message_id: string | null;
+  sender_id: string;
+  note: string | null;
+  ideas: { id: string; title: string }[];
+  times: PlanSlot[];
+  status: 'open' | 'accepted' | 'closed';
+  closed_reason: 'replaced' | 'planned' | null;
+  accepted_by: string | null;
+  accepted_day: string | null;
+  accepted_part: PlanPart | null;
+  accepted_idea: string | null;
+  accepted_confirmed: boolean | null;
+  created_at: string;
+};
+
+export async function fetchPlanInvites(connectionId: string): Promise<PlanInvite[]> {
+  const { data, error } = await supabase
+    .from('plan_invites')
+    .select(
+      'id, connection_id, message_id, sender_id, note, ideas, times, status, closed_reason, accepted_by, accepted_day, accepted_part, accepted_idea, accepted_confirmed, created_at'
+    )
+    .eq('connection_id', connectionId)
+    .order('created_at', { ascending: true });
+  if (error) return [];
+  return (data ?? []) as PlanInvite[];
 }
 
 export async function closePlanBoard(boardId: string): Promise<void> {
@@ -147,18 +172,16 @@ export async function setHomePref(connectionId: string, canHost: boolean, canVis
   if (error) throw new Error(error.message);
 }
 
-export type PlanStage = 'pick' | 'waiting' | 'matched' | 'no_time' | 'no_match';
+// 2026-10-10: the card is one person's private draft until they send the
+// invite, so the only stage left is "you started an invite, not sent yet".
+export type PlanStage = 'drafting';
 export type PlanTurn = { stage: PlanStage; waitingOnMe: boolean; closesAt: string };
 
 export const PLAN_STAGE_LABELS: Record<PlanStage, { mine: string; theirs: string }> = {
-  pick: { mine: 'Planning together: your turn to pick', theirs: 'Planning together: your turn to pick' },
-  waiting: { mine: 'Planning together: waiting for their picks', theirs: 'Planning together: waiting for their picks' },
-  matched: { mine: 'Planning together: you matched, suggest the plan', theirs: 'Planning together: you matched' },
-  no_time: { mine: 'Planning together: same idea, find a time', theirs: 'Planning together: same idea, finding a time' },
-  no_match: { mine: 'Planning together: no match yet, take a look', theirs: 'Planning together: no match yet' },
+  drafting: { mine: 'Your invite to meet is not sent yet', theirs: 'Your invite to meet is not sent yet' },
 };
 
-// Chats with an open planning card (for Inbox).
+// Chats where I started an invite and haven't sent it (for Inbox).
 export async function fetchMyPlanTurns(): Promise<Record<string, PlanTurn>> {
   const { data, error } = await supabase.rpc('my_plan_turns');
   if (error) return {};

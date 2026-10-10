@@ -17,8 +17,9 @@ import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
 import { MirrorSheet } from '@/components/mirror-sheet';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
-import { NextMeetupIndicatorV2 } from '@/components/next-meetup-indicator-v2';
+import { NextMeetupIndicatorV2, type EditorPrefill } from '@/components/next-meetup-indicator-v2';
 import { PlanBoardCard } from '@/components/plan-board-card';
+import { PlanInviteBubble, usePlanInvites } from '@/components/plan-invite';
 import { MeetNudgeCard } from '@/components/meet-nudge-card';
 import { PauseConnectionModal } from '@/components/pause-connection-modal';
 import { PrimaryInterventionCard } from '@/components/primary-intervention-card';
@@ -234,9 +235,11 @@ export default function ThreadScreen() {
   const [planEditorRequest, setPlanEditorRequest] = useState<{
     mode: 'change' | 'details' | 'new';
     n: number;
-    prefill?: { date?: string; startTime?: string; activity?: string; note?: string };
+    prefill?: EditorPrefill;
   } | null>(null);
   const [planRefreshKey, setPlanRefreshKey] = useState(0);
+  // Invites to meet sent into the chat (2026-10-10), by message id.
+  const { invites: planInvites, reload: reloadPlanInvites } = usePlanInvites(connectionId ?? null, planRefreshKey);
   const scrollRef = useRef<ScrollView>(null);
 
   const loadNewSystemIntervention = useCallback(
@@ -947,8 +950,10 @@ export default function ThreadScreen() {
                 otherName={other?.display_name ?? 'them'}
                 onChanged={() => {
                   loadNewSystemIntervention();
-                  // A plan made or withdrawn shows or hides the planning card.
+                  // A plan made or withdrawn shows or hides the planning card,
+                  // and updates any invite in the chat.
                   setPlanBoardKey((k) => k + 1);
+                  reloadPlanInvites();
                 }}
                 onVideoOfferChange={setVideo3OfferActive}
                 refreshKey={planRefreshKey}
@@ -965,7 +970,10 @@ export default function ThreadScreen() {
                 refreshKey={planBoardKey + planRefreshKey}
                 openRequest={planBoardOpenRequest}
                 onStart={openPlanBoard}
-                onGoToPlan={(prefill) => setPlanEditorRequest((r) => ({ mode: 'new', n: (r?.n ?? 0) + 1, prefill }))}
+                onSent={() => {
+                  reloadPlanInvites();
+                  reloadMessages();
+                }}
               />
             )}
             {/* Gentle nudge to meet in person after weeks of only chatting
@@ -1040,6 +1048,36 @@ export default function ThreadScreen() {
             const showDivider = label !== lastDateLabel;
             lastDateLabel = label;
             const isMine = m.sender_id === myId;
+            const invite = m.type === 'plan_invite' ? planInvites[m.id] : undefined;
+            if (invite && myId) {
+              return (
+                <View key={m.id}>
+                  {showDivider && (
+                    <Text className="mb-2 mt-1 text-center text-caption text-stone-400 dark:text-stone-600">
+                      {label}
+                    </Text>
+                  )}
+                  <View className={isMine ? 'items-end' : 'items-start'}>
+                    <PlanInviteBubble
+                      invite={invite}
+                      myId={myId}
+                      otherName={other?.display_name ?? 'them'}
+                      onPickTime={(pick) =>
+                        setPlanEditorRequest((r) => ({
+                          mode: 'new',
+                          n: (r?.n ?? 0) + 1,
+                          prefill: { date: pick.date, startTime: pick.startTime, activity: pick.activity, inviteId: pick.inviteId },
+                        }))
+                      }
+                      onSetPlan={(activity) =>
+                        setPlanEditorRequest((r) => ({ mode: 'new', n: (r?.n ?? 0) + 1, prefill: { activity } }))
+                      }
+                    />
+                    <Text className="mt-1 text-caption text-stone-400 dark:text-stone-600">{timeLabel(m.created_at)}</Text>
+                  </View>
+                </View>
+              );
+            }
             return (
               <View key={m.id}>
                 {showDivider && (

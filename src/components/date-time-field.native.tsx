@@ -39,12 +39,14 @@ function IosPicker({
   mode,
   value,
   min,
+  max,
   onChange,
   onDone,
 }: {
   mode: 'date' | 'time';
   value: Date;
   min?: Date;
+  max?: Date;
   onChange: (d: Date) => void;
   onDone: () => void;
 }) {
@@ -54,6 +56,7 @@ function IosPicker({
         mode={mode}
         value={value}
         minimumDate={min}
+        maximumDate={max}
         minuteInterval={5}
         display={mode === 'date' ? 'inline' : 'spinner'}
         onChange={(_e: DateTimePickerEvent, d?: Date) => d && onChange(d)}
@@ -69,16 +72,19 @@ export function DateField({
   value,
   onChange,
   min,
+  max,
   disabled,
 }: {
   value: string;
   onChange: (iso: string) => void;
   min?: string;
+  max?: string;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const minDate = min ? parseIsoDate(min) : undefined;
-  const current = value ? parseIsoDate(value) : minDate ?? new Date();
+  const maxDate = max ? parseIsoDate(max) : undefined;
+  const current = value ? parseIsoDate(value) : maxDate ?? minDate ?? new Date();
 
   const show = () => {
     if (Platform.OS === 'android') {
@@ -86,6 +92,7 @@ export function DateField({
         mode: 'date',
         value: current,
         minimumDate: minDate,
+        maximumDate: maxDate,
         onChange: (e: DateTimePickerEvent, d?: Date) => {
           if (e.type === 'set' && d) onChange(toIsoDate(d));
         },
@@ -100,7 +107,7 @@ export function DateField({
     <View className="gap-2">
       <FieldButton label={value ? formatMeetupDay(value) : null} placeholder="Choose a date" onPress={show} disabled={disabled} />
       {open && Platform.OS === 'ios' && (
-        <IosPicker mode="date" value={current} min={minDate} onChange={(d) => onChange(toIsoDate(d))} onDone={() => setOpen(false)} />
+        <IosPicker mode="date" value={current} min={minDate} max={maxDate} onChange={(d) => onChange(toIsoDate(d))} onDone={() => setOpen(false)} />
       )}
     </View>
   );

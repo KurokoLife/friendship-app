@@ -25,11 +25,13 @@ export function DateField({
   value,
   onChange,
   min,
+  max,
   disabled,
 }: {
   value: string;
   onChange: (iso: string) => void;
   min?: string;
+  max?: string;
   disabled?: boolean;
 }) {
   const dark = useColorScheme() === 'dark';
@@ -40,6 +42,7 @@ export function DateField({
         aria-label="Date"
         value={value}
         min={min}
+        max={max}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         style={webInputStyle(dark)}

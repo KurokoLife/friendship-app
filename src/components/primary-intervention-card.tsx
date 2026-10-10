@@ -779,7 +779,8 @@ type OccurrenceMode =
   | 'rescheduled_done'
   | 'cancelled_done'
   | 'no_show'
-  | 'yes_waiting';
+  | 'yes_waiting'
+  | 'logged_no';
 
 // Part 3 of tonight's consolidated build: replaces the old plain
 // Yes/No-plus-re-asked-date card with a real branching post-meetup flow.
@@ -825,6 +826,10 @@ function MeetupOccurrenceCheck({
     ? formatWhen(confirmedDate, intervention.payload.start_time as string | null | undefined)
     : null;
 
+  // 2026-10-10: the other person added this meetup ("We met up"), so the
+  // question is whether that's right, not whether a plan happened.
+  const loggedByOther = typeof intervention.payload.logged_by === 'string';
+  const loggedActivity = intervention.payload.activity as string | null | undefined;
   const [mode, setMode] = useState<OccurrenceMode>('ask');
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState<MeetupCancellationReason | null>(null);
@@ -922,6 +927,41 @@ function MeetupOccurrenceCheck({
     });
   };
 
+  if (mode === 'ask' && loggedByOther) {
+    return (
+      <Card>
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          {otherName} added a meetup: you two met on {dateLabel ?? 'a recent day'}
+          {loggedActivity ? ` (${loggedActivity})` : ''}. Is that right?
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill label="Yes, we met" onPress={answerYes} />
+          <OptionPill
+            label="No, that's not right"
+            onPress={() =>
+              attempt(async () => {
+                await reportMeetupOccurrence(meetupId, false);
+                setMode('logged_no');
+              })
+            }
+          />
+        </View>
+      </Card>
+    );
+  }
+
+  if (mode === 'logged_no') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Okay, it won&apos;t be counted. If the day was just off, you can add it with the right day from the plan card.
+        </Text>
+        <OptionPill label="Close" onPress={onResolved} />
+      </Card>
+    );
+  }
+
   if (mode === 'ask') {
     return (
       <Card>
@@ -941,7 +981,7 @@ function MeetupOccurrenceCheck({
     return (
       <Card>
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          Thanks. Once {otherName} says yes too, it&apos;s added to your meetup history.
+          Thanks. It counts once {otherName} says yes too. If they don&apos;t answer within a week, it counts anyway.
         </Text>
         <OptionPill label="Close" onPress={onResolved} />
       </Card>

@@ -3,10 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateField, FieldLabel, TimeField } from '@/components/date-time-field';
+import { LogMeetupForm } from '@/components/log-meetup-form';
 import { EMPTY_PLACE, PlaceField, type PlaceValue } from '@/components/place-field';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { getSeenCoachMarks, markCoachMarkSeen } from '@/lib/coach-marks';
 import {
+  acceptPlanInvite,
   addMeetupDetails,
   cancelMeetup,
   confirmMeetup,
@@ -55,7 +57,7 @@ type Props = {
   editorRequest?: {
     mode: 'change' | 'details' | 'new';
     n: number;
-    prefill?: { date?: string; startTime?: string; activity?: string; note?: string };
+    prefill?: EditorPrefill;
   } | null;
   onEndConnection?: () => void;
   // The pace question card is showing under this one: don't ask twice.
@@ -63,7 +65,11 @@ type Props = {
 };
 
 type EditMode = 'new' | 'change' | 'details';
-type Panel = 'none' | 'calendar' | 'cancel' | 'late' | 'leave_open';
+type Panel = 'none' | 'calendar' | 'cancel' | 'late' | 'leave_open' | 'log';
+
+// inviteId (2026-10-10): the other person picked a time from an invite in
+// the chat; saving sets the plan from that invite.
+export type EditorPrefill = { date?: string; startTime?: string; activity?: string; note?: string; inviteId?: string };
 
 function ordinal(n: number): string {
   const mod100 = n % 100;
@@ -119,6 +125,10 @@ export function NextMeetupIndicatorV2({
   // A note the person wrote in the planning card. It goes to the other
   // person together with the plan, once the plan is sent.
   const [noteToSend, setNoteToSend] = useState<string | null>(null);
+  const [inviteId, setInviteId] = useState<string | null>(null);
+  // Calendar asks already answered for this plan (by details key).
+  const [calendarAsked, setCalendarAsked] = useState<Set<string> | null>(null);
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -128,6 +138,12 @@ export function NextMeetupIndicatorV2({
       if (result.localToday) setLocalToday(result.localToday);
 
       if (result.meetup?.status === 'confirmed') {
+        const { data: asks, error: asksError } = await supabase
+          .from('meetup_calendar_asks')
+          .select('details_key')
+          .eq('meetup_id', result.meetup.id)
+          .eq('user_id', myId);
+        setCalendarAsked(asksError ? null : new Set(((asks ?? []) as { details_key: string }[]).map((a) => a.details_key)));
         const seen = await getSeenCoachMarks();
         if (!seen.has('video_first_meetup')) {
           const { count } = await supabase
@@ -147,7 +163,7 @@ export function NextMeetupIndicatorV2({
     } finally {
       setLoaded(true);
     }
-  }, [connectionId]);
+  }, [connectionId, myId]);
 
   useEffect(() => {
     load();
@@ -190,10 +206,12 @@ export function NextMeetupIndicatorV2({
   }, [firstMeetupOfferVisible, onVideoOfferChange]);
 
   const openEditor = useCallback(
-    (mode: EditMode, prefill?: { date?: string; startTime?: string; activity?: string; note?: string }) => {
+    (mode: EditMode, prefill?: EditorPrefill) => {
       setError(null);
       setPanel('none');
+      setSavedNotice(null);
       setNoteToSend(mode === 'new' ? prefill?.note?.trim() || null : null);
+      setInviteId(mode === 'new' ? prefill?.inviteId ?? null : null);
       if (mode === 'new') {
         setDateText(prefill?.date ?? '');
         setTimeText(prefill?.startTime ?? '');
@@ -293,6 +311,21 @@ export function NextMeetupIndicatorV2({
     }
     setBusy(true);
     try {
+      if (editMode === 'new' && inviteId) {
+        const result = await acceptPlanInvite(inviteId, {
+          date: dateText,
+          startTime: time.value,
+          place: place.name,
+          activity: activityText,
+          placeAddress: place.address,
+          placeLat: place.lat,
+          placeLng: place.lng,
+        });
+        setInviteId(null);
+        if (result.status === 'proposed') setSavedNotice(`Sent to ${otherName} to confirm, since it's a different time from the invite.`);
+        await afterChange();
+        return;
+      }
       // Only "what you'll do" changed: update it in place. Date, time and
       // place are the same, so there's nothing to confirm again (2026-10-09).
       if (sameWhenWhere && plan) {
@@ -314,8 +347,10 @@ export function NextMeetupIndicatorV2({
         setNoteToSend(null);
       }
       await afterChange();
-    } catch {
-      setError("Couldn't save the plan. Please try again.");
+    } catch (e) {
+      const message = e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : '';
+      if (/invite_closed/.test(message)) setError('That invite was already answered or replaced. Plan a meetup instead.');
+      else setError("Couldn't save the plan. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -364,7 +399,9 @@ export function NextMeetupIndicatorV2({
   // ---- Editor ----
   if (editMode) {
     const title =
-      editMode === 'new'
+      editMode === 'new' && inviteId
+        ? `Set the plan from ${otherName}'s invite`
+        : editMode === 'new'
         ? `Plan your ${ordinal(meetupCount + 1)} meetup`
         : editMode === 'change'
           ? 'Change the plan'
@@ -380,6 +417,12 @@ export function NextMeetupIndicatorV2({
               <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Remove note</Text>
             </Pressable>
           </View>
+        )}
+        {editMode === 'new' && inviteId && (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            Keep the day and part of the day {otherName} offered, and the plan is set right away. A different time goes
+            to {otherName} to confirm.
+          </Text>
         )}
         {editMode === 'change' && plan?.status === 'confirmed' && (
           <Text className="text-caption text-stone-500 dark:text-stone-400">
@@ -430,7 +473,7 @@ export function NextMeetupIndicatorV2({
             disabled={busy}
             className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${busy ? 'opacity-40' : ''}`}>
             <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
-              {busy ? 'Saving...' : editMode === 'details' ? 'Save' : `Send to ${otherName}`}
+              {busy ? 'Saving...' : editMode === 'details' ? 'Save' : inviteId ? 'Set the plan' : `Send to ${otherName}`}
             </Text>
           </Pressable>
           <Pressable onPress={() => setEditMode(null)} disabled={busy}>
@@ -451,6 +494,26 @@ export function NextMeetupIndicatorV2({
             <Text className="text-caption font-semibold text-accent-500">Plan a meetup</Text>
           </Pressable>
         </View>
+        {savedNotice && <Text className="text-caption text-stone-600 dark:text-stone-300">{savedNotice}</Text>}
+        {panel === 'log' ? (
+          <View className="border-t border-stone-200 pt-3 dark:border-stone-700">
+            <LogMeetupForm
+              connectionId={connectionId}
+              otherName={otherName}
+              onCancel={() => setPanel('none')}
+              onDone={async () => {
+                setPanel('none');
+                setSavedNotice(`Added. ${otherName} will be asked to confirm.`);
+                await load();
+                onChanged();
+              }}
+            />
+          </View>
+        ) : (
+          <Pressable onPress={() => setPanel('log')} className="self-start">
+            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Met up already? Add it</Text>
+          </Pressable>
+        )}
         {paceLine}
         {historyLink}
       </View>
@@ -607,6 +670,9 @@ export function NextMeetupIndicatorV2({
         <Text className="text-caption text-stone-500 dark:text-stone-400">
           {iAmProposer ? `Waiting for ${otherName} to confirm.` : `Does this work for you?`}
         </Text>
+        {savedNotice && iAmProposer && (
+          <Text className="text-caption text-stone-600 dark:text-stone-300">{savedNotice}</Text>
+        )}
         {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         {manyMovesNote}
         <View className="flex-row flex-wrap items-center gap-4">
@@ -641,12 +707,61 @@ export function NextMeetupIndicatorV2({
   }
 
   // ---- Confirmed ----
+  // Asked once per agreed plan whether to add it to a calendar, and again
+  // whenever the date, time, place or activity changes (2026-10-10).
+  const detailsKey = `${plan.date}|${plan.start_time ?? ''}|${plan.place ?? ''}|${plan.activity ?? ''}`;
+  const askCalendar = calendarAsked !== null && !calendarAsked.has(detailsKey);
+  const recordCalendar = async (answer: 'added' | 'not_now') => {
+    setCalendarAsked((prev) => new Set([...(prev ?? []), detailsKey]));
+    await supabase
+      .from('meetup_calendar_asks')
+      .upsert({ meetup_id: plan.id, user_id: myId, details_key: detailsKey, answer }, { ignoreDuplicates: true });
+  };
+  const calendarAsk = askCalendar ? (
+    <View className="gap-2 rounded-xl border border-accent-500/40 bg-white p-3 dark:bg-stone-800">
+      <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+        {plan.move_count > 0 || (calendarAsked?.size ?? 0) > 0
+          ? 'The plan changed. Update your calendar?'
+          : "You're both set. Add it to your calendar?"}
+      </Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        {[plan.activity ? `${plan.activity} with ${otherName}` : `Meet ${otherName}`, formatWhen(plan.date, plan.start_time), plan.place]
+          .filter(Boolean)
+          .join(' · ')}
+      </Text>
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Pressable
+          onPress={() => {
+            openGoogleCalendar(calendarPlan(plan));
+            recordCalendar('added');
+          }}
+          className="rounded-full border border-stone-300 px-3 py-1.5 dark:border-stone-700">
+          <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Google Calendar</Text>
+        </Pressable>
+        {Platform.OS === 'web' && (
+          <Pressable
+            onPress={() => {
+              downloadIcs(calendarPlan(plan));
+              recordCalendar('added');
+            }}
+            className="rounded-full border border-stone-300 px-3 py-1.5 dark:border-stone-700">
+            <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Apple or Outlook</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={() => recordCalendar('not_now')} className="px-1 py-1.5">
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Not now</Text>
+        </Pressable>
+      </View>
+    </View>
+  ) : null;
+
   return (
     <View className="mx-6 mt-4 gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
       <Text className="text-caption font-semibold text-accent-500">
         {isToday ? 'Meeting today' : 'Next meetup'}
       </Text>
       {details}
+      {calendarAsk}
       {plan.other_still_on && (
         <Text className="text-caption text-stone-600 dark:text-stone-300">✓ {otherName} said it&apos;s still on</Text>
       )}

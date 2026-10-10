@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { LogMeetupForm } from '@/components/log-meetup-form';
 import { supabase } from '@/lib/supabase';
 
 // Gentle nudges to meet in person (2026-10-09). Shown privately to each
@@ -9,9 +10,11 @@ import { supabase } from '@/lib/supabase';
 //   - after about 3 weeks: "Want to plan something?" (Not yet asks again
 //     3 weeks later)
 //   - after about 2 months and about 6 months: an honest check, once each.
+// 2026-10-10: after two people meet, the same three cards start over from
+// their last meetup. Every card offers "We've already met" for meetups
+// made outside the app, so each one is counted.
 // Time paused doesn't count. Nothing closes by itself; the app never
 // forces, it only reminds that meeting is where the friendship grows.
-// See supabase/migrations/20261009000006_plan_one_turn_meet_nudges.sql.
 
 type Stage = 'three_weeks' | 'two_months' | 'six_months';
 
@@ -33,8 +36,11 @@ export function MeetNudgeCard({
   onEnd: () => void;
 }) {
   const [stage, setStage] = useState<Stage | null>(null);
+  const [met, setMet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saidKeep, setSaidKeep] = useState(false);
+  const [logging, setLogging] = useState(false);
+  const [logged, setLogged] = useState(false);
   const name = firstName(otherName);
 
   const load = useCallback(async () => {
@@ -43,7 +49,8 @@ export function MeetNudgeCard({
       setStage(null);
       return;
     }
-    setStage((data as { stage: Stage }).stage);
+    setStage((data as { stage: Stage; met?: boolean }).stage);
+    setMet(!!(data as { met?: boolean }).met);
   }, [connectionId]);
 
   useEffect(() => {
@@ -81,7 +88,44 @@ export function MeetNudgeCard({
     );
   }
 
+  if (logged) {
+    return (
+      <View className="mx-6 mt-4 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Added. {name} will be asked to confirm, and it&apos;s counted once they do.
+        </Text>
+        <Pressable onPress={() => setLogged(false)} className="self-start">
+          <Text className="text-caption font-semibold text-accent-500">OK</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (!stage) return null;
+
+  if (logging) {
+    return (
+      <View className="mx-6 mt-4 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+        <LogMeetupForm
+          connectionId={connectionId}
+          otherName={name}
+          onCancel={() => setLogging(false)}
+          onDone={() => {
+            setLogging(false);
+            setStage(null);
+            setLogged(true);
+          }}
+        />
+      </View>
+    );
+  }
+  const metLink = (
+    <Pressable onPress={() => setLogging(true)} className="self-start">
+      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+        {met ? "We've met up since then" : "We've already met"}
+      </Text>
+    </Pressable>
+  );
 
   const button = (label: string, onPress: () => void, primary = false) => (
     <Pressable
@@ -104,13 +148,15 @@ export function MeetNudgeCard({
     return (
       <View className="mx-6 mt-4 gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          You and {name} have been talking for a few weeks. Chatting is a good start, and meeting in person is where a
-          friendship really grows. Want to plan something?
+          {met
+            ? `It's been a few weeks since you and ${name} last met. Seeing each other again is how a friendship keeps growing. Want to plan something?`
+            : `You and ${name} have been talking for a few weeks. Chatting is a good start, and meeting in person is where a friendship really grows. Want to plan something?`}
         </Text>
         <View className="flex-row flex-wrap gap-2">
           {button("Let's plan something", () => answer('plan'), true)}
           {button('Not yet', () => answer('not_yet'))}
         </View>
+        {metLink}
       </View>
     );
   }
@@ -119,8 +165,9 @@ export function MeetNudgeCard({
   return (
     <View className="mx-6 mt-4 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        You and {name} have been talking for {length} and haven&apos;t met yet. Is meeting up something you&apos;d like
-        with {name}? It&apos;s okay either way.
+        {met
+          ? `It's been ${length} since you and ${name} last met. Would you like to meet up again? It's okay either way.`
+          : `You and ${name} have been talking for ${length} and haven't met yet. Is meeting up something you'd like with ${name}? It's okay either way.`}
       </Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">
         Only you see this. This chat uses one of your 3 active chats.
@@ -130,6 +177,7 @@ export function MeetNudgeCard({
         {button("I'd like to keep chatting for now", () => answer('keep_chatting'))}
         {button('End kindly', onEnd)}
       </View>
+      {metLink}
     </View>
   );
 }
