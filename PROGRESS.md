@@ -153,3 +153,7 @@ Migration `20261010000003_remember_in_chat.sql` (bumps `limen_db_version()` to `
 ### Session, October 10, 2026 (6): smaller auto-loaded context
 
 No app code changed. CLAUDE.md now loads only AGENTS.md (cut to the current decisions and AI rules) and docs/context 01 to 03, about 39 KB instead of about 810 KB. The full old AGENTS.md and PROGRESS.md were moved, unchanged, to docs/archive/ (AGENTS_FULL_HISTORY.md, PROGRESS_HISTORY.md). This PROGRESS.md keeps the Oct 8 onward entries and is not auto-loaded. docs/context 02 tells each session to grep the archive and DECISIONS.md before changing an area.
+
+### Session, October 10, 2026 (7): the "why" document
+
+No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard parts of adult friendship it eases, and why each part of the app exists (research vs judgment marked). Auto-loaded via CLAUDE.md and added to the founder's Project.

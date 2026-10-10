@@ -12,6 +12,7 @@ Source of truth, in this order:
 1. 01_LIMEN_PRODUCT.md (what Limen is and how each part works today)
 2. 03_LIMEN_STATUS_AND_OPEN.md (what's decided, what's open, my to-do list)
 3. 02_LIMEN_HOW_WE_WORK.md (repo, database updates, testing; mainly for code sessions)
+4. 04_LIMEN_WHY.md (why each part exists; use it to judge any new idea)
 If something in an older document disagrees with these, these win. Don't ask me to re-explain decisions recorded there.
 
 Product rules that apply to every answer:
