@@ -71,7 +71,7 @@ export function RememberNoteEditor({
         Answer any or none. Only you can see this.
       </Text>
       {field('learned', `What did you learn about ${firstName}?`, 'Something they shared', 2)}
-      {field('smiled', 'What made you smile?', 'A moment you liked', 2)}
+      {field('smiled', 'What did you enjoy?', 'A moment you liked', 2)}
       {field('askNext', `Next time, I'd love to ask ${firstName}...`, 'How the trip went, how their sister is', 2)}
       {field('other', 'Anything else', 'In your own words', 3, true)}
       {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}

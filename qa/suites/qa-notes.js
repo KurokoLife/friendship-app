@@ -30,7 +30,7 @@ const { U, check, tap, text, go, q } = L;
   await a.page.waitForTimeout(2500);
   t = await text(a.page);
   check('Notes page, private', t.includes('What I want to remember about David') && t.includes('Only you can see this. David never sees your notes.'), t.slice(0, 300));
-  check('Editor open for the 2nd meetup', t.includes('Your 2nd meetup') && t.includes('Walk by the lake') && t.includes('What did you learn about David?') && t.includes('What made you smile?') && t.includes("Next time, I'd love to ask David..."), t.slice(0, 600));
+  check('Editor open for the 2nd meetup', t.includes('Your 2nd meetup') && t.includes('Walk by the lake') && t.includes('What did you learn about David?') && t.includes('What did you enjoy?') && t.includes("Next time, I'd love to ask David..."), t.slice(0, 600));
   check('No AI and no Premium', !/Organize|Summarize|Premium|credits/i.test(t));
   check('No work words', !/\b(entry|entries|timeline|follow-up)\b/i.test(t));
   const asked = await q(`select count(*)::int n from remember_asks where user_id=$1 and meetup_id=$2`, [U.aisha, m2.id]);
@@ -48,7 +48,7 @@ const { U, check, tap, text, go, q } = L;
 
   // A note between meetups
   await tap(a.page, 'Write something down', { nth: 0, wait: 1000 });
-  await a.page.fill('textarea[aria-label="What made you smile?"]', 'His story about the dog');
+  await a.page.fill('textarea[aria-label="What did you enjoy?"]', 'His story about the dog');
   await tap(a.page, 'Save', { wait: 2000 });
   t = await text(a.page);
   check('Note under "Since your last meetup"', t.includes('Since your last meetup') && t.includes('His story about the dog'));
@@ -63,7 +63,7 @@ const { U, check, tap, text, go, q } = L;
 
   // Edit
   await tap(a.page, 'Edit', { nth: 0, wait: 1000 });
-  await a.page.fill('textarea[aria-label="What made you smile?"]', 'His story about the dog and the cat');
+  await a.page.fill('textarea[aria-label="What did you enjoy?"]', 'His story about the dog and the cat');
   await tap(a.page, 'Save', { wait: 2000 });
   check('Edit saves', (await text(a.page)).includes('His story about the dog and the cat'));
 

@@ -175,7 +175,7 @@ export default function RememberNotesScreen() {
   const answers = (n: RememberNote) => {
     const rows: [string, string | null][] = [
       [`What I learned about ${first}`, n.learned],
-      ['What made me smile', n.smiled],
+      ['What I enjoyed', n.smiled],
       [`Next time, I'd love to ask ${first}`, n.ask_next],
       [n.learned || n.smiled || n.ask_next ? 'Anything else' : '', n.raw_text || null],
       ['Summary', n.organized_text],
