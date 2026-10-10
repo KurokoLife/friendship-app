@@ -115,6 +115,9 @@ export default function HomeScreen() {
   // A calm note after Save, Interested or a limit. Not an error.
   const [capacityNotice, setCapacityNotice] = useState<string | null>(null);
   const [usingDevFallback, setUsingDevFallback] = useState(false);
+  // Today's person couldn't be found: nobody new fits right now, or the
+  // picker didn't answer. Said plainly instead of "check back tomorrow".
+  const [noneToday, setNoneToday] = useState<'nobody' | 'failed' | null>(null);
 
   const toSuggestions = async (items: DiscoverState['items']): Promise<Suggestion[]> => {
     if (items.length === 0) return [];
@@ -173,11 +176,14 @@ export default function HomeScreen() {
       if (state.can_add) {
         // Today's new person. Only added when there's room for one.
         setGenerating(true);
-        const { data: fnData } = await supabase.functions.invoke('generate-match-suggestions', { body: { tz } });
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('generate-match-suggestions', { body: { tz } });
         if (fnData?.added) {
+          setNoneToday(null);
           state = await read();
           setFull(state.full);
           setSuggestions(await toSuggestions(state.items));
+        } else {
+          setNoneToday(fnError || fnData?.error ? 'failed' : 'nobody');
         }
         setGenerating(false);
       }
@@ -303,7 +309,11 @@ export default function HomeScreen() {
           {!full && !generating && suggestions.length === 0 && !error && (
             <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                A new person comes each day. Check back tomorrow.
+                {noneToday === 'nobody'
+                  ? "There's nobody new nearby who fits your settings right now. We'll look again tomorrow."
+                  : noneToday === 'failed'
+                    ? "Today's person couldn't be found just now. Please try again in a moment."
+                    : 'A new person comes each day. Check back tomorrow.'}
               </Text>
             </View>
           )}
