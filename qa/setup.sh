@@ -18,5 +18,5 @@ if [ ! -x "$Q/.local/postgrest" ]; then
   curl -sSL -o "$Q/.local/pgrst.tar.xz" https://github.com/PostgREST/postgrest/releases/download/v12.2.3/postgrest-v12.2.3-linux-static-x64.tar.xz
   tar -xJf "$Q/.local/pgrst.tar.xz" -C "$Q/.local" && rm "$Q/.local/pgrst.tar.xz"
 fi
-(cd "$Q" && npm install --silent --no-audit --no-fund pg@8 playwright-core@1.56 >/dev/null)
+(cd "$Q" && npm install --silent --no-audit --no-fund >/dev/null)
 echo "setup done"
