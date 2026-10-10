@@ -46,7 +46,7 @@ Last updated 2026-10-10.
 
 ## Every session
 
-1. Read docs/context first. Use `grep` on AGENTS.md or PROGRESS.md for specific history; don't read them whole (PROGRESS.md alone is about 700 KB).
+1. CLAUDE.md auto-loads AGENTS.md (current decisions) and docs/context 01 to 03. Before changing an area, `grep` the archive (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md) and docs/DECISIONS.md for that area's past reasons. Never read the archive files whole (the progress history is about 700 KB).
 2. Build, then `npx tsc --noEmit`, then the relevant qa suites. Check screens on a phone-sized window.
-3. Write it down: a short dated entry at the end of PROGRESS.md, a bullet under "LIMEN V2 DECISIONS" in AGENTS.md, the area in docs/DECISIONS.md, and update docs/context if something there changed.
+3. Write it down: a short dated entry at the end of PROGRESS.md (recent log, not auto-loaded), a bullet under "LIMEN V2 DECISIONS" in AGENTS.md, the area in docs/DECISIONS.md, and update docs/context if something there changed.
 4. Commit, push, and tell the founder the exact migrations to run and functions to deploy.

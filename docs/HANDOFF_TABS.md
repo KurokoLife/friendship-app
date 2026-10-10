@@ -37,7 +37,7 @@ picks up the tabs. Read this first, then the files it points to.
 ## 4. Docs, in order of trust
 
 1. `docs/DECISIONS.md`: founder decisions by area, with a status table. Area 9: Remember decided and built 2026-10-10; Guide has a draft plan (section 9b), not decided.
-2. AGENTS.md, section "LIMEN V2 DECISIONS": the newest decisions (Oct 3 to Oct 10). They supersede everything else in AGENTS.md. The long F1 to F33 sections below them are history and are often stale (Premium, credits, Browse, R2/R3 reminders and the old meetup system are all gone).
+2. AGENTS.md, section "LIMEN V2 DECISIONS": the newest decisions (Oct 3 to Oct 10). They supersede everything else. The old F1 to F33 sections are now in docs/archive/AGENTS_FULL_HISTORY.md, history and often stale (Premium, credits, Browse, R2/R3 reminders and the old meetup system are all gone).
 3. `docs/LIMEN_V2_DECISIONS.md`: the Oct 3 ethics review (no AI writing, 3 suggestions a week, flat caps, graduation, stories, money).
 4. PROGRESS.md: the session log. Read the last 8 entries (Oct 8 to Oct 10). Older entries are history.
 5. `CURRENT_STATE.md`, `FULL_APP_INVENTORY.md`, `APP_SCREENS_REFERENCE.md`, `PRODUCT_GUIDE.md`: older overviews from August. Check them against the code before trusting anything.

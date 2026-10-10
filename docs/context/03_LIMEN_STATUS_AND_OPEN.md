@@ -55,4 +55,4 @@ Decided recently (don't re-ask): a meetup added with "Met up already? Add it" co
 - Old purchase code: `src/lib/ai-credits.ts`, `src/lib/premium.ts`, receipt functions.
 - Hidden Browse tab and its connection-analysis sheet; `generate-activity-suggestions`.
 - Old planning and intervention functions and tables in the database (unused).
-- AGENTS.md sections F1 to F33 and most of PROGRESS.md are history and often out of date.
+- History moved to docs/archive/ on Oct 10 (full old AGENTS.md and PROGRESS.md). Searchable, often out of date, never auto-loaded.
