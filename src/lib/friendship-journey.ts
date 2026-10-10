@@ -403,6 +403,14 @@ export async function submitPostMeetupReflection(
   if (error) throw error;
 }
 
+// "Remind me later" after a good meetup (2026-10-10): the same private
+// "tell them how it was" card comes back once, on the chosen day.
+export async function remindMeToShare(meetupId: string, days: number): Promise<string | null> {
+  const { data, error } = await supabase.rpc('remind_me_to_share', { p_meetup_id: meetupId, p_days: days });
+  if (error) throw error;
+  return (data as string | null) ?? null;
+}
+
 export type RhythmCadence = 'weekly' | 'few_weeks' | 'monthly' | 'occasional' | 'not_sure';
 export async function submitRhythmPreference(connectionId: string, cadence: RhythmCadence): Promise<void> {
   const { error } = await supabase.rpc('submit_rhythm_preference', {

@@ -7,11 +7,12 @@ import { supabase } from '@/lib/supabase';
 // Test tools for meetups (2026-10-08): move a chat's meetup in time so
 // each prompt can be checked right away instead of waiting a day.
 
-const TESTS: { key: 'tomorrow' | 'today' | 'happened' | 'past'; label: string; hint: string }[] = [
+const TESTS: { key: 'tomorrow' | 'today' | 'happened' | 'past' | 'remind'; label: string; hint: string }[] = [
   { key: 'tomorrow', label: 'Make it tomorrow', hint: 'Shows "Still on?"' },
   { key: 'today', label: 'Make it today', hint: 'Shows the morning-of card' },
   { key: 'happened', label: 'Make it yesterday', hint: 'Shows "Did you meet?"' },
   { key: 'past', label: 'Add a past meetup', hint: 'Adds one to the history' },
+  { key: 'remind', label: 'Reminder due now', hint: '"Remind me later" comes back' },
 ];
 
 export function MeetupTestPanel({ chatId, chatName }: { chatId: string; chatName: string }) {
@@ -21,7 +22,10 @@ export function MeetupTestPanel({ chatId, chatName }: { chatId: string; chatName
   const run = async (key: string) => {
     setBusy(key);
     setStatus(null);
-    const { data, error } = await supabase.rpc('dev_meetup_test', { p_connection_id: chatId, p_action: key });
+    const { data, error } =
+      key === 'remind'
+        ? await supabase.rpc('test_share_reminder_now', { p_connection_id: chatId })
+        : await supabase.rpc('dev_meetup_test', { p_connection_id: chatId, p_action: key });
     setBusy(null);
     setStatus(error ? friendlyToolError(error.message) : (data as string));
   };

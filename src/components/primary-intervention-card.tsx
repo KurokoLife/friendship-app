@@ -15,12 +15,13 @@ import {
   submitPostMeetupReflection,
   submitSecondLookResponse,
   respondToMeetupPrompt,
+  remindMeToShare,
   type ActiveIntervention,
   type MeetupCancellationReason,
   type PostMeetupReflectionResponse,
 } from '@/lib/friendship-journey';
 import { supabase } from '@/lib/supabase';
-import { formatMeetupTime, formatWhen } from '@/lib/meetup-format';
+import { formatMeetupDay, formatMeetupTime, formatWhen } from '@/lib/meetup-format';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { UniversalTextBox } from '@/components/universal-text-box';
@@ -149,6 +150,15 @@ export function PrimaryInterventionCard({
           onResolved={onResolved}
           onPlanNext={onRequestPlanEditor ? () => onRequestPlanEditor('change') : undefined}
           onEndConnection={onEndConnection}
+        />
+      );
+    case 'share_reminder':
+      return (
+        <ShareReminderPrompt
+          connectionId={connectionId}
+          intervention={intervention}
+          otherName={otherName}
+          onResolved={onResolved}
         />
       );
     case 'second_look_prompt':
@@ -1091,6 +1101,177 @@ function MeetupOccurrenceCheck({
 // don't think we'll continue" offers the kind way to end things.
 const SHARE_STEMS = ['I really enjoyed ', 'Thanks for today, ', 'It was good to see you, '];
 
+// "Remind me later" (2026-10-10). The person picks when the private "tell
+// them how it was" card should come back. It comes back once, in this chat
+// only, and only the person sees it.
+const REMIND_OPTIONS: { label: string; days: number }[] = [
+  { label: 'Tomorrow', days: 1 },
+  { label: 'In 3 days', days: 3 },
+  { label: 'In a week', days: 7 },
+];
+
+function reminderDayLabel(at: string | null): string {
+  if (!at) return 'then';
+  const d = new Date(at);
+  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function RemindLaterChoice({
+  meetupId,
+  otherName,
+  doneAt,
+  onPicked,
+  onBack,
+  onClose,
+}: {
+  meetupId: string;
+  otherName: string;
+  doneAt: string | null;
+  onPicked: (at: string | null) => void;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (doneAt !== null) {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">
+          Okay. On {reminderDayLabel(doneAt)}, this chat will ask again if you&apos;d like to tell {otherName} how it was.
+          Only you&apos;ll see it.
+        </Text>
+        <OptionPill label="Close" onPress={onClose} />
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <Text className="text-body text-stone-700 dark:text-stone-300">When should we ask you again?</Text>
+      <View className="flex-row flex-wrap gap-2">
+        {REMIND_OPTIONS.map((o) => (
+          <OptionPill
+            key={o.days}
+            label={o.label}
+            onPress={async () => {
+              if (busy) return;
+              setBusy(true);
+              setError(null);
+              try {
+                onPicked(await remindMeToShare(meetupId, o.days));
+              } catch {
+                setError("That didn't save. Please try again.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        ))}
+        <OptionPill label="Back" onPress={onBack} />
+      </View>
+      {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+    </Card>
+  );
+}
+
+// The reminder the person asked for, back on the day they chose.
+function ShareReminderPrompt({
+  connectionId,
+  intervention,
+  otherName,
+  onResolved,
+}: {
+  connectionId: string;
+  intervention: ActiveIntervention;
+  otherName: string;
+  onResolved: () => void;
+}) {
+  const meetupId = intervention.payload.meetup_id as string;
+  const meetupDate = intervention.payload.meetup_date as string | null;
+  const [mode, setMode] = useState<'ask' | 'sharing' | 'shared' | 'remind' | 'reminded'>('ask');
+  const [remindAt, setRemindAt] = useState<string | null>(null);
+
+  // The card is put away (resolved) as soon as the person does anything with
+  // it; what they see next is just this card's own follow-up.
+  const putAway = async () => {
+    if (intervention.intervention_id) {
+      try {
+        await dismissIntervention(intervention.intervention_id);
+      } catch {
+        // Best effort: the card still closes.
+      }
+    }
+  };
+
+  if (mode === 'remind' || mode === 'reminded') {
+    return (
+      <RemindLaterChoice
+        meetupId={meetupId}
+        otherName={otherName}
+        doneAt={mode === 'reminded' ? remindAt : null}
+        onPicked={(at) => {
+          setRemindAt(at);
+          setMode('reminded');
+        }}
+        onBack={() => setMode('ask')}
+        onClose={onResolved}
+      />
+    );
+  }
+
+  if (mode === 'sharing') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">In your own words, a line or two is plenty.</Text>
+        <StemMessageBox
+          stems={SHARE_STEMS}
+          onCancel={() => setMode('ask')}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) {
+              await putAway();
+              setMode('shared');
+            }
+            return ok;
+          }}
+        />
+      </Card>
+    );
+  }
+
+  if (mode === 'shared') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">Sent.</Text>
+        <OptionPill label="Close" onPress={onResolved} />
+      </Card>
+    );
+  }
+
+  const when = meetupDate ? ` on ${formatMeetupDay(meetupDate)}` : '';
+  return (
+    <Card>
+      <Text className="text-body text-stone-700 dark:text-stone-300">
+        You asked to be reminded. Would you like to tell {otherName} how your meetup{when} was for you? Only if you want
+        to.
+      </Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">If you already have, you can close this.</Text>
+      <View className="flex-row flex-wrap gap-2">
+        <OptionPill label={`Tell ${otherName}`} onPress={() => setMode('sharing')} />
+        <OptionPill label="Remind me later" onPress={() => setMode('remind')} />
+        <OptionPill
+          label="Not now"
+          onPress={async () => {
+            await putAway();
+            onResolved();
+          }}
+        />
+      </View>
+    </Card>
+  );
+}
+
 function PostMeetupReflectionPrompt({
   connectionId,
   intervention,
@@ -1107,7 +1288,8 @@ function PostMeetupReflectionPrompt({
   onEndConnection?: () => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
-  const [after, setAfter] = useState<'none' | 'went_well' | 'sharing' | 'shared' | 'thanks' | 'ending'>('none');
+  const [after, setAfter] = useState<'none' | 'went_well' | 'sharing' | 'shared' | 'remind' | 'reminded' | 'thanks' | 'ending'>('none');
+  const [remindAt, setRemindAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const options: { key: PostMeetupReflectionResponse; label: string }[] = [
     { key: 'know_better', label: `Really good, I'd like to see ${otherName} again` },
@@ -1140,6 +1322,7 @@ function PostMeetupReflectionPrompt({
         </Text>
         <View className="flex-row flex-wrap gap-2">
           {after === 'went_well' && <OptionPill label={`Tell ${otherName}`} onPress={() => setAfter('sharing')} />}
+          {after === 'went_well' && <OptionPill label="Remind me later" onPress={() => setAfter('remind')} />}
           {onPlanNext && (
             <OptionPill
               label="Plan another meetup"
@@ -1152,6 +1335,22 @@ function PostMeetupReflectionPrompt({
           <OptionPill label={after === 'shared' ? 'Close' : 'Not now'} onPress={onResolved} />
         </View>
       </Card>
+    );
+  }
+
+  if (after === 'remind' || after === 'reminded') {
+    return (
+      <RemindLaterChoice
+        meetupId={meetupId}
+        otherName={otherName}
+        doneAt={after === 'reminded' ? remindAt : null}
+        onPicked={(at) => {
+          setRemindAt(at);
+          setAfter('reminded');
+        }}
+        onBack={() => setAfter('went_well')}
+        onClose={onResolved}
+      />
     );
   }
 

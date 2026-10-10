@@ -2223,3 +2223,13 @@ Migration `20261010000001_quieter_reminders_check_ins.sql` (bumps `limen_db_vers
 - **Test tab:** "Quiet chat" (was "No-reply reminders") runs both checks and explains which kind of chat it is.
 - Verified locally: 33 database checks (`remsql.sql`), migration re-run safely, on-screen suites qa-remind (new) 42/42, qa-noghost (rewritten) 30/30, qa-meetups 54/54, qa-plan 70/70, qa-oct9 37/37, qa-oct9b 62/62, qa-mochi 6/6, qa-meet 36/36, qa-oct9c 20/20, qa-testtab 27/27. Test helper `go()` now opens the plan bar automatically. Phone screenshots checked (390x844: plan bar, newest message and check-in all in view; safety tips; home note).
 - **Not changed (still open, needs founder decision):** a meetup someone adds ("Met up already? Add it") still counts after a week without the other person's yes. The morning-of video's title/content is still first-meetup specific.
+
+### Session, October 10, 2026 (3): "Remind me later" after a good meetup
+
+Migration `20261010000002_share_reminder.sql` (bumps `limen_db_version()` to `20261010000002`). No server function changes.
+
+- **What:** the after-a-good-meetup card ("Would you like to tell X how it was for you?") now also offers "Remind me later": Tomorrow / In 3 days / In a week, or Back. It confirms the day ("On Tuesday, Oct 13, this chat will ask again... Only you'll see it."). On that day the card comes back once: "You asked to be reminded. Would you like to tell X how your meetup on ... was for you? Only if you want to. If you already have, you can close this." (Tell X with starters / Remind me later / Not now).
+- **How it fits with other reminders:** it's a `share_reminder` row (`snoozed` until due). `get_active_intervention` wakes it and ranks it with "Did you meet?" and "How did it go?", so only one card shows at a time and it never stacks with the check-in or a meet nudge. A new reminder replaces an older one in that chat. It isn't skipped when the person has messaged since (the app can't tell what was said, and it's their own reminder); the card says they can close it if they already did. Ending, blocking or closing the chat drops it (`clear_interventions_on_connection_closed` now also clears waiting share reminders).
+- **Test tab:** Meetups panel "Reminder due now" (`test_share_reminder_now`, acts on the account you're acting as).
+- Verified locally: qa-share (new) 21/21, qa-remind 42/42, qa-meetups 54/54, qa-testtab 27/27, qa-noghost 30/30.
+- **Open founder items:** (1) update the morning-of video "The First Meetup Does Not Need to Be Perfect", which is also offered before later meetups (a reminder is scheduled for Oct 17); (2) a meetup someone adds with "Met up already? Add it" still counts after a week without the other person's yes.
