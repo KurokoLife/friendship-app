@@ -95,7 +95,9 @@ async function rpcAs(user, sql, params = []) {
   await mo.page.waitForTimeout(2500);
   const later = await text(mo.page);
   const mariaNames = ['David C.', 'Robert K.'];
-  check('Right after switching, Inbox does not show the previous account\'s chats', !mariaNames.some((n) => early.includes(n)), early.slice(0, 300));
+  // Only the Inbox part of the page (Discover can stay in the page behind it).
+  const earlyInbox = early.includes('Active Friends Past') ? early.slice(early.indexOf('Active Friends Past')) : early;
+  check('Right after switching, Inbox does not show the previous account\'s chats', !mariaNames.some((n) => earlyInbox.includes(n)), earlyInbox.slice(0, 300));
   check('Then shows the new account\'s own chats', later.includes('Priya N.') && !later.includes('3 of 3'), later.slice(0, 300));
 
   await L.finish?.();

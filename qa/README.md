@@ -57,6 +57,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-remind | Reminder settings, phone layout, safety tips, after a good meetup |
 | qa-share | "Remind me later" after a good meetup |
 | qa-notes | Remember in the chat: bar, notes by meetup, free notes with topic chips, search and filters from 6 notes, Next time list, planning card (incl. "Ideas for us"), check-in, setting, ended chats, Settings download |
+| qa-inbox-chat | Inbox and chat end to end: rows, scam note, sending shows right away, Reflect, Reminders, Report, Block, Back |
 | qa-discover | Discover one a day, up to 3 waiting, nobody while full; Interested and Saved for 30 days; Inbox tabs, hide a blocked chat |
 | qa-refresh | Cards and notes survive a page refresh; no "AI" on main screens; reminders sheet and payment page wording |
 | qa-answer | "Yes, we met" / "No, that's not right" on an old card, at a laptop window size |

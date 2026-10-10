@@ -171,30 +171,47 @@ export async function submitSelfieCheck(params: {
 // A plain word list, checked on the receiver's phone. Nothing is scored,
 // sent anywhere, or stored. It targets the two classic scam moves: asking
 // for money and moving the conversation off the app quickly.
+// Widened 2026-10-10 (founder test: "money", "apple card" and "whatsup"
+// slipped through). A false alarm only shows one calm, general line, so
+// the list leans toward catching more.
 const SCAM_PATTERNS: RegExp[] = [
-  /\bvenmo\b/i,
-  /\bzelle\b/i,
-  /\bcash\s?app\b/i,
-  /\bpaypal\b/i,
-  /\bgift\s?cards?\b/i,
-  /\bcrypto(currency)?\b/i,
-  /\bbitcoin\b/i,
-  /\bwire\s+(me|transfer|the money)\b/i,
-  /\bwestern union\b/i,
-  /\bsend (me )?(some )?money\b/i,
-  /\bborrow (some )?money\b/i,
-  /\bwhats\s?app\b/i,
-  /\btelegram\b/i,
+  // Money
+  /\bmoney\b/i,
+  /\bcash\b/i,
+  /\$\s?\d/,
+  /\b\d+\s?(dollars|bucks|usd)\b/i,
+  /\b(loan|lend|borrow)\b/i,
+  /\bpay (me|for)\b/i,
+  /\b(venmo|zelle|paypal|cash\s?app|western union|moneygram)\b/i,
+  /\bapple\s?(card|cash|pay)\b/i,
+  /\bgoogle\s?pay\b/i,
+  /\b(gift|itunes|steam|amazon|google play)\s?cards?\b/i,
+  /\b(crypto(currency)?|bitcoin|btc|usdt|ethereum|forex)\b/i,
+  /\binvest(ment|ing)? (opportunity|platform|plan|with me)\b/i,
+  /\bwire\b/i,
+  /\b(bank account|routing number|account number)\b/i,
+  // Moving off the app
+  /\bwh?at+s?\s?app?\b/i,
+  // "whatsup" is also a greeting, so only when it's about moving there.
+  /\b(on|via|use|add me on|talk on|chat on|message me on)\s+wh?at+s?\s?up\b/i,
+  /\bwa\.me\b/i,
+  /\b(telegram|kik|wechat|snapchat|google hangouts)\b/i,
   /\bsignal app\b/i,
-  /\bkik\b/i,
-  /\bgoogle hangouts\b/i,
+  /\boff (the|this) app\b/i,
+  /\b(text|call|message) me (at|on)\b/i,
+  /\bmy (phone )?number\b/i,
+  /\b\d{3}[-.\s)]?\s?\d{3}[-.\s]?\d{4}\b/,
+  /[\w.+-]+@[\w-]+\.[\w.]+/,
 ];
 
 export function containsScamSignal(text: string): boolean {
   return SCAM_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-// How many of the conversation's first messages are checked.
+// Checked until the two of you have met in person. Scammers don't meet;
+// friends who have met can talk about money and phone numbers freely.
+// Before 2026-10-10 only the first 20 messages were checked, so a longer
+// chat never showed the note.
 export const SCAM_CHECK_EARLY_MESSAGE_COUNT = 20;
 
 export const SCAM_NOTE_COPY =

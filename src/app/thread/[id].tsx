@@ -53,7 +53,6 @@ import {
 import {
   connectionHasMutualInterest,
   containsScamSignal,
-  SCAM_CHECK_EARLY_MESSAGE_COUNT,
   SCAM_NOTE_COPY,
 } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -225,6 +224,8 @@ export default function ThreadScreen() {
   // A card's follow-up step kept on this device, so a refresh doesn't lose
   // it (2026-10-10, src/lib/held-card.ts). Shown before the server's card.
   const [heldCard, setHeldCard] = useState<HeldCard | null>(null);
+  // The scam note is checked until the two people have met in person.
+  const [haveMet, setHaveMet] = useState(false);
   // 2026-08-12 correction: at most one Limen video guidance offer may be
   // visible at once. Video 3 (NextMeetupIndicatorV2) and Video 6 (inline in
   // PrimaryInterventionCard's PreMeetupSupport) each report upward via a
@@ -314,9 +315,10 @@ export default function ThreadScreen() {
   // a block that already existed when this screen first loaded).
   const loadConnectionStatus = useCallback(async () => {
     if (!connectionId || !otherId) return;
-    const { data } = await supabase.from('connections').select('status').eq('id', connectionId).maybeSingle();
+    const { data } = await supabase.from('connections').select('status, meetup_count').eq('id', connectionId).maybeSingle();
     const status = data?.status ?? null;
     setConnectionStatus(status);
+    setHaveMet(((data as { meetup_count?: number | null } | null)?.meetup_count ?? 0) > 0);
     await loadPause();
     if (status === 'blocked') {
       const { data: myBlock } = await supabase
@@ -437,10 +439,11 @@ export default function ThreadScreen() {
 
       const { data: connection } = await supabase
         .from('connections')
-        .select('user_a_id, user_b_id, status')
+        .select('user_a_id, user_b_id, status, meetup_count')
         .eq('id', connectionId)
         .maybeSingle();
       if (cancelled) return;
+      setHaveMet(((connection as { meetup_count?: number | null } | null)?.meetup_count ?? 0) > 0);
 
       if (!connection) {
         setNotFound(true);
@@ -611,6 +614,10 @@ export default function ThreadScreen() {
     try {
       await sendMessage(content);
       setDraft('');
+      // Show it right away, even if the live update is slow or dropped
+      // (2026-10-10: a sent message only appeared once the live update
+      // arrived).
+      await reloadMessages();
     } catch {
       setSendError("That message couldn't be sent. Nothing was lost, your draft is still here.");
     } finally {
@@ -773,10 +780,12 @@ export default function ThreadScreen() {
   // Scam-signal note (section 3, item 4): checked on this phone only,
   // nothing scored or stored. Shown once, under the first early message
   // from the other person that mentions money or moving off the app.
-  const scamNoteMessageId =
-    messages
-      .slice(0, SCAM_CHECK_EARLY_MESSAGE_COUNT)
-      .find((m) => m.sender_id !== myId && containsScamSignal(m.content))?.id ?? null;
+  // 2026-10-10: checked on every message from the other person until you
+  // have met in person (it was only the first 20 messages), and shown
+  // under the newest one so it's seen now, not far up the chat.
+  const scamNoteMessageId = haveMet
+    ? null
+    : ([...messages].reverse().find((m) => m.sender_id !== myId && containsScamSignal(m.content))?.id ?? null);
 
   let lastDateLabel = '';
 

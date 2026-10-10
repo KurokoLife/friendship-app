@@ -177,3 +177,9 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Founder decisions (docs/DECISIONS.md section 4): one new person a day, up to 3 waiting; nobody while you have 3 active chats (paused count); people at capacity never shown; never anyone you've had a chat with; let-go people back after 21 days at the bottom. Interested and Save move people to Saved; both last 30 days; Interested closes with a one-time note; at most 5 of each. Inbox tabs Active / Friends / Past; the blocker can hide a blocked chat.
 - Found: a pause could be used to open a fourth chat (paused didn't count, and a pause ending had no capacity check). Paused now counts. A chat opened from a saved row kept status null; it now becomes 'pending'.
 - Migration `20261010000005_discover_daily_saved_inbox.sql`; `generate-match-suggestions` rewritten to add only today's one person (redeploy). Local gateway stub for it. New `qa-discover` (19 checks), `discoversql.sql`. qa-oct9 and qa-oct9b updated to the new rules. All suites passing.
+
+## 2026-10-10 (evening, later): full Inbox and chat check
+
+- Founder: no scam warning for "money", "apple card", "whatsup". Cause: narrow word list and only the first 20 messages checked. Now every message until the two have met, wider list (tested against greetings like "whatsup?" so they don't trigger), note under the newest match.
+- Found while checking: a sent message only appeared once the live update arrived; now shown right away.
+- New `qa-inbox-chat` (27 checks). qa-oct9c's account-switch check now reads only the Inbox part of the page. All 17 suites passing.
