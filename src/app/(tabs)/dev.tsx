@@ -30,12 +30,13 @@ type Chat = {
 
 const NO_REPLY_STEPS: { hours: number; label: string; shows: string }[] = [
   { hours: 2, label: '2 hours', shows: 'Nothing yet' },
-  { hours: 25, label: '1 day', shows: 'First reminder for the person who hasn’t replied' },
-  { hours: 37, label: '1.5 days', shows: 'Calm “it can take a few days” note for the person waiting' },
-  { hours: 73, label: '3 days', shows: 'Second reminder (reply, more time, or end)' },
-  { hours: 121, label: '5 days', shows: 'Last reminder' },
-  { hours: 126, label: '5+ days', shows: '“It’s been quiet” card for the person waiting' },
-  { hours: 170, label: '7 days', shows: 'The chat closes by itself' },
+  { hours: 25, label: '1 day', shows: 'Only one person wrote: a gentle note for people who reply within a day' },
+  { hours: 37, label: '1.5 days', shows: 'Only one person wrote: a calm note for the person who wrote' },
+  { hours: 49, label: '2 days', shows: 'Only one person wrote: the gentle note for people who reply in 1-2 days' },
+  { hours: 73, label: '3 days', shows: 'Only one person wrote: the gentle note for people who reply in a few days' },
+  { hours: 121, label: '5 days', shows: 'Both wrote: a check-in card for both. Only one wrote: nothing new' },
+  { hours: 126, label: '5+ days', shows: 'Only one person wrote: "It’s been quiet" for the person who wrote' },
+  { hours: 170, label: '7 days', shows: 'Only one person wrote: the chat closes quietly. Both wrote: it stays open' },
 ];
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -314,8 +315,8 @@ export default function TestToolsScreen() {
 
           {chat && (
             <Section
-              title="No-reply reminders"
-              hint={`Makes the last message in your chat with ${chat.name} this old, then runs the real reminder check. Then open the chat as either person.`}>
+              title="Quiet chat"
+              hint={`Makes the last message in your chat with ${chat.name} this old, then runs the real checks. Reply notes only happen while just one person has written; once both have, a quiet chat gets a check-in at 5 days. Then open the chat as either person.`}>
               <View className="gap-2">
                 {NO_REPLY_STEPS.map((s) => (
                   <Pressable
@@ -336,7 +337,7 @@ export default function TestToolsScreen() {
               {chat.other_id && (
                 <View className="gap-2 border-t border-stone-200 pt-3 dark:border-stone-700">
                   <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    Send a message as {chat.name}, so it&apos;s your turn to reply.
+                    Send a message as {chat.name}.
                   </Text>
                   <TextInput
                     value={otherText}
@@ -444,8 +445,8 @@ export default function TestToolsScreen() {
 
           {!chat && (
             <Section
-              title="No-reply reminders and Meetups"
-              hint="Pick a chat above first. The no-reply reminder tools and the meetup tools (Make it tomorrow, Make it today, Make it yesterday, Add a past meetup) then appear here.">
+              title="Quiet chat and Meetups"
+              hint="Pick a chat above first. The quiet-chat tools and the meetup tools (Make it tomorrow, Make it today, Make it yesterday, Add a past meetup) then appear here.">
               {chats.length === 0 && (
                 <Text className="text-caption text-stone-500 dark:text-stone-400">
                   This account has no chats yet. Act as another test account that has chats, or start one from

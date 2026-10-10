@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
+import { ChatRemindersSheet } from '@/components/chat-reminders-sheet';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
 import { MirrorSheet } from '@/components/mirror-sheet';
@@ -37,6 +38,7 @@ import {
   type PauseDetails,
 } from '@/lib/friendship-journey';
 import { recordPlanActivity } from '@/lib/meetup-milestones';
+import { getPromptSettings, isOn, type PromptSettings } from '@/lib/prompt-settings';
 import { startPlanBoard } from '@/lib/plan-board';
 import { goBack } from '@/lib/navigation';
 import { HONEST_EXIT_RECEIVER_TEXT, HONEST_EXIT_SENDER_TEXT, senderReassuranceLine } from '@/lib/no-ghost';
@@ -241,6 +243,20 @@ export default function ThreadScreen() {
   // Invites to meet sent into the chat (2026-10-10), by message id.
   const { invites: planInvites, reload: reloadPlanInvites } = usePlanInvites(connectionId ?? null, planRefreshKey);
   const scrollRef = useRef<ScrollView>(null);
+  // Keep the newest messages (and any card under them) in view, unless the
+  // person scrolled up to read.
+  const nearBottomRef = useRef(true);
+  // Reminder settings for this chat (2026-10-10).
+  const [prompts, setPrompts] = useState<PromptSettings | null>(null);
+  const [remindersVisible, setRemindersVisible] = useState(false);
+  const [hasPlan, setHasPlan] = useState(false);
+  const loadPrompts = useCallback(async () => {
+    if (!connectionId) return;
+    setPrompts(await getPromptSettings(connectionId));
+  }, [connectionId]);
+  useEffect(() => {
+    loadPrompts();
+  }, [loadPrompts]);
 
   const loadNewSystemIntervention = useCallback(
     async (viewerId?: string) => {
@@ -631,9 +647,14 @@ export default function ThreadScreen() {
   const hoursSinceSent = lastMessage
     ? (Date.now() - new Date(lastMessage.created_at).getTime()) / (60 * 60 * 1000)
     : 0;
+  // 2026-10-10: only while just one person has written. Once both have,
+  // quiet is normal and nobody is "waiting".
+  const bothHaveWritten =
+    Boolean(myId) && messages.some((m) => m.sender_id === myId) && messages.some((m) => m.sender_id !== myId);
   const statusLine =
     !conversationEnded &&
     connectionStatus !== 'paused' &&
+    !bothHaveWritten &&
     isSenderWaiting &&
     newSystemIntervention?.intervention_type !== 'no_ghost_s1'
       ? senderReassuranceLine(hoursSinceSent)
@@ -959,82 +980,25 @@ export default function ThreadScreen() {
                 refreshKey={planRefreshKey}
                 editorRequest={planEditorRequest}
                 onEndConnection={() => setEndConnectionVisible(true)}
-                paceAskedBelow={newSystemIntervention?.intervention_type === 'rhythm_reminder'}
-              />
-            )}
-            {myId && connectionId && (
-              <PlanBoardCard
-                connectionId={connectionId}
-                myId={myId}
-                otherName={other?.display_name ?? 'them'}
-                refreshKey={planBoardKey + planRefreshKey}
-                openRequest={planBoardOpenRequest}
-                onStart={openPlanBoard}
-                onSent={() => {
-                  reloadPlanInvites();
-                  reloadMessages();
-                }}
-              />
-            )}
-            {/* Gentle nudge to meet in person after weeks of only chatting
-                (2026-10-09). Only when no other prompt card is showing. */}
-            {myId && connectionId && !newSystemIntervention && (
-              <MeetNudgeCard
-                connectionId={connectionId}
-                otherName={other?.display_name ?? 'them'}
-                refreshKey={planBoardKey + planRefreshKey}
-                onPlan={handlePlanSomething}
-                onEnd={() => setEndConnectionVisible(true)}
-              />
-            )}
-            {newSystemIntervention && connectionId && (
-              <View className="px-6 pt-4">
-                <PrimaryInterventionCard
-                  intervention={newSystemIntervention}
-                  connectionId={connectionId}
-                  otherName={other?.display_name ?? 'them'}
-                  onResolved={() => {
-                    loadNewSystemIntervention();
-                    // "I need more time" pauses the chat from inside the card
-                    // and sends the note with it.
-                    loadConnectionStatus();
-                    reloadMessages();
-                    // A card can change the plan or the meetup count ("Did
-                    // you meet?" both yes), so the plan card reloads too.
-                    setPlanRefreshKey((k) => k + 1);
-                  }}
-                  onPlanSomething={handlePlanSomething}
-                  onVideoOfferChange={setVideo6OfferActive}
-                  onEndConnection={() => setEndConnectionVisible(true)}
-                  onRequestPlanEditor={(mode) => setPlanEditorRequest((r) => ({ mode, n: (r?.n ?? 0) + 1 }))}
-                  onPlanChanged={() => setPlanRefreshKey((k) => k + 1)}
-                />
-              </View>
-            )}
-            {/* Video trigger/placement architecture (2026-08-11), Videos 2/4/5:
-                deliberately rendered AFTER PrimaryInterventionCard, never
-                instead of it -- optional secondary support only, never the
-                primary relational intervention. myId is guaranteed defined
-                here, this whole block already requires it above.
-                2026-08-12 correction: not rendered at all while Video 3
-                (NextMeetupIndicatorV2, above) or Video 6 (inline in
-                PrimaryInterventionCard just above) already has its own
-                offer visible -- the simplest way to guarantee at most one
-                video guidance offer on screen, without a shared resolver or
-                new priority system. Nothing about WHEN 2/4/5 would
-                individually qualify changes; only whether this component
-                mounts at all does. */}
-            {myId && connectionId && !video3OfferActive && !video6OfferActive && (
-              <VideoGuidanceCard
-                connectionId={connectionId}
-                myId={myId}
-                currentInterventionType={newSystemIntervention?.intervention_type}
+                calendarAskOn={isOn(prompts, 'calendar')}
+                guidesOn={isOn(prompts, 'guides')}
+                onPlanState={setHasPlan}
               />
             )}
           </>
         )}
 
-        <ScrollView ref={scrollRef} contentContainerClassName="gap-3 px-6 py-5">
+        <ScrollView
+          ref={scrollRef}
+          contentContainerClassName="gap-3 px-6 py-5"
+          scrollEventThrottle={100}
+          onScroll={(e) => {
+            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+            nearBottomRef.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 120;
+          }}
+          onContentSizeChange={() => {
+            if (nearBottomRef.current) scrollRef.current?.scrollToEnd({ animated: false });
+          }}>
           {messages.length === 0 && (
             <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
               This is the start of your conversation.
@@ -1121,6 +1085,84 @@ export default function ThreadScreen() {
               </View>
             );
           })}
+          {/* Prompt cards sit under the newest message (2026-10-10), so the
+              conversation stays in view on a phone. -mx-6 undoes the list's
+              own side padding, since the cards bring their own. */}
+          {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && (
+            <View className="-mx-6">
+            {myId && connectionId && (
+              <PlanBoardCard
+                connectionId={connectionId}
+                myId={myId}
+                otherName={other?.display_name ?? 'them'}
+                refreshKey={planBoardKey + planRefreshKey}
+                openRequest={planBoardOpenRequest}
+                onStart={openPlanBoard}
+                onSent={() => {
+                  reloadPlanInvites();
+                  reloadMessages();
+                }}
+              />
+            )}
+            {/* Gentle nudge to meet in person after weeks of only chatting
+                (2026-10-09). Only when no other prompt card is showing. */}
+            {myId && connectionId && !newSystemIntervention && (
+              <MeetNudgeCard
+                connectionId={connectionId}
+                otherName={other?.display_name ?? 'them'}
+                refreshKey={planBoardKey + planRefreshKey}
+                onPlan={handlePlanSomething}
+                onEnd={() => setEndConnectionVisible(true)}
+                onTurnedOff={loadPrompts}
+              />
+            )}
+            {newSystemIntervention && connectionId && (
+              <View className="px-6 pt-2">
+                <PrimaryInterventionCard
+                  intervention={newSystemIntervention}
+                  connectionId={connectionId}
+                  otherName={other?.display_name ?? 'them'}
+                  onResolved={() => {
+                    loadNewSystemIntervention();
+                    // "I need more time" pauses the chat from inside the card
+                    // and sends the note with it.
+                    loadConnectionStatus();
+                    reloadMessages();
+                    // A card can change the plan or the meetup count ("Did
+                    // you meet?" both yes), so the plan card reloads too.
+                    setPlanRefreshKey((k) => k + 1);
+                  }}
+                  onPlanSomething={handlePlanSomething}
+                  onVideoOfferChange={setVideo6OfferActive}
+                  onEndConnection={() => setEndConnectionVisible(true)}
+                  onRequestPlanEditor={(mode) => setPlanEditorRequest((r) => ({ mode, n: (r?.n ?? 0) + 1 }))}
+                  onPlanChanged={() => setPlanRefreshKey((k) => k + 1)}
+                  onPromptsChanged={loadPrompts}
+                />
+              </View>
+            )}
+            {/* Video trigger/placement architecture (2026-08-11), Videos 2/4/5:
+                deliberately rendered AFTER PrimaryInterventionCard, never
+                instead of it -- optional secondary support only, never the
+                primary relational intervention. myId is guaranteed defined
+                here, this whole block already requires it above.
+                2026-08-12 correction: not rendered at all while Video 3
+                (NextMeetupIndicatorV2, above) or Video 6 (inline in
+                PrimaryInterventionCard just above) already has its own
+                offer visible -- the simplest way to guarantee at most one
+                video guidance offer on screen, without a shared resolver or
+                new priority system. Nothing about WHEN 2/4/5 would
+                individually qualify changes; only whether this component
+                mounts at all does. */}
+            {myId && connectionId && isOn(prompts, 'guides') && !video3OfferActive && !video6OfferActive && (
+              <VideoGuidanceCard
+                connectionId={connectionId}
+                myId={myId}
+                currentInterventionType={newSystemIntervention?.intervention_type}
+              />
+            )}
+            </View>
+          )}
         </ScrollView>
 
         <View className="gap-2 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-3 dark:border-stone-800 dark:bg-stone-900">
@@ -1236,9 +1278,18 @@ export default function ThreadScreen() {
               conflict with. Routes through handlePlanSomething so the
               first-time milestone fires consistently whether the user
               taps this or the automatic banner's "Yes". */}
-          <Pressable onPress={handlePlanSomething} className="self-start">
-            <Text className="text-caption font-semibold text-accent-500">Let&apos;s plan something</Text>
-          </Pressable>
+          <View className="flex-row items-center justify-between gap-3">
+            {hasPlan ? (
+              <View />
+            ) : (
+              <Pressable onPress={handlePlanSomething}>
+                <Text className="text-caption font-semibold text-accent-500">Let&apos;s plan something</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => setRemindersVisible(true)} hitSlop={6}>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">Reminders</Text>
+            </Pressable>
+          </View>
           {planNotice && <Text className="text-caption text-stone-500 dark:text-stone-400">{planNotice}</Text>}
 
           {sendError && (
@@ -1346,6 +1397,20 @@ export default function ThreadScreen() {
           onPaused={handlePaused}
           connectionId={connectionId}
           otherName={other?.display_name ?? 'They'}
+        />
+      )}
+
+      {connectionId && (
+        <ChatRemindersSheet
+          visible={remindersVisible}
+          connectionId={connectionId}
+          otherName={other?.display_name ?? 'them'}
+          onClose={() => setRemindersVisible(false)}
+          onChanged={(fresh) => {
+            setPrompts(fresh);
+            loadNewSystemIntervention();
+            setPlanBoardKey((k) => k + 1);
+          }}
         />
       )}
 

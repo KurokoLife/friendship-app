@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { TurnOffForChatLink } from '@/components/chat-reminders-sheet';
 import { LogMeetupForm } from '@/components/log-meetup-form';
 import { supabase } from '@/lib/supabase';
 
@@ -28,15 +29,19 @@ export function MeetNudgeCard({
   refreshKey,
   onPlan,
   onEnd,
+  onTurnedOff,
 }: {
   connectionId: string;
   otherName: string;
   refreshKey?: number;
   onPlan: () => void;
   onEnd: () => void;
+  // "Turn these off for this chat" (2026-10-10).
+  onTurnedOff?: () => void;
 }) {
   const [stage, setStage] = useState<Stage | null>(null);
   const [met, setMet] = useState(false);
+  const [days, setDays] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saidKeep, setSaidKeep] = useState(false);
   const [logging, setLogging] = useState(false);
@@ -51,6 +56,7 @@ export function MeetNudgeCard({
     }
     setStage((data as { stage: Stage; met?: boolean }).stage);
     setMet(!!(data as { met?: boolean }).met);
+    setDays(Number((data as { days?: number }).days ?? 0));
   }, [connectionId]);
 
   useEffect(() => {
@@ -72,7 +78,7 @@ export function MeetNudgeCard({
 
   if (saidKeep) {
     return (
-      <View className="mx-6 mt-4 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+      <View className="mx-6 mt-2 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <Text className="text-body text-stone-700 dark:text-stone-300">
           That&apos;s okay. Whenever you&apos;re ready, &quot;Let&apos;s plan something&quot; is right here.
         </Text>
@@ -90,7 +96,7 @@ export function MeetNudgeCard({
 
   if (logged) {
     return (
-      <View className="mx-6 mt-4 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+      <View className="mx-6 mt-2 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <Text className="text-body text-stone-700 dark:text-stone-300">
           Added. {name} will be asked to confirm, and it&apos;s counted once they do.
         </Text>
@@ -105,7 +111,7 @@ export function MeetNudgeCard({
 
   if (logging) {
     return (
-      <View className="mx-6 mt-4 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+      <View className="mx-6 mt-2 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <LogMeetupForm
           connectionId={connectionId}
           otherName={name}
@@ -127,6 +133,17 @@ export function MeetNudgeCard({
     </Pressable>
   );
 
+  const turnOff = (
+    <TurnOffForChatLink
+      connectionId={connectionId}
+      kind="meet_nudge"
+      onDone={() => {
+        setStage(null);
+        onTurnedOff?.();
+      }}
+    />
+  );
+
   const button = (label: string, onPress: () => void, primary = false) => (
     <Pressable
       key={label}
@@ -146,10 +163,10 @@ export function MeetNudgeCard({
 
   if (stage === 'three_weeks') {
     return (
-      <View className="mx-6 mt-4 gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
+      <View className="mx-6 mt-2 gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
         <Text className="text-body text-stone-700 dark:text-stone-300">
           {met
-            ? `It's been a few weeks since you and ${name} last met. Seeing each other again is how a friendship keeps growing. Want to plan something?`
+            ? `It's been ${days < 18 ? 'a little while' : 'a few weeks'} since you and ${name} last met. Want to plan something?`
             : `You and ${name} have been talking for a few weeks. Chatting is a good start, and meeting in person is where a friendship really grows. Want to plan something?`}
         </Text>
         <View className="flex-row flex-wrap gap-2">
@@ -157,13 +174,14 @@ export function MeetNudgeCard({
           {button('Not yet', () => answer('not_yet'))}
         </View>
         {metLink}
+        {turnOff}
       </View>
     );
   }
 
   const length = stage === 'two_months' ? 'about 2 months' : 'about 6 months';
   return (
-    <View className="mx-6 mt-4 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+    <View className="mx-6 mt-2 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
       <Text className="text-body text-stone-700 dark:text-stone-300">
         {met
           ? `It's been ${length} since you and ${name} last met. Would you like to meet up again? It's okay either way.`
@@ -178,6 +196,7 @@ export function MeetNudgeCard({
         {button('End kindly', onEnd)}
       </View>
       {metLink}
+      {turnOff}
     </View>
   );
 }

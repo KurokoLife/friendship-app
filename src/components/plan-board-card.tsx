@@ -271,7 +271,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
     if (board.close_reason !== 'not_now' && board.close_reason !== 'quiet') return null;
     if (board.started_by !== myId && board.closed_by !== myId) return null;
     return (
-      <View className="mx-6 mt-4 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+      <View className="mx-6 mt-2 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <Text className="text-body text-stone-700 dark:text-stone-300">
           {board.close_reason === 'quiet'
             ? 'Your invite closed after 2 quiet weeks without being sent. Start again anytime.'
@@ -301,7 +301,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
     <>
       <Pressable
         onPress={() => setSheetOpen(true)}
-        className="mx-6 mt-4 gap-1 rounded-2xl border border-accent-500/40 bg-white p-4 dark:bg-stone-800">
+        className="mx-6 mt-2 gap-1 rounded-2xl border border-accent-500/40 bg-white p-4 dark:bg-stone-800">
         <View className="flex-row items-center justify-between gap-2">
           <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Plan something</Text>
           <Text className="text-caption font-semibold text-accent-500">Open</Text>

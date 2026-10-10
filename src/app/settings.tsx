@@ -2,11 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { track } from '@/lib/analytics';
 import { resetCoachMarks } from '@/lib/coach-marks';
+import {
+  PROMPT_KINDS,
+  PROMPT_LABELS,
+  getPromptSettings,
+  setPromptSetting,
+  type PromptKind,
+  type PromptSettings,
+} from '@/lib/prompt-settings';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 
@@ -45,6 +53,58 @@ const REPORT_CATEGORY_LABELS: Record<string, string> = {
   impersonation: 'Impersonation',
   other: 'Other',
 };
+
+// Reminders and nudges (2026-10-10): turn each kind off for all chats.
+// One chat can be changed from that chat ("Reminders" under the messages).
+function ReminderSettings() {
+  const [settings, setSettings] = useState<PromptSettings | null>(null);
+  const [busy, setBusy] = useState<PromptKind | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured) return;
+      getPromptSettings(null).then(setSettings);
+    }, [])
+  );
+
+  const toggle = async (kind: PromptKind, enabled: boolean) => {
+    setBusy(kind);
+    await setPromptSetting(null, kind, enabled);
+    setSettings(await getPromptSettings(null));
+    setBusy(null);
+  };
+
+  return (
+    <View className="gap-3">
+      <SectionHeader label="Reminders and nudges" />
+      <View className="gap-4 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          These are on for all your chats. Turn any of them off here, or for one chat from that chat&apos;s
+          &quot;Reminders&quot; link. Only you see them, and nobody is told if you turn them off.
+        </Text>
+        {PROMPT_KINDS.map((kind) => (
+          <View key={kind} className="flex-row items-start gap-3">
+            <View className="flex-1 gap-0.5">
+              <Text className="text-body text-stone-900 dark:text-stone-50">{PROMPT_LABELS[kind].title}</Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">{PROMPT_LABELS[kind].detail}</Text>
+            </View>
+            <Switch
+              accessibilityLabel={PROMPT_LABELS[kind].title}
+              value={settings ? settings[kind].all : true}
+              disabled={!settings || busy !== null}
+              onValueChange={(v) => toggle(kind, v)}
+            />
+          </View>
+        ))}
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Always on: when someone says hello and hasn&apos;t heard back yet, one gentle note. It shows once, only
+          before you&apos;ve both written. Limen doesn&apos;t send push or email notifications yet; these show inside
+          the app.
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 function SectionHeader({ label }: { label: string }) {
   return (
@@ -280,15 +340,7 @@ export default function SettingsScreen() {
               push infrastructure anywhere in this codebase (a standing,
               repeatedly-documented gap), and the only email this app ever
               sends is Supabase Auth's own transactional confirmation. */}
-          <View className="gap-3">
-            <SectionHeader label="Notifications" />
-            <View className="rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-body text-stone-600 dark:text-stone-300">
-                Limen doesn&apos;t send push or email notifications yet, so there&apos;s nothing to
-                configure here. When that changes, your preferences will show up in this section.
-              </Text>
-            </View>
-          </View>
+          <ReminderSettings />
 
           {/* Help: coach marks (20260820000000). Resets every first-time
               tip this account has dismissed, for someone who clicked

@@ -174,19 +174,22 @@ export async function setHomePref(connectionId: string, canHost: boolean, canVis
 
 // 2026-10-10: the card is one person's private draft until they send the
 // invite, so the only stage left is "you started an invite, not sent yet".
-export type PlanStage = 'drafting';
-export type PlanTurn = { stage: PlanStage; waitingOnMe: boolean; closesAt: string };
+export type PlanStage = 'drafting' | 'invite_sent' | 'invite_received';
+export type PlanTurn = { stage: PlanStage; waitingOnMe: boolean; closesAt: string | null };
 
 export const PLAN_STAGE_LABELS: Record<PlanStage, { mine: string; theirs: string }> = {
   drafting: { mine: 'Your invite to meet is not sent yet', theirs: 'Your invite to meet is not sent yet' },
+  invite_sent: { mine: 'You sent an invite to meet', theirs: 'You sent an invite to meet' },
+  invite_received: { mine: 'Invite to meet', theirs: 'Invite to meet' },
 };
 
-// Chats where I started an invite and haven't sent it (for Inbox).
+// Chats with an invite to meet in progress (for Inbox): a draft I haven't
+// sent, an invite I sent, or one waiting for me (2026-10-10).
 export async function fetchMyPlanTurns(): Promise<Record<string, PlanTurn>> {
   const { data, error } = await supabase.rpc('my_plan_turns');
   if (error) return {};
   const out: Record<string, PlanTurn> = {};
-  for (const row of (data ?? []) as { connection_id: string; stage: PlanStage; waiting_on_me: boolean; closes_at: string }[]) {
+  for (const row of (data ?? []) as { connection_id: string; stage: PlanStage; waiting_on_me: boolean; closes_at: string | null }[]) {
     out[row.connection_id] = { stage: row.stage, waitingOnMe: row.waiting_on_me, closesAt: row.closes_at };
   }
   return out;

@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { DateField, FieldLabel, TimeField } from '@/components/date-time-field';
 import { LogMeetupForm } from '@/components/log-meetup-form';
+import { FirstMeetupHomeNote, SafetyTipsLink, looksLikeHome } from '@/components/safety-tips';
 import { EMPTY_PLACE, PlaceField, type PlaceValue } from '@/components/place-field';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { getSeenCoachMarks, markCoachMarkSeen } from '@/lib/coach-marks';
@@ -60,8 +61,12 @@ type Props = {
     prefill?: EditorPrefill;
   } | null;
   onEndConnection?: () => void;
-  // The pace question card is showing under this one: don't ask twice.
-  paceAskedBelow?: boolean;
+  // Reminder settings (2026-10-10): the calendar question and the short
+  // guide offer can be turned off.
+  calendarAskOn?: boolean;
+  guidesOn?: boolean;
+  // Tells the thread whether a plan exists (to hide "Let's plan something").
+  onPlanState?: (hasPlan: boolean) => void;
 };
 
 type EditMode = 'new' | 'change' | 'details';
@@ -107,7 +112,9 @@ export function NextMeetupIndicatorV2({
   refreshKey,
   editorRequest,
   onEndConnection,
-  paceAskedBelow,
+  calendarAskOn = true,
+  guidesOn = true,
+  onPlanState,
 }: Props) {
   const [plan, setPlan] = useState<MeetupPlan | null>(null);
   const [meetupCount, setMeetupCount] = useState(0);
@@ -129,11 +136,18 @@ export function NextMeetupIndicatorV2({
   // Calendar asks already answered for this plan (by details key).
   const [calendarAsked, setCalendarAsked] = useState<Set<string> | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  // 2026-10-10: a slim bar by default, so the conversation stays in view on
+  // a phone. Tap it to see the whole plan.
+  const [expanded, setExpanded] = useState(false);
+
+  const onPlanStateRef = useRef(onPlanState);
+  onPlanStateRef.current = onPlanState;
 
   const load = useCallback(async () => {
     try {
       const result = await getMeetupPlan(connectionId);
       setPlan(result.meetup);
+      onPlanStateRef.current?.(Boolean(result.meetup));
       setMeetupCount(result.meetupCount);
       if (result.localToday) setLocalToday(result.localToday);
 
@@ -200,7 +214,8 @@ export function NextMeetupIndicatorV2({
     };
   }, [connectionId, load]);
 
-  const firstMeetupOfferVisible = showFirstMeetupOffer && !editMode && plan?.status === 'confirmed' && plan.date !== localToday;
+  const firstMeetupOfferVisible =
+    guidesOn && expanded && showFirstMeetupOffer && !editMode && plan?.status === 'confirmed' && plan.date !== localToday;
   useEffect(() => {
     onVideoOfferChange?.(firstMeetupOfferVisible);
   }, [firstMeetupOfferVisible, onVideoOfferChange]);
@@ -249,6 +264,7 @@ export function NextMeetupIndicatorV2({
   const afterChange = async () => {
     setEditMode(null);
     setPanel('none');
+    setExpanded(true);
     await load();
     onChanged();
   };
@@ -381,7 +397,34 @@ export function NextMeetupIndicatorV2({
     otherName,
   });
 
-  const paceLine = <PaceLine connectionId={connectionId} meetupCount={meetupCount} refreshKey={refreshKey} hideAsk={paceAskedBelow} />;
+  const paceLine = <PaceLine connectionId={connectionId} meetupCount={meetupCount} refreshKey={refreshKey} />;
+  const firstMeetup = meetupCount === 0;
+  const hideLink = (
+    <Pressable onPress={() => setExpanded(false)} hitSlop={8}>
+      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Hide</Text>
+    </Pressable>
+  );
+  const bar = (summary: string, attention: string | null, action: ReactNode, tone: 'plain' | 'accent' = 'plain') => (
+    <Pressable
+      onPress={() => setExpanded(true)}
+      accessibilityRole="button"
+      accessibilityLabel={`${summary}. Show the plan`}
+      className={`mx-6 mt-3 flex-row items-center gap-3 rounded-2xl border px-4 py-2.5 ${
+        tone === 'accent' ? 'border-accent-500/40 bg-accent-500/5' : 'border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800'
+      }`}>
+      <View className="flex-1">
+        <Text numberOfLines={1} className="text-caption text-stone-700 dark:text-stone-300">
+          {summary}
+        </Text>
+        {attention && (
+          <Text numberOfLines={1} className="text-caption font-semibold text-accent-500">
+            {attention}
+          </Text>
+        )}
+      </View>
+      {action}
+    </Pressable>
+  );
 
   const historyLink =
     meetupCount > 0 ? (
@@ -407,7 +450,7 @@ export function NextMeetupIndicatorV2({
           ? 'Change the plan'
           : 'Add the missing details';
     return (
-      <View className="mx-6 mt-4 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+      <View className="mx-6 mt-3 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{title}</Text>
         {editMode === 'new' && noteToSend && (
           <View className="gap-1 rounded-xl border border-stone-200 p-3 dark:border-stone-700">
@@ -466,6 +509,8 @@ export function NextMeetupIndicatorV2({
             Add a time and place so it&apos;s easy to show up.
           </Text>
         )}
+        {firstMeetup && (looksLikeHome(place.name) || looksLikeHome(activityText)) && <FirstMeetupHomeNote />}
+        {firstMeetup && editMode !== 'details' && <SafetyTipsLink />}
         {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <View className="flex-row items-center gap-4">
           <Pressable
@@ -486,13 +531,28 @@ export function NextMeetupIndicatorV2({
 
   // ---- No plan ----
   if (!plan) {
-    return (
-      <View className="mx-6 mt-4 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-        <View className="flex-row items-center justify-between gap-2">
-          <Text className="text-caption text-stone-400 dark:text-stone-500">No meetup planned yet</Text>
-          <Pressable onPress={() => openEditor('new')}>
+    if (!expanded && panel === 'none' && !savedNotice) {
+      return bar(
+        meetupCount > 0 ? `No meetup planned yet · Met ${meetupCount} ${meetupCount === 1 ? 'time' : 'times'}` : 'No meetup planned yet',
+        null,
+        <View className="flex-row items-center gap-3">
+          <Pressable onPress={() => openEditor('new')} hitSlop={6}>
             <Text className="text-caption font-semibold text-accent-500">Plan a meetup</Text>
           </Pressable>
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">More</Text>
+        </View>
+      );
+    }
+    return (
+      <View className="mx-6 mt-3 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+        <View className="flex-row items-center justify-between gap-2">
+          <Text className="text-caption text-stone-400 dark:text-stone-500">No meetup planned yet</Text>
+          <View className="flex-row items-center gap-4">
+            <Pressable onPress={() => openEditor('new')}>
+              <Text className="text-caption font-semibold text-accent-500">Plan a meetup</Text>
+            </Pressable>
+            {hideLink}
+          </View>
         </View>
         {savedNotice && <Text className="text-caption text-stone-600 dark:text-stone-300">{savedNotice}</Text>}
         {panel === 'log' ? (
@@ -651,15 +711,27 @@ export function NextMeetupIndicatorV2({
   // ---- Waiting for a confirm ----
   if (plan.status === 'proposed') {
     const prev = plan.previous;
+    if (!expanded && panel === 'none') {
+      return bar(
+        `${prev ? 'Plan being moved' : iAmProposer ? 'Your plan' : `${otherName} suggested`}: ${formatWhen(plan.date, plan.start_time)}${
+          plan.place ? ` · ${plan.place}` : ''
+        }`,
+        iAmProposer ? `Waiting for ${otherName} to confirm` : 'Does it work for you? Tap to answer',
+        <Text className="text-caption font-semibold text-accent-500">Open</Text>
+      );
+    }
     return (
-      <View className="mx-6 mt-4 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-        <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-          {prev
-            ? 'Plan being moved'
-            : iAmProposer
-              ? `Your plan for your ${ordinal(meetupCount + 1)} meetup`
-              : `${otherName} suggested a meetup`}
-        </Text>
+      <View className="mx-6 mt-3 gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+        <View className="flex-row items-center justify-between gap-2">
+          <Text className="flex-1 text-caption font-semibold text-stone-500 dark:text-stone-400">
+            {prev
+              ? 'Plan being moved'
+              : iAmProposer
+                ? `Your plan for your ${ordinal(meetupCount + 1)} meetup`
+                : `${otherName} suggested a meetup`}
+          </Text>
+          {hideLink}
+        </View>
         {details}
         {prev && (
           <Text className="text-caption text-stone-500 dark:text-stone-400">
@@ -700,6 +772,7 @@ export function NextMeetupIndicatorV2({
           </Pressable>
         </View>
         {messagePanel}
+        {firstMeetup && <SafetyTipsLink label="Safety tips for meeting someone new" />}
         {paceLine}
         {historyLink}
       </View>
@@ -710,7 +783,7 @@ export function NextMeetupIndicatorV2({
   // Asked once per agreed plan whether to add it to a calendar, and again
   // whenever the date, time, place or activity changes (2026-10-10).
   const detailsKey = `${plan.date}|${plan.start_time ?? ''}|${plan.place ?? ''}|${plan.activity ?? ''}`;
-  const askCalendar = calendarAsked !== null && !calendarAsked.has(detailsKey);
+  const askCalendar = calendarAskOn && calendarAsked !== null && !calendarAsked.has(detailsKey);
   const recordCalendar = async (answer: 'added' | 'not_now') => {
     setCalendarAsked((prev) => new Set([...(prev ?? []), detailsKey]));
     await supabase
@@ -755,11 +828,27 @@ export function NextMeetupIndicatorV2({
     </View>
   ) : null;
 
+  if (!expanded && panel === 'none') {
+    return bar(
+      `${isToday ? 'Meeting today' : 'Next meetup'}: ${formatWhen(plan.date, plan.start_time)}${plan.place ? ` · ${plan.place}` : ''}`,
+      askCalendar
+        ? plan.move_count > 0 || (calendarAsked?.size ?? 0) > 0
+          ? 'The plan changed. Update your calendar?'
+          : 'Add it to your calendar?'
+        : plan.other_still_on
+          ? `✓ ${otherName} said it's still on`
+          : null,
+      <Text className="text-caption font-semibold text-accent-500">Open</Text>,
+      'accent'
+    );
+  }
+
   return (
-    <View className="mx-6 mt-4 gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
-      <Text className="text-caption font-semibold text-accent-500">
-        {isToday ? 'Meeting today' : 'Next meetup'}
-      </Text>
+    <View className="mx-6 mt-3 gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
+      <View className="flex-row items-center justify-between gap-2">
+        <Text className="text-caption font-semibold text-accent-500">{isToday ? 'Meeting today' : 'Next meetup'}</Text>
+        {hideLink}
+      </View>
       {details}
       {calendarAsk}
       {plan.other_still_on && (
@@ -791,8 +880,9 @@ export function NextMeetupIndicatorV2({
         </Pressable>
       </View>
       {messagePanel}
+      {firstMeetup && <SafetyTipsLink label="Safety tips for meeting someone new" />}
       {/* On the day itself the morning-of card offers the same guide. */}
-      {showFirstMeetupOffer && !isToday && (
+      {guidesOn && showFirstMeetupOffer && !isToday && (
         <View className="flex-row flex-wrap items-center gap-3 border-t border-accent-500/20 pt-2">
           <Text className="text-caption text-stone-500 dark:text-stone-400">
             First meetup coming up? A short guide if it helps.

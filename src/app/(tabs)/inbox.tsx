@@ -123,7 +123,7 @@ export default function InboxScreen() {
         .select('connection_id, intervention_type')
         .eq('target_user_id', user.id)
         .eq('status', 'pending')
-        .in('intervention_type', ['no_ghost_r1', 'no_ghost_r2', 'no_ghost_r3']),
+        .in('intervention_type', ['no_ghost_r1']),
       // Fix #3: "Show active-conversation capacity" (blueprint Section 8's
       // Inbox spec). Read-only, own data only (my_connection_capacity has
       // no parameters, always operates on auth.uid()).
@@ -328,7 +328,9 @@ export default function InboxScreen() {
           <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Inactive</Text>
         ) : (
           <>
-            {showReplyReminder && <Text className="text-caption font-semibold text-accent-500">Your turn to reply</Text>}
+            {showReplyReminder && (
+              <Text className="text-caption font-semibold text-accent-500">New hello, waiting to hear back</Text>
+            )}
             {planTurns[c.connection_id] && (
               <Text
                 className={`text-caption ${
@@ -336,8 +338,9 @@ export default function InboxScreen() {
                 }`}>
                 {PLAN_STAGE_LABELS[planTurns[c.connection_id].stage]?.[planTurns[c.connection_id].waitingOnMe ? 'mine' : 'theirs'] ??
                   'Planning together'}
-                {Date.now() - (new Date(planTurns[c.connection_id].closesAt).getTime() - 14 * 86400000) >= 3 * 86400000
-                  ? ` · closes ${shortDay(planTurns[c.connection_id].closesAt)}`
+                {planTurns[c.connection_id].closesAt &&
+                Date.now() - (new Date(planTurns[c.connection_id].closesAt!).getTime() - 14 * 86400000) >= 3 * 86400000
+                  ? ` · closes ${shortDay(planTurns[c.connection_id].closesAt!)}`
                   : ''}
               </Text>
             )}
@@ -415,7 +418,7 @@ export default function InboxScreen() {
           {needsReply.length > 0 && (
             <View className="gap-3">
               <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                Your turn
+                New hellos
               </Text>
               {needsReply.map(renderConversation)}
             </View>

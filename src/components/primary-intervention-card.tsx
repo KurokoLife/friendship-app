@@ -13,7 +13,6 @@ import {
   submitGraduationReadiness,
   submitMeetupCancellationReason,
   submitPostMeetupReflection,
-  submitRhythmPreference,
   submitSecondLookResponse,
   respondToMeetupPrompt,
   type ActiveIntervention,
@@ -23,9 +22,10 @@ import {
 import { supabase } from '@/lib/supabase';
 import { formatMeetupTime, formatWhen } from '@/lib/meetup-format';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
-import { PauseForm, pauseExplainer } from '@/components/pause-connection-modal';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { UniversalTextBox } from '@/components/universal-text-box';
+import { TurnOffForChatLink } from '@/components/chat-reminders-sheet';
+import { SafetyTipsLink } from '@/components/safety-tips';
 import { nameThenPeriod } from '@/lib/names';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -57,6 +57,9 @@ type Props = {
   // changed (cancelled from the morning-of card).
   onRequestPlanEditor?: (mode: 'change' | 'details') => void;
   onPlanChanged?: () => void;
+  // A card turned itself off for this chat ("Turn these off"): the thread
+  // reloads its reminder settings.
+  onPromptsChanged?: () => void;
 };
 
 // Friendship Journey rebuild — the single card this app now renders, driven
@@ -77,28 +80,15 @@ export function PrimaryInterventionCard({
   onEndConnection,
   onRequestPlanEditor,
   onPlanChanged,
+  onPromptsChanged,
 }: Props) {
   switch (intervention.intervention_type) {
     case 'no_ghost_r1':
-      return <NoGhostR1 connectionId={connectionId} intervention={intervention} otherName={otherName} onResolved={onResolved} />;
-    case 'no_ghost_r2':
       return (
-        <NoGhostR2R3
+        <NoGhostR1
           connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
-          escalation="perspective"
-          onResolved={onResolved}
-          onEndConnection={onEndConnection}
-        />
-      );
-    case 'no_ghost_r3':
-      return (
-        <NoGhostR2R3
-          connectionId={connectionId}
-          intervention={intervention}
-          otherName={otherName}
-          escalation="accountability"
           onResolved={onResolved}
           onEndConnection={onEndConnection}
         />
@@ -135,6 +125,7 @@ export function PrimaryInterventionCard({
           onVideoOfferChange={onVideoOfferChange}
           onRequestPlanEditor={onRequestPlanEditor}
           onPlanChanged={onPlanChanged}
+          onPromptsChanged={onPromptsChanged}
         />
       );
     case 'meetup_occurrence_check':
@@ -152,6 +143,7 @@ export function PrimaryInterventionCard({
     case 'post_meetup_reflection':
       return (
         <PostMeetupReflectionPrompt
+          connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
           onResolved={onResolved}
@@ -163,21 +155,12 @@ export function PrimaryInterventionCard({
       return <SecondLookPrompt connectionId={connectionId} otherName={otherName} onResolved={onResolved} />;
     case 'conversation_restart_prompt':
       return (
-        <ConversationRestartPrompt
+        <CheckInPrompt
           connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
           onResolved={onResolved}
-          onEndConnection={onEndConnection}
-        />
-      );
-    case 'rhythm_reminder':
-      return (
-        <RhythmReminder
-          connectionId={connectionId}
-          intervention={intervention}
-          onResolved={onResolved}
-          onPlanMeetup={onRequestPlanEditor ? () => onRequestPlanEditor('change') : undefined}
+          onPromptsChanged={onPromptsChanged}
         />
       );
     case 'graduation_checkpoint':
@@ -213,16 +196,13 @@ function OptionPill({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-// ---- No-reply reminders (rebuilt 2026-10-08) ----
-// R1 (24h), R2 (72h), R3 (120h) go to the person who hasn't replied; S1
-// (125h) to the person waiting. Fixed in this rebuild: "I'll come back to
-// this" and "Give it more time" now actually put the card away (they only
-// reloaded the screen, so the card came straight back), "I don't want to
-// continue" opens the kind way to end things (it used to open the reply
-// box), and replies can start from a short starter the person finishes in
-// their own words.
-const REPLY_STEMS = ['Sorry for the slow reply, ', 'Good to hear from you, ', "It's been a busy few days, "];
-const BACK_IN_STEMS = ["Sorry I went quiet, ", "I've been meaning to reply, ", 'Life got busy, but '];
+// ---- Getting started (rebuilt 2026-10-10) ----
+// Only while just one person has written in a chat. The other person gets
+// ONE gentle note at their own reply pace (no second or third reminder).
+// The person who wrote gets "It's been quiet" at 5 days, and a chat nobody
+// answered closes quietly after 7. Once both have written, quiet is just
+// quiet: no reply reminders at all (see the check-in card instead).
+const REPLY_STEMS = ['Hi! Sorry for the slow reply, ', 'Good to hear from you, ', "It's been a busy few days, "];
 const ONE_MORE_STEMS = ['Just checking in, ', 'No pressure at all, ', 'Hope things are okay, '];
 
 function useCardAction() {
@@ -248,11 +228,13 @@ function NoGhostR1({
   intervention,
   otherName,
   onResolved,
+  onEndConnection,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
+  onEndConnection?: () => void;
 }) {
   const [replying, setReplying] = useState(false);
   const { busy, run, errorText } = useCardAction();
@@ -260,10 +242,11 @@ function NoGhostR1({
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        {otherName} is waiting to hear back. Still meaning to reply?
+        {otherName} said hello and hasn&apos;t heard back yet.
       </Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">
-        You don&apos;t need a perfect reply. A short, honest one helps {otherName} know where things stand.
+        A short reply is plenty, even just to say you&apos;re busy. If it&apos;s not for you, a kind note is better than
+        silence. Only you see this, and it won&apos;t ask again.
       </Text>
       {errorText}
       {replying ? (
@@ -280,74 +263,17 @@ function NoGhostR1({
         <View className="flex-row flex-wrap gap-2">
           <OptionPill label="Reply" onPress={() => setReplying(true)} />
           <OptionPill
-            label="I'll come back to this"
+            label="Later"
             onPress={() =>
               !busy &&
               run(async () => {
-                if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id, 12);
+                if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id);
                 onResolved();
               })
             }
           />
+          {onEndConnection && <OptionPill label="Not for me" onPress={onEndConnection} />}
         </View>
-      )}
-    </Card>
-  );
-}
-
-function NoGhostR2R3({
-  connectionId,
-  intervention,
-  otherName,
-  escalation,
-  onResolved,
-  onEndConnection,
-}: {
-  connectionId: string;
-  intervention: ActiveIntervention;
-  otherName: string;
-  escalation: 'perspective' | 'accountability';
-  onResolved: () => void;
-  onEndConnection?: () => void;
-}) {
-  const [mode, setMode] = useState<'none' | 'reply' | 'defer'>('none');
-
-  const awareness =
-    escalation === 'perspective'
-      ? `${otherName} is still waiting to know where things stand.`
-      : `You don't have to continue this connection. But leaving ${otherName} without an answer can leave them unsure about what happened.`;
-  const supporting =
-    escalation === 'perspective'
-      ? 'Sometimes life gets busy, or it gets harder to know what to say after some time has passed.'
-      : null;
-
-  return (
-    <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">{awareness}</Text>
-      {supporting && <Text className="text-body text-stone-600 dark:text-stone-400">{supporting}</Text>}
-      {mode === 'none' && (
-        <View className="flex-row flex-wrap gap-2">
-          <OptionPill label="Reply" onPress={() => setMode('reply')} />
-          <OptionPill label="I need more time" onPress={() => setMode('defer')} />
-          {onEndConnection && <OptionPill label="I don't want to continue" onPress={onEndConnection} />}
-        </View>
-      )}
-      {mode === 'defer' && (
-        <View className="gap-2">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">{pauseExplainer(otherName)}</Text>
-          <PauseForm connectionId={connectionId} otherName={otherName} onPaused={onResolved} onCancel={() => setMode('none')} />
-        </View>
-      )}
-      {mode === 'reply' && (
-        <StemMessageBox
-          stems={BACK_IN_STEMS}
-          onCancel={() => setMode('none')}
-          onSend={async (text) => {
-            const ok = await sendChatMessage(connectionId, text);
-            if (ok) onResolved();
-            return ok;
-          }}
-        />
       )}
     </Card>
   );
@@ -372,11 +298,11 @@ function NoGhostS1({
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        It&apos;s been quiet for a while since your last message to {nameThenPeriod(otherName)} What would feel right for you?
+        It&apos;s been quiet since your hello to {nameThenPeriod(otherName)} What would feel right for you?
       </Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">
-        Silence usually isn&apos;t about you. If nothing changes, this chat closes by itself after 7 days, with no
-        penalty for you.
+        Silence usually isn&apos;t about you. If {otherName} doesn&apos;t write back, this chat closes quietly after 7
+        days, with no penalty for you.
       </Text>
       {errorText}
       {writing ? (
@@ -585,6 +511,7 @@ function PreMeetupSupport({
   onVideoOfferChange,
   onRequestPlanEditor,
   onPlanChanged,
+  onPromptsChanged,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
@@ -593,8 +520,10 @@ function PreMeetupSupport({
   onVideoOfferChange?: (active: boolean) => void;
   onRequestPlanEditor?: (mode: 'change' | 'details') => void;
   onPlanChanged?: () => void;
+  onPromptsChanged?: () => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
+  const firstMeetup = intervention.payload.first_meetup === true;
   const line = planLine(intervention.payload);
   const [mode, setMode] = useState<DayOfMode>('ask');
 
@@ -648,6 +577,16 @@ function PreMeetupSupport({
           />
           <OptionPill label="Thinking about cancelling" onPress={() => setMode('why')} />
         </View>
+        {firstMeetup && <SafetyTipsLink label="Safety tips for meeting someone new" />}
+        <TurnOffForChatLink
+          connectionId={connectionId}
+          kind="morning_of"
+          label="Don't ask me this on meetup days in this chat"
+          onDone={() => {
+            onPromptsChanged?.();
+            onResolved();
+          }}
+        />
       </Card>
     );
   }
@@ -1150,13 +1089,17 @@ function MeetupOccurrenceCheck({
 // asked the same thing again; that question is gone. Now a good answer
 // leads straight to planning the next meetup while it's fresh, and "I
 // don't think we'll continue" offers the kind way to end things.
+const SHARE_STEMS = ['I really enjoyed ', 'Thanks for today, ', 'It was good to see you, '];
+
 function PostMeetupReflectionPrompt({
+  connectionId,
   intervention,
   otherName,
   onResolved,
   onPlanNext,
   onEndConnection,
 }: {
+  connectionId: string;
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
@@ -1164,7 +1107,7 @@ function PostMeetupReflectionPrompt({
   onEndConnection?: () => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
-  const [after, setAfter] = useState<'none' | 'plan_next' | 'thanks' | 'ending'>('none');
+  const [after, setAfter] = useState<'none' | 'went_well' | 'sharing' | 'shared' | 'thanks' | 'ending'>('none');
   const [busy, setBusy] = useState(false);
   const options: { key: PostMeetupReflectionResponse; label: string }[] = [
     { key: 'know_better', label: `Really good, I'd like to see ${otherName} again` },
@@ -1178,30 +1121,53 @@ function PostMeetupReflectionPrompt({
     setBusy(true);
     try {
       await submitPostMeetupReflection(meetupId, key);
-      setAfter(key === 'know_better' || key === 'open_to_another' ? 'plan_next' : key === 'dont_continue' ? 'ending' : 'thanks');
+      setAfter(key === 'know_better' || key === 'open_to_another' ? 'went_well' : key === 'dont_continue' ? 'ending' : 'thanks');
     } finally {
       setBusy(false);
     }
   };
 
-  if (after === 'plan_next') {
+  // 2026-10-10: after a good meetup, the person decides what (if anything)
+  // to do with that. Telling the other person how it was, planning again,
+  // or nothing are equal choices; the app doesn't push any of them.
+  if (after === 'went_well' || after === 'shared') {
     return (
       <Card>
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          Glad it went well. Friendships grow fastest when the next meetup is on the calendar while it&apos;s fresh.
+          {after === 'shared'
+            ? 'Sent.'
+            : `Glad it went well. Would you like to tell ${otherName} how it was for you? Only if you want to.`}
         </Text>
         <View className="flex-row flex-wrap gap-2">
+          {after === 'went_well' && <OptionPill label={`Tell ${otherName}`} onPress={() => setAfter('sharing')} />}
           {onPlanNext && (
             <OptionPill
-              label="Plan the next one"
+              label="Plan another meetup"
               onPress={() => {
                 onPlanNext();
                 onResolved();
               }}
             />
           )}
-          <OptionPill label="Not yet" onPress={onResolved} />
+          <OptionPill label={after === 'shared' ? 'Close' : 'Not now'} onPress={onResolved} />
         </View>
+      </Card>
+    );
+  }
+
+  if (after === 'sharing') {
+    return (
+      <Card>
+        <Text className="text-body text-stone-700 dark:text-stone-300">In your own words, a line or two is plenty.</Text>
+        <StemMessageBox
+          stems={SHARE_STEMS}
+          onCancel={() => setAfter('went_well')}
+          onSend={async (text) => {
+            const ok = await sendChatMessage(connectionId, text);
+            if (ok) setAfter('shared');
+            return ok;
+          }}
+        />
       </Card>
     );
   }
@@ -1225,7 +1191,7 @@ function PostMeetupReflectionPrompt({
     return (
       <Card>
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          That&apos;s normal after a first meetup. There&apos;s no rush. You can plan another whenever it feels right.
+          That&apos;s normal. There&apos;s no rush. You can plan another whenever it feels right.
         </Text>
         <OptionPill label="Close" onPress={onResolved} />
       </Card>
@@ -1278,43 +1244,39 @@ function SecondLookPrompt({
   );
 }
 
-// "Pick it back up?" (rebuilt 2026-10-08): shown to both people after a
-// two-sided chat goes quiet (5 days, or 10 once the friendship is going on
-// its own). Before, all four buttons only reloaded the screen, so the card
-// never went away.
-const RESTART_STEMS = ["It's been a while! ", "I've been thinking about our chat, ", 'Sorry I went quiet, '];
+// Check-in (2026-10-10, replaces "Pick it back up?"). Shown privately to
+// each person once both have written and the chat has been quiet for 5
+// days, once per quiet stretch. It never says "your turn": a conversation
+// that ended is fine. It only offers a chance to say hi. Can be turned off.
+const CHECK_IN_STEMS = ['Hi! Just checking in, ', 'Hope your week is going okay, ', 'Thinking of you, '];
 
-function ConversationRestartPrompt({
+function CheckInPrompt({
   connectionId,
   intervention,
   otherName,
   onResolved,
-  onEndConnection,
+  onPromptsChanged,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
-  onEndConnection?: () => void;
+  onPromptsChanged?: () => void;
 }) {
   const [writing, setWriting] = useState(false);
   const { busy, run, errorText } = useCardAction();
-  const putAway = (hours?: number) =>
-    !busy &&
-    run(async () => {
-      if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id, hours);
-      onResolved();
-    });
 
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        It&apos;s been a little while since you and {otherName} talked. Want to pick it back up?
+        It&apos;s been quiet with {otherName} for a bit. That&apos;s normal. If you&apos;d like, say hi or see how
+        they&apos;re doing.
       </Text>
+      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this.</Text>
       {errorText}
       {writing ? (
         <StemMessageBox
-          stems={RESTART_STEMS}
+          stems={CHECK_IN_STEMS}
           onCancel={() => setWriting(false)}
           onSend={async (text) => {
             const ok = await sendChatMessage(connectionId, text);
@@ -1324,101 +1286,28 @@ function ConversationRestartPrompt({
         />
       ) : (
         <View className="flex-row flex-wrap gap-2">
-          <OptionPill label="Send a message" onPress={() => setWriting(true)} />
-          <OptionPill label="Not right now" onPress={() => putAway(72)} />
-          {onEndConnection && <OptionPill label="I don't want to continue" onPress={onEndConnection} />}
-        </View>
-      )}
-    </Card>
-  );
-}
-
-function RhythmReminder({
-  connectionId,
-  intervention,
-  onResolved,
-  onPlanMeetup,
-}: {
-  connectionId: string;
-  intervention: ActiveIntervention;
-  onResolved: () => void;
-  onPlanMeetup?: () => void;
-}) {
-  const isInitial = intervention.payload.mode === 'initial';
-  const { busy, run, errorText } = useCardAction();
-  const options: { key: 'weekly' | 'few_weeks' | 'monthly' | 'occasional' | 'not_sure'; label: string }[] = [
-    { key: 'weekly', label: 'Every week or two' },
-    { key: 'few_weeks', label: 'Every few weeks' },
-    { key: 'monthly', label: 'About once a month' },
-    { key: 'occasional', label: 'Occasionally' },
-    { key: 'not_sure', label: "I'm not sure yet" },
-  ];
-
-  // 2026-10-08: the later reminder ("it's been about as long as you said")
-  // used to show the same pace question again. Now it offers to plan.
-  if (!isInitial) {
-    return (
-      <Card>
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          It&apos;s been about as long as the pace you said felt right. Want to plan your next meetup?
-        </Text>
-        <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this.</Text>
-        {errorText}
-        <View className="flex-row flex-wrap gap-2">
-          {onPlanMeetup && (
-            <OptionPill
-              label="Plan a meetup"
-              onPress={() =>
-                !busy &&
-                run(async () => {
-                  if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id);
-                  onPlanMeetup();
-                  onResolved();
-                })
-              }
-            />
-          )}
+          <OptionPill label="Say hi" onPress={() => setWriting(true)} />
           <OptionPill
             label="Not now"
             onPress={() =>
               !busy &&
               run(async () => {
-                if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id, 24 * 7);
+                if (intervention.intervention_id) await dismissIntervention(intervention.intervention_id);
                 onResolved();
               })
             }
           />
         </View>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <Text className="text-body text-stone-700 dark:text-stone-300">
-        You&apos;ve met a couple of times now. How often would you like to get together?
-      </Text>
-      <Text className="text-caption italic text-stone-400 dark:text-stone-600">
-        Only you see your answer. If you both pick the same pace, you&apos;ll both see that you agree. Limen will
-        gently remind you when it&apos;s been about that long.
-      </Text>
-      {errorText}
-      <View className="gap-2">
-        {options.map((o) => (
-          <Pressable
-            key={o.key}
-            onPress={() =>
-              !busy &&
-              run(async () => {
-                await submitRhythmPreference(connectionId, o.key);
-                onResolved();
-              })
-            }
-            className="rounded-xl border border-stone-300 px-4 py-3 dark:border-stone-700">
-            <Text className="text-body text-stone-900 dark:text-stone-50">{o.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      )}
+      <TurnOffForChatLink
+        connectionId={connectionId}
+        kind="check_in"
+        label="Turn off check-ins for this chat"
+        onDone={() => {
+          onPromptsChanged?.();
+          onResolved();
+        }}
+      />
     </Card>
   );
 }
