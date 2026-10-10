@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -57,7 +58,15 @@ export default function RememberNotesScreen() {
   const [closed, setClosed] = useState(false);
   const [meetups, setMeetups] = useState<RememberMeetup[]>([]);
   const [notes, setNotes] = useState<RememberNote[]>([]);
-  const [editing, setEditing] = useState<Editing>(null);
+  const [editing, setEditingState] = useState<Editing>(null);
+  // Which note was open is kept on this device, so a refresh reopens it with
+  // its unsaved text (2026-10-10).
+  const openKey = `limen.noteOpen.${connectionId}`;
+  const setEditing = (e: Editing) => {
+    setEditingState(e);
+    const v = !e ? null : e.kind === 'meetup' ? `meetup:${e.meetup.id}` : `free:${e.note?.id ?? 'new'}`;
+    (v ? AsyncStorage.setItem(openKey, v) : AsyncStorage.removeItem(openKey)).catch(() => undefined);
+  };
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,13 +100,26 @@ export default function RememberNotesScreen() {
     setLoaded(true);
 
     // Opened from "Anything you'd like to remember?": go straight to that
-    // meetup, and count it as asked.
+    // meetup. It counts as asked once the person saves or cancels, not just
+    // by opening, so a refresh doesn't lose the question (2026-10-10).
     if (askMeetup && !askHandled) {
       setAskHandled(true);
       const m = ms.find((x) => x.id === askMeetup);
-      if (m) {
-        await markMeetupAsked(m.id, user.id);
-        if (!ns.some((n) => n.meetup_id === m.id)) setEditing({ kind: 'meetup', meetup: m });
+      if (m && !ns.some((n) => n.meetup_id === m.id)) {
+        setEditing({ kind: 'meetup', meetup: m });
+        return;
+      }
+    }
+    if (!askHandled) {
+      setAskHandled(true);
+      const open = await AsyncStorage.getItem(openKey).catch(() => null);
+      if (open) {
+        const [kind, id] = open.split(':');
+        const m = kind === 'meetup' ? ms.find((x) => x.id === id) : undefined;
+        const n = kind === 'free' && id !== 'new' ? ns.find((x) => x.id === id) : undefined;
+        if (m) setEditingState({ kind: 'meetup', meetup: m });
+        else if (kind === 'free' && id === 'new') setEditingState({ kind: 'free', note: null });
+        else if (n) setEditingState({ kind: 'free', note: n });
       }
     }
   }, [connectionId, askMeetup, askHandled]);
@@ -125,6 +147,11 @@ export default function RememberNotesScreen() {
   const groupOf = (n: RememberNote) => meetups.filter((m) => m.date <= noteDay(n)).length;
   const asks = openAsksFrom(notes);
   const doneAsks = notes.filter((n) => n.ask_next && n.ask_next_done_at);
+
+  const cancelEditing = () => {
+    if (editing?.kind === 'meetup' && myId) markMeetupAsked(editing.meetup.id, myId);
+    setEditing(null);
+  };
 
   const save = (target: Exclude<Editing, null>) => async (fields: NoteFields) => {
     if (!myId || !connectionId) return 'Please try again.';
@@ -257,19 +284,21 @@ export default function RememberNotesScreen() {
         key={n.id}
         firstName={first}
         heading={`A note from ${formatDay(noteDay(n))}`}
+        draftKey={`free-${n.id}`}
         initialText={n.raw_text ?? ''}
         initialTopics={(n.topics ?? []) as TopicKey[]}
         onSave={saveFree(n)}
-        onCancel={() => setEditing(null)}
+        onCancel={cancelEditing}
       />
     ) : editing?.kind === 'free' && editing.note?.id === n.id ? (
       <RememberNoteEditor
         key={n.id}
         firstName={first}
         heading={`A note from ${formatDay(noteDay(n))}`}
+        draftKey={`note-${n.id}`}
         initial={fieldsFromNote(n)}
         onSave={save(editing)}
-        onCancel={() => setEditing(null)}
+        onCancel={cancelEditing}
       />
     ) : (
       <View
@@ -321,9 +350,10 @@ export default function RememberNotesScreen() {
           key={m.id}
           firstName={first}
           heading={title}
+          draftKey={`meetup-${m.id}`}
           initial={fieldsFromNote(note)}
           onSave={save(editing)}
-          onCancel={() => setEditing(null)}
+          onCancel={cancelEditing}
         />
       );
     } else {
@@ -396,10 +426,11 @@ export default function RememberNotesScreen() {
             <RememberFreeNoteEditor
               firstName={first}
               heading="A note for yourself"
+              draftKey={`free-new-${connectionId}`}
               initialText=""
               initialTopics={[]}
               onSave={saveFree(null)}
-              onCancel={() => setEditing(null)}
+              onCancel={cancelEditing}
             />
           ) : (
             <Pressable
@@ -475,9 +506,10 @@ export default function RememberNotesScreen() {
                       key={n.id}
                       firstName={first}
                       heading={meetupTitle(m)}
+                      draftKey={`meetup-${m.id}`}
                       initial={fieldsFromNote(n)}
                       onSave={save(editing)}
-                      onCancel={() => setEditing(null)}
+                      onCancel={cancelEditing}
                     />
                   );
                 }

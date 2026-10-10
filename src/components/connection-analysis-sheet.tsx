@@ -134,7 +134,7 @@ export function ConnectionAnalysisSheet({
                 {showUpgrade && (
                   <CoachMark
                     markKey="credits_premium"
-                    text="Free plans include a daily/weekly cap on AI help. Once you hit it, you can buy a small pack of extra credits, or upgrade to Premium for a much larger monthly allowance."
+                    text="Free plans include a daily/weekly cap on this. Once you hit it, you can buy a small pack of extra credits, or upgrade to Premium for a much larger monthly allowance."
                     actionLabel="See Premium"
                     onAction={() => router.push('/premium')}
                   />

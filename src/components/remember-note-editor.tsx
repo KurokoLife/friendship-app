@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
+import { loadDraft, saveDraft } from '@/lib/held-card';
 import { noteIsEmpty, type NoteFields } from '@/lib/remember';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -12,12 +13,16 @@ const FIELD_MAX = 1000;
 export function RememberNoteEditor({
   firstName,
   heading,
+  draftKey,
   initial,
   onSave,
   onCancel,
 }: {
   firstName: string;
   heading: string;
+  // Unsaved text is kept on this device under this key, so a refresh
+  // doesn't lose it (2026-10-10).
+  draftKey?: string;
   initial: NoteFields;
   onSave: (fields: NoteFields) => Promise<string | null>;
   onCancel: () => void;
@@ -26,7 +31,28 @@ export function RememberNoteEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const set = (key: keyof NoteFields) => (value: string) => setFields((f) => ({ ...f, [key]: value }));
+  const touched = useRef(false);
+  useEffect(() => {
+    if (!draftKey) return;
+    loadDraft(draftKey).then((raw) => {
+      if (!raw || touched.current) return;
+      try {
+        setFields({ ...initial, ...(JSON.parse(raw) as Partial<NoteFields>) });
+      } catch {
+        // Ignore a broken draft.
+      }
+    });
+    // Only on open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  const set = (key: keyof NoteFields) => (value: string) =>
+    setFields((f) => {
+      touched.current = true;
+      const next = { ...f, [key]: value };
+      if (draftKey) saveDraft(draftKey, JSON.stringify(next));
+      return next;
+    });
   const empty = noteIsEmpty(fields);
 
   const save = async () => {
@@ -37,6 +63,8 @@ export function RememberNoteEditor({
     if (problem) {
       setError(problem);
       setSaving(false);
+    } else if (draftKey) {
+      saveDraft(draftKey, null);
     }
   };
 
@@ -86,7 +114,12 @@ export function RememberNoteEditor({
             {saving ? 'Saving...' : 'Save'}
           </Text>
         </Pressable>
-        <Pressable onPress={onCancel} disabled={saving}>
+        <Pressable
+          onPress={() => {
+            if (draftKey) saveDraft(draftKey, null);
+            onCancel();
+          }}
+          disabled={saving}>
           <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
         </Pressable>
       </View>

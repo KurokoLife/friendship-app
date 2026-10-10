@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
+import { loadDraft, saveDraft } from '@/lib/held-card';
 import { TOPICS, type TopicKey } from '@/lib/remember';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -13,6 +14,7 @@ const TEXT_MAX = 4000;
 export function RememberFreeNoteEditor({
   firstName,
   heading,
+  draftKey,
   initialText,
   initialTopics,
   onSave,
@@ -20,6 +22,7 @@ export function RememberFreeNoteEditor({
 }: {
   firstName: string;
   heading: string;
+  draftKey?: string;
   initialText: string;
   initialTopics: TopicKey[];
   onSave: (text: string, topics: TopicKey[]) => Promise<string | null>;
@@ -31,8 +34,34 @@ export function RememberFreeNoteEditor({
   const [error, setError] = useState<string | null>(null);
   const empty = !text.trim();
 
+  // Unsaved text and topics stay on this device, so a refresh doesn't lose
+  // them (2026-10-10).
+  const touched = useRef(false);
+  useEffect(() => {
+    if (!draftKey) return;
+    loadDraft(draftKey).then((raw) => {
+      if (!raw || touched.current) return;
+      try {
+        const d = JSON.parse(raw) as { text?: string; topics?: TopicKey[] };
+        if (typeof d.text === 'string') setText(d.text);
+        if (Array.isArray(d.topics)) setTopics(d.topics);
+      } catch {
+        // Ignore a broken draft.
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+  const keep = (nextText: string, nextTopics: TopicKey[]) => {
+    touched.current = true;
+    if (draftKey) saveDraft(draftKey, JSON.stringify({ text: nextText, topics: nextTopics }));
+  };
+
   const toggle = (key: TopicKey) =>
-    setTopics((t) => (t.includes(key) ? t.filter((k) => k !== key) : [...t, key]));
+    setTopics((t) => {
+      const next = t.includes(key) ? t.filter((k) => k !== key) : [...t, key];
+      keep(text, next);
+      return next;
+    });
 
   const save = async () => {
     if (empty || saving) return;
@@ -42,6 +71,8 @@ export function RememberFreeNoteEditor({
     if (problem) {
       setError(problem);
       setSaving(false);
+    } else if (draftKey) {
+      saveDraft(draftKey, null);
     }
   };
 
@@ -51,7 +82,10 @@ export function RememberFreeNoteEditor({
       <View className="relative">
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={(v) => {
+            setText(v);
+            keep(v, topics);
+          }}
           placeholder={`Something you want to remember about ${firstName}. The first line becomes the title.`}
           placeholderTextColor={MUTED_ICON_COLOR}
           multiline
@@ -106,7 +140,12 @@ export function RememberFreeNoteEditor({
             {saving ? 'Saving...' : 'Save'}
           </Text>
         </Pressable>
-        <Pressable onPress={onCancel} disabled={saving}>
+        <Pressable
+          onPress={() => {
+            if (draftKey) saveDraft(draftKey, null);
+            onCancel();
+          }}
+          disabled={saving}>
           <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
         </Pressable>
       </View>

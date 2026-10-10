@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { JOURNEY_PRICE_OPTIONS, MONETIZATION_PHASE } from '@/lib/monetization';
+import { MONETIZATION_PHASE } from '@/lib/monetization';
 import { goBack } from '@/lib/navigation';
 
 // Limen v2 (2026-10-03): this route used to sell "Premium" ($5.99/month)
@@ -32,8 +32,7 @@ export default function SupportLimenScreen() {
         <Text className="text-title text-stone-900 dark:text-stone-50">How Limen is paid for</Text>
 
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          Everyone gets the same Limen. Nobody can pay for more matches, more conversations, or more AI. A few
-          people at a time, given real attention, is the whole idea.
+          Everyone gets the same Limen. Nobody can pay for more matches or more conversations. A few people at a time, given real attention, is the whole idea.
         </Text>
 
         {MONETIZATION_PHASE === 'pilot' ? (
@@ -44,22 +43,6 @@ export default function SupportLimenScreen() {
             </Text>
           </View>
         ) : null}
-
-        <View className="gap-2">
-          <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">What comes after the pilot</Text>
-          <Text className="text-body text-stone-700 dark:text-stone-300">
-            A one-time 6-month Journey pass, not a subscription. You choose what you pay:
-          </Text>
-          {JOURNEY_PRICE_OPTIONS.map((o) => (
-            <Text key={o.key} className="text-body text-stone-700 dark:text-stone-300">
-              • {o.label}
-              {o.note ? `, ${o.note}` : ''}
-            </Text>
-          ))}
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            Free is a real option. No proof, no questions about income or insurance, and no features held back.
-          </Text>
-        </View>
 
         <View className="gap-2">
           <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">What Limen will never do</Text>

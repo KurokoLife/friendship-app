@@ -337,7 +337,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <CoachMark markKey="tab_discover" text="Discover shows AI-suggested matches picked for you." />
+          <CoachMark markKey="tab_discover" text="Discover shows a few people picked for you each week." />
 
           {!isSupabaseConfigured && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">

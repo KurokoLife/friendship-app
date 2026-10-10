@@ -33,8 +33,8 @@ const { U, check, tap, text, go, q } = L;
   check('Editor open for the 2nd meetup', t.includes('Your 2nd meetup') && t.includes('Walk by the lake') && t.includes('What did you learn about David?') && t.includes('What did you enjoy?') && t.includes("Next time, I'd love to ask David..."), t.slice(0, 600));
   check('No AI and no Premium', !/Organize|Summarize|Premium|credits/i.test(t));
   check('No work words', !/\b(entry|entries|timeline|follow-up)\b/i.test(t));
-  const asked = await q(`select count(*)::int n from remember_asks where user_id=$1 and meetup_id=$2`, [U.aisha, m2.id]);
-  check('Opening it counts as asked', asked[0].n === 1);
+  let asked = await q(`select count(*)::int n from remember_asks where user_id=$1 and meetup_id=$2`, [U.aisha, m2.id]);
+  check('Just opening it does not count as asked yet', asked[0].n === 0);
 
   await a.page.fill('textarea[aria-label="What did you learn about David?"]', 'He just started learning guitar');
   await a.page.fill(`textarea[aria-label="Next time, I'd love to ask David..."]`, 'How his first gig went');
@@ -43,6 +43,8 @@ const { U, check, tap, text, go, q } = L;
   check('Saved on the meetup card', t.includes('What I learned about David') && t.includes('He just started learning guitar'));
   check('Next time list', t.includes('Next time, ask David about...') && t.includes('How his first gig went'));
   check('1st meetup has its own card', t.includes('Your 1st meetup') && t.includes('Coffee'));
+  asked = await q(`select count(*)::int n from remember_asks where user_id=$1 and meetup_id=$2`, [U.aisha, m2.id]);
+  check('Saving counts as asked', asked[0].n === 1);
   let rows = await q(`select meetup_id, learned, ask_next from remember_entries where connection_id=$1`, [E]);
   check('One note on the 2nd meetup', rows.length === 1 && rows[0].meetup_id === m2.id, JSON.stringify(rows));
 

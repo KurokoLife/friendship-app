@@ -164,3 +164,10 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Chat: the newest message or card stays fully in view when the bars above load (it was cut off at the bottom on a laptop-height window).
 - Remember: "Write something down" is one open box (first line = title) with optional fixed topic chips (Family, Work, Things they love, Going through, Ideas for us). Meetup notes unchanged. "Ideas for us" notes show in the planning card. Search and topic filters from 6 notes.
 - Migration `20261010000004_meetup_answer_free_notes.sql`. New: `qa/suites/qa-answer.js`, `qa/sql-checks/meetanswersql.sql`; qa-notes extended. Passing: qa-notes 42/42, qa-meet 36/36, qa-meetups 54/54, qa-plan 70/70, qa-remind 42/42, qa-share 21/21, qa-answer 3/3, meetanswersql all lines.
+
+## 2026-10-10 (later still): no "AI" in the app, cards survive a refresh
+
+- Founder: never use the word "AI" anywhere in the app. Removed from the payment page, Discover tip, Test tab label, hidden Browse sheet, and a server error string in reflection-coach (never shown, no redeploy needed). Left: "AI" as a Tech interest chip (the person's hobby), flagged to the founder.
+- Payment page: removed "What comes after the pilot". Reminders sheet: removed 'Never "your turn"' and "Settings for all chats".
+- Refresh: follow-up steps of cards whose first answer is already saved are held on the device (`src/lib/held-card.ts`) until closed; a newer server card wins. Remember keeps unsaved text and the open note; the after-meetup notes question counts as asked only on save/cancel/Not now.
+- New `qa/suites/qa-refresh.js` (18 checks). All suites passing.

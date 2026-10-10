@@ -35,6 +35,11 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
 type Props = {
   intervention: ActiveIntervention;
+  // 2026-10-10: a follow-up step saved on this device, so a refresh shows
+  // the card where the person left it (see src/lib/held-card.ts).
+  initialStep?: string;
+  initialExtra?: Record<string, unknown>;
+  onHold?: (step: string, extra?: Record<string, unknown>) => void;
   connectionId: string;
   otherName: string;
   onResolved: () => void;
@@ -87,7 +92,11 @@ export function PrimaryInterventionCard({
   onPlanChanged,
   onPromptsChanged,
   notesOn,
+  initialStep,
+  initialExtra,
+  onHold,
 }: Props) {
+  const held = { initialStep, initialExtra, onHold };
   switch (intervention.intervention_type) {
     case 'no_ghost_r1':
       return (
@@ -114,6 +123,7 @@ export function PrimaryInterventionCard({
     case 'meetup_still_on':
       return (
         <MeetupStillOn
+          {...held}
           connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
@@ -124,6 +134,7 @@ export function PrimaryInterventionCard({
     case 'pre_meetup_support':
       return (
         <PreMeetupSupport
+          {...held}
           connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
@@ -137,6 +148,7 @@ export function PrimaryInterventionCard({
     case 'meetup_occurrence_check':
       return (
         <MeetupOccurrenceCheck
+          {...held}
           connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
@@ -149,6 +161,7 @@ export function PrimaryInterventionCard({
     case 'post_meetup_reflection':
       return (
         <PostMeetupReflectionPrompt
+          {...held}
           connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
@@ -416,6 +429,8 @@ function planLine(payload: Record<string, unknown>): string | null {
 // "Need to move it" stays private and opens the change editor, with an
 // optional short message in their own words.
 function MeetupStillOn({
+  initialStep,
+  onHold,
   connectionId,
   intervention,
   otherName,
@@ -427,11 +442,14 @@ function MeetupStillOn({
   otherName: string;
   onResolved: () => void;
   onRequestPlanEditor?: (mode: 'change' | 'details') => void;
+  initialStep?: string;
+  initialExtra?: Record<string, unknown>;
+  onHold?: (step: string, extra?: Record<string, unknown>) => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
   const line = planLine(intervention.payload);
   const missingDetails = !intervention.payload.start_time || !intervention.payload.place;
-  const [mode, setMode] = useState<'ask' | 'move'>('ask');
+  const [mode, setMode] = useState<'ask' | 'move'>(initialStep === 'move' ? 'move' : 'ask');
   const [busy, setBusy] = useState(false);
 
   const answer = async (value: 'still_on' | 'needs_move') => {
@@ -498,6 +516,7 @@ function MeetupStillOn({
             if (busy) return;
             await answer('needs_move');
             setMode('move');
+            onHold?.('move');
           }}
         />
         {missingDetails && (
@@ -520,6 +539,8 @@ type DayOfMode = 'ask' | 'nervous' | 'why' | 'nerves' | 'came_up' | 'move' | 'ca
 // Cancelling always goes with a short message in their own words: never a
 // silent no-show.
 function PreMeetupSupport({
+  initialStep,
+  onHold,
   connectionId,
   intervention,
   otherName,
@@ -537,11 +558,14 @@ function PreMeetupSupport({
   onRequestPlanEditor?: (mode: 'change' | 'details') => void;
   onPlanChanged?: () => void;
   onPromptsChanged?: () => void;
+  initialStep?: string;
+  initialExtra?: Record<string, unknown>;
+  onHold?: (step: string, extra?: Record<string, unknown>) => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
   const firstMeetup = intervention.payload.first_meetup === true;
   const line = planLine(intervention.payload);
-  const [mode, setMode] = useState<DayOfMode>('ask');
+  const [mode, setMode] = useState<DayOfMode>(initialStep === 'nervous' ? 'nervous' : 'ask');
 
   const showsGuide = mode === 'nervous' || mode === 'nerves';
   useEffect(() => {
@@ -589,6 +613,7 @@ function PreMeetupSupport({
             onPress={async () => {
               await answer('nervous');
               setMode('nervous');
+              onHold?.('nervous');
             }}
           />
           <OptionPill label="Thinking about cancelling" onPress={() => setMode('why')} />
@@ -774,6 +799,8 @@ function OccurrenceError({ error, detail }: { error: string | null; detail: stri
 }
 
 function MeetupOccurrenceCheck({
+  initialStep,
+  onHold,
   connectionId,
   intervention,
   otherName,
@@ -789,6 +816,9 @@ function MeetupOccurrenceCheck({
   onPlanSomething?: () => void;
   onSuggestAnotherDay?: () => void;
   onEndConnection?: () => void;
+  initialStep?: string;
+  initialExtra?: Record<string, unknown>;
+  onHold?: (step: string, extra?: Record<string, unknown>) => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
   const confirmedDate = intervention.payload.confirmed_date as string | undefined;
@@ -800,7 +830,15 @@ function MeetupOccurrenceCheck({
   // question is whether that's right, not whether a plan happened.
   const loggedByOther = typeof intervention.payload.logged_by === 'string';
   const loggedActivity = intervention.payload.activity as string | null | undefined;
-  const [mode, setMode] = useState<OccurrenceMode>('ask');
+  // Steps that come after the answer was saved can come back after a refresh.
+  const HELD_STEPS: OccurrenceMode[] = ['no_show', 'rescheduled_done', 'cancelled_reschedule_compose', 'logged_no'];
+  const [mode, setModeState] = useState<OccurrenceMode>(
+    HELD_STEPS.includes(initialStep as OccurrenceMode) ? (initialStep as OccurrenceMode) : 'ask'
+  );
+  const setMode = (m: OccurrenceMode) => {
+    setModeState(m);
+    if (HELD_STEPS.includes(m)) onHold?.(m);
+  };
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState<MeetupCancellationReason | null>(null);
   const [draft, setDraft] = useState('');
@@ -1303,6 +1341,8 @@ function ShareReminderPrompt({
 }
 
 function PostMeetupReflectionPrompt({
+  initialStep,
+  onHold,
   connectionId,
   intervention,
   otherName,
@@ -1316,9 +1356,24 @@ function PostMeetupReflectionPrompt({
   onResolved: () => void;
   onPlanNext?: () => void;
   onEndConnection?: () => void;
+  initialStep?: string;
+  initialExtra?: Record<string, unknown>;
+  onHold?: (step: string, extra?: Record<string, unknown>) => void;
 }) {
   const meetupId = intervention.payload.meetup_id as string;
-  const [after, setAfter] = useState<'none' | 'went_well' | 'sharing' | 'shared' | 'remind' | 'reminded' | 'thanks' | 'ending'>('none');
+  type After = 'none' | 'went_well' | 'sharing' | 'shared' | 'remind' | 'reminded' | 'thanks' | 'ending';
+  // The answer is saved right away; what follows is kept on this device so
+  // a refresh brings it back (2026-10-10). Writing or picking a reminder
+  // comes back as the "Glad it went well" step.
+  const HOLD_AS: Partial<Record<After, After>> = { went_well: 'went_well', sharing: 'went_well', remind: 'went_well', ending: 'ending', thanks: 'thanks' };
+  const [after, setAfterState] = useState<After>(
+    initialStep === 'went_well' || initialStep === 'ending' || initialStep === 'thanks' ? (initialStep as After) : 'none'
+  );
+  const setAfter = (a: After) => {
+    setAfterState(a);
+    const h = HOLD_AS[a];
+    if (h) onHold?.(h);
+  };
   const [remindAt, setRemindAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const options: { key: PostMeetupReflectionResponse; label: string }[] = [

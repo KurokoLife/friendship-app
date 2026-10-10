@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const result = await callModel(mode === 'check' ? buildCheckPrompt(text, recent) : buildMirrorPrompt(text), 600);
-  if (!result.ok) return json({ error: 'AI request failed', detail: result.detail }, 502);
+  if (!result.ok) return json({ error: "Couldn't do that right now. Try again in a moment.", detail: result.detail }, 502);
 
   await supabase.rpc('record_ai_usage', { p_user_id: user.id, p_function_name: FUNCTION_NAME, p_cost_usd: null });
 

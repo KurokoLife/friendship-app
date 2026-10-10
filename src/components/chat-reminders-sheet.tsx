@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
@@ -85,13 +84,6 @@ export function ChatRemindersSheet({
           <View className="flex-row flex-wrap items-center gap-4">
             <Pressable onPress={onClose} className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
               <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Done</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                onClose();
-                router.push('/settings');
-              }}>
-              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Settings for all chats</Text>
             </Pressable>
           </View>
         </ScrollView>

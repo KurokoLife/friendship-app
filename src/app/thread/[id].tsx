@@ -25,6 +25,7 @@ import { MeetNudgeCard } from '@/components/meet-nudge-card';
 import { PauseConnectionModal } from '@/components/pause-connection-modal';
 import { PrimaryInterventionCard } from '@/components/primary-intervention-card';
 import { RememberBar } from '@/components/remember-bar';
+import { getHeldCard, holdCard, releaseCard, type HeldCard } from '@/lib/held-card';
 import { ReportModal } from '@/components/report-modal';
 import { UniversalTextBox, type CoachContextMessage } from '@/components/universal-text-box';
 import { EndedConnectionVideoLink, VideoGuidanceCard } from '@/components/video-guidance-card';
@@ -221,6 +222,9 @@ export default function ThreadScreen() {
   // Friendship Journey: the one reminder or prompt card to show right now
   // (get_active_intervention picks it).
   const [newSystemIntervention, setNewSystemIntervention] = useState<ActiveIntervention | null>(null);
+  // A card's follow-up step kept on this device, so a refresh doesn't lose
+  // it (2026-10-10, src/lib/held-card.ts). Shown before the server's card.
+  const [heldCard, setHeldCard] = useState<HeldCard | null>(null);
   // 2026-08-12 correction: at most one Limen video guidance offer may be
   // visible at once. Video 3 (NextMeetupIndicatorV2) and Video 6 (inline in
   // PrimaryInterventionCard's PreMeetupSupport) each report upward via a
@@ -260,14 +264,32 @@ export default function ThreadScreen() {
     async (viewerId?: string) => {
       const resolvedViewerId = viewerId ?? myId;
       if (!connectionId || !resolvedViewerId) return;
+      let live: ActiveIntervention | null = null;
       try {
-        setNewSystemIntervention(await getActiveIntervention(connectionId, resolvedViewerId));
+        live = await getActiveIntervention(connectionId, resolvedViewerId);
       } catch {
-        setNewSystemIntervention(null);
+        live = null;
       }
+      // A held follow-up only comes back while nothing new is waiting. A
+      // newer card (like "Did you meet?") always wins, and the held one is
+      // let go.
+      let held = await getHeldCard(resolvedViewerId, connectionId);
+      if (
+        held &&
+        live &&
+        !(live.intervention_type === held.intervention.intervention_type &&
+          (live.intervention_id ?? null) === (held.intervention.intervention_id ?? null))
+      ) {
+        await releaseCard(resolvedViewerId, connectionId);
+        held = null;
+      }
+      setHeldCard(held);
+      setNewSystemIntervention(live);
     },
     [connectionId, myId]
   );
+
+  const shownCard = heldCard?.intervention ?? newSystemIntervention;
 
   const loadPause = useCallback(async () => {
     if (!connectionId) return;
@@ -1110,7 +1132,7 @@ export default function ThreadScreen() {
             )}
             {/* Gentle nudge to meet in person after weeks of only chatting
                 (2026-10-09). Only when no other prompt card is showing. */}
-            {myId && connectionId && !newSystemIntervention && (
+            {myId && connectionId && !shownCard && (
               <MeetNudgeCard
                 connectionId={connectionId}
                 otherName={other?.display_name ?? 'them'}
@@ -1120,13 +1142,20 @@ export default function ThreadScreen() {
                 onTurnedOff={loadPrompts}
               />
             )}
-            {newSystemIntervention && connectionId && (
+            {shownCard && connectionId && (
               <View className="px-6 pt-2">
                 <PrimaryInterventionCard
-                  intervention={newSystemIntervention}
+                  key={`${shownCard.intervention_type}-${shownCard.intervention_id ?? ''}-${heldCard ? heldCard.step : 'live'}`}
+                  intervention={shownCard}
+                  initialStep={heldCard?.step}
+                  initialExtra={heldCard?.extra}
+                  onHold={(step, extra) => {
+                    if (myId && connectionId) holdCard(myId, connectionId, shownCard, step, extra);
+                  }}
                   connectionId={connectionId}
                   otherName={other?.display_name ?? 'them'}
-                  onResolved={() => {
+                  onResolved={async () => {
+                    if (myId && connectionId) await releaseCard(myId, connectionId);
                     loadNewSystemIntervention();
                     // "I need more time" pauses the chat from inside the card
                     // and sends the note with it.
@@ -1163,7 +1192,7 @@ export default function ThreadScreen() {
               <VideoGuidanceCard
                 connectionId={connectionId}
                 myId={myId}
-                currentInterventionType={newSystemIntervention?.intervention_type}
+                currentInterventionType={shownCard?.intervention_type}
               />
             )}
             </View>

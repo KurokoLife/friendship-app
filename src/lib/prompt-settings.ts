@@ -13,7 +13,7 @@ export const PROMPT_KINDS: PromptKind[] = ['check_in', 'meet_nudge', 'morning_of
 export const PROMPT_LABELS: Record<PromptKind, { title: string; detail: string }> = {
   check_in: {
     title: 'Check-ins',
-    detail: 'After a chat has been quiet for 5 days, a private note that you could say hi. Never "your turn".',
+    detail: 'After a chat has been quiet for 5 days, a private note that you could say hi.',
   },
   meet_nudge: {
     title: 'Nudges to meet in person',

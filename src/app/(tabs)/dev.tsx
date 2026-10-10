@@ -504,7 +504,7 @@ export default function TestToolsScreen() {
                 }}
               />
               <Button
-                label="Clear my AI limits"
+                label="Clear my daily limits"
                 busy={busy === 'fresh'}
                 onPress={() => rpc('fresh', 'test_clear_ai_limits', {}, () => 'Daily and weekly limits cleared for this account.')}
               />

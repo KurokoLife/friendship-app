@@ -19,6 +19,8 @@ Working rules that follow from these:
 - The app never reads message content. Every reminder uses timing only.
 - Starters are fine, but the person must finish them in their own words (`StemMessageBox`).
 - Equal choices, no pushing, no guilt, never act on someone's behalf.
+- The word "AI" never appears in the app. Limen helps with gentle nudges, reminders and questions.
+- A card that was answered halfway comes back after a page refresh until it's closed.
 - Reduce anxiety: calm, honest copy. Never "your turn". No therapy language. No em dashes.
 - Private stays private. Nobody ever sees another person's private answers.
 - Only one prompt card shows in a chat at a time, and every card can be put away or turned off.
@@ -107,5 +109,5 @@ Reached from Profile only. Today: 2 onboarding videos, "The First Meetup Does No
 
 ## 13. Money and settings
 
-- No Premium, no AI credits, no paid capacity, no ads, no venue, employer or health-plan deals. Free pilot first; later a pick-your-price Journey pass (Free / $18 / $30 suggested / $60). Settings shows "Membership: Free during the pilot." Old purchase code is in the repo but unreachable.
+- No Premium, no AI credits, no paid capacity, no ads, no venue, employer or health-plan deals. Free pilot first; later a pick-your-price Journey pass (Free / $18 / $30 suggested / $60). Settings shows "Membership: Free during the pilot." The "How Limen is paid for" page no longer describes what comes after the pilot. Old purchase code is in the repo but unreachable.
 - Settings: edit profile, preview profile, reminders and nudges, export notes, blocked accounts, reports you filed, selfie review (admins), Terms/Privacy (placeholder text), delete account, show tips again.

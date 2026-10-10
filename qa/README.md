@@ -56,6 +56,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-remind | Reminder settings, phone layout, safety tips, after a good meetup |
 | qa-share | "Remind me later" after a good meetup |
 | qa-notes | Remember in the chat: bar, notes by meetup, free notes with topic chips, search and filters from 6 notes, Next time list, planning card (incl. "Ideas for us"), check-in, setting, ended chats, Settings download |
+| qa-refresh | Cards and notes survive a page refresh; no "AI" on main screens; reminders sheet and payment page wording |
 | qa-answer | "Yes, we met" / "No, that's not right" on an old card, at a laptop window size |
 | qa-mochi | Admin account basics |
 | qa-testtab | Test tab tools and "Act as" |
