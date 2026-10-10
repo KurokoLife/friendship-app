@@ -10,11 +10,11 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 2. Profile (what others see) | Decided 2026-10-04, built |
 | 3. Safety (romance and scam protection) | Decided 2026-10-04, built |
 | 4. Discovery and matching | Partly decided (Interested gate, matching weights, hard nos). Rest not reviewed yet |
-| 5. Messaging and reflection | Not reviewed yet |
-| 6. Reminders (no-ghost) | Not reviewed yet |
-| 7. Meetups | Not reviewed yet |
+| 5. Messaging and reflection | Partly decided 2026-10-09/10 (pause, chat layout, invites, check-ins; see AGENTS.md "LIMEN V2 DECISIONS" bullets). Reflect / Check not reviewed yet |
+| 6. Reminders (no-ghost) | Decided 2026-10-10, built ("Quieter reminders" and "Remind me later" bullets in AGENTS.md) |
+| 7. Meetups | Decided 2026-10-08 to 10-10, built (meetup plans, planning by invite, counting meetups; AGENTS.md bullets). Open: the morning-of video should fit any meetup (waiting on founder) |
 | 8. Graduation | Not reviewed yet |
-| 9. Remember and Guide | Not reviewed yet |
+| 9. Remember and Guide | Not reviewed yet (next area, see docs/HANDOFF_TABS.md) |
 | 10. Money and settings | Not reviewed yet |
 
 ---

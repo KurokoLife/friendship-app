@@ -42,3 +42,9 @@ example
 # generated native folders
 /ios
 /android
+
+# local test copy (see qa/README.md)
+qa/.local/
+qa/node_modules/
+qa/package-lock.json
+qa/package.json
