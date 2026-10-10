@@ -17,6 +17,7 @@ import {
 } from '@/lib/prompt-settings';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
+import { buildRememberExport } from '@/lib/remember';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -366,6 +367,7 @@ export default function SettingsScreen() {
           {/* Privacy & Safety */}
           <View className="gap-3">
             <SectionHeader label="Privacy &amp; Safety" />
+            <NotesExportBox />
             <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
               <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Blocked accounts</Text>
               {blockedUsers.length === 0 ? (
@@ -531,6 +533,52 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+// Private notes about friends live in each chat (2026-10-10). Export here:
+// a download on web, the Share sheet on a phone.
+function NotesExportBox() {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
+  const download = async () => {
+    setState('busy');
+    try {
+      const json = await buildRememberExport();
+      if (Platform.OS === 'web') {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'limen-notes.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        await Share.share({ message: json, title: 'My Limen notes' });
+      }
+      setState('done');
+    } catch {
+      setState('error');
+    }
+  };
+  return (
+    <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+      <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Your notes about friends</Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        Your private notes live in each chat, under &quot;What I want to remember&quot;. Only you can see them. You can
+        download a copy of all of them.
+      </Text>
+      <Pressable onPress={download} disabled={state === 'busy'} className="self-start">
+        <Text className={`text-caption font-semibold text-accent-500 ${state === 'busy' ? 'opacity-40' : ''}`}>
+          {state === 'busy' ? 'Preparing...' : 'Download my notes'}
+        </Text>
+      </Pressable>
+      {state === 'done' && <Text className="text-caption text-stone-500 dark:text-stone-400">Done.</Text>}
+      {state === 'error' && (
+        <Text className="text-caption text-red-600 dark:text-red-400">That didn&apos;t work. Please try again.</Text>
+      )}
     </View>
   );
 }

@@ -24,7 +24,7 @@ import { PlanInviteBubble, usePlanInvites } from '@/components/plan-invite';
 import { MeetNudgeCard } from '@/components/meet-nudge-card';
 import { PauseConnectionModal } from '@/components/pause-connection-modal';
 import { PrimaryInterventionCard } from '@/components/primary-intervention-card';
-import { RememberReminderCard } from '@/components/remember-reminder-card';
+import { RememberBar } from '@/components/remember-bar';
 import { ReportModal } from '@/components/report-modal';
 import { UniversalTextBox, type CoachContextMessage } from '@/components/universal-text-box';
 import { EndedConnectionVideoLink, VideoGuidanceCard } from '@/components/video-guidance-card';
@@ -43,7 +43,6 @@ import { startPlanBoard } from '@/lib/plan-board';
 import { goBack } from '@/lib/navigation';
 import { HONEST_EXIT_RECEIVER_TEXT, HONEST_EXIT_SENDER_TEXT, senderReassuranceLine } from '@/lib/no-ghost';
 import { subscribeToMessages } from '@/lib/realtime-messages';
-import { fetchLatestRememberNote } from '@/lib/remember';
 import {
   dismissRhythmMismatch,
   hasDismissedRhythmMismatch,
@@ -178,7 +177,6 @@ export default function ThreadScreen() {
     };
   }, [connectionId]);
   const [showFirstMilestone, setShowFirstMilestone] = useState(false);
-  const [rememberReminderNote, setRememberReminderNote] = useState<string | null>(null);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
   // 20260818000000: the standalone Honest Exit entry point, reachable
@@ -683,17 +681,9 @@ export default function ThreadScreen() {
       setShowFirstMilestone(true);
       return;
     }
-    // Remember Step 2: no scheduled date exists to anchor a "day before"
-    // reminder to anymore, so this is the next real planning moment
-    // instead. Only surfaces when there's actually something noted, a
-    // connection with no Remember entries goes straight into activity
-    // suggestions exactly as before this feature existed.
-    const note = connectionId ? await fetchLatestRememberNote(connectionId) : null;
-    if (note) {
-      setRememberReminderNote(note);
-    } else {
-      await openPlanBoard();
-    }
+    // Your own "next time, ask..." notes show inside the planning card
+    // (2026-10-10), so there's no separate pop-up here anymore.
+    await openPlanBoard();
   };
 
   // Opens (or reopens) the shared planning card.
@@ -711,11 +701,6 @@ export default function ThreadScreen() {
       else if (/chat_not_open/.test(message)) setPlanNotice("You can't plan in this chat right now.");
       else setPlanNotice("Couldn't start planning right now. Please try again.");
     }
-  };
-
-  const handleRememberReminderContinue = () => {
-    setRememberReminderNote(null);
-    openPlanBoard();
   };
 
   const handleFirstMilestoneClose = () => {
@@ -925,6 +910,18 @@ export default function ThreadScreen() {
           </View>
         )}
 
+        {/* Private notes about this friend (2026-10-10). Shown in every chat,
+            including ones that ended or graduated, so notes stay reachable. */}
+        {myId && connectionId && (
+          <RememberBar
+            connectionId={connectionId}
+            myId={myId}
+            otherName={other?.display_name ?? 'them'}
+            notesOn={isOn(prompts, 'notes')}
+            refreshKey={planRefreshKey}
+          />
+        )}
+
         {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && connectionStatus !== 'ended' && (
           <>
             {connectionStatus === 'paused' && pause && (
@@ -1098,6 +1095,7 @@ export default function ThreadScreen() {
                 refreshKey={planBoardKey + planRefreshKey}
                 openRequest={planBoardOpenRequest}
                 onStart={openPlanBoard}
+                notesOn={isOn(prompts, 'notes')}
                 onSent={() => {
                   reloadPlanInvites();
                   reloadMessages();
@@ -1133,6 +1131,7 @@ export default function ThreadScreen() {
                     setPlanRefreshKey((k) => k + 1);
                   }}
                   onPlanSomething={handlePlanSomething}
+                  notesOn={isOn(prompts, 'notes')}
                   onVideoOfferChange={setVideo6OfferActive}
                   onEndConnection={() => setEndConnectionVisible(true)}
                   onRequestPlanEditor={(mode) => setPlanEditorRequest((r) => ({ mode, n: (r?.n ?? 0) + 1 }))}
@@ -1352,13 +1351,6 @@ export default function ThreadScreen() {
           onClose={handleFirstMilestoneClose}
         />
       )}
-
-      <RememberReminderCard
-        visible={Boolean(rememberReminderNote)}
-        otherName={other?.display_name ?? 'this person'}
-        note={rememberReminderNote ?? ''}
-        onContinue={handleRememberReminderContinue}
-      />
 
       {otherId && (
         <ReportModal

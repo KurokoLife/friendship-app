@@ -92,7 +92,8 @@ const { U, check, tap, text, go, q } = L;
   check('David sees the check-in', (await text(d.page)).includes("It's been quiet with Maria S. for a bit. That's normal."));
   await go(m.page, `/thread/${C}`, 3500);
   check('Maria sees the check-in', (await text(m.page)).includes("It's been quiet with David C. for a bit."));
-  await tap(m.page, 'Not now', { wait: 1500 });
+  // nth 0: a video offer under the card can have its own "Not now".
+  await tap(m.page, 'Not now', { nth: 0, wait: 1500 });
   check('"Not now" puts it away', !(await text(m.page)).includes("It's been quiet with David C."));
   await q(`select run_friendship_journey_sweep_all(now())`);
   await go(m.page, `/thread/${C}`, 3500);

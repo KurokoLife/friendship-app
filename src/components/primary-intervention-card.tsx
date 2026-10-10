@@ -27,6 +27,7 @@ import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { TurnOffForChatLink } from '@/components/chat-reminders-sheet';
 import { SafetyTipsLink } from '@/components/safety-tips';
+import { RememberAsksLine } from '@/components/remember-bar';
 import { nameThenPeriod } from '@/lib/names';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -47,7 +48,7 @@ type Props = {
   // thread/[id].tsx's own real handlePlanSomething, so the redesigned
   // post-meetup flow's "Let's plan something" link does the exact same
   // real thing the always-visible compose-footer link already does
-  // (first-time milestone / Remember reminder / activity suggestions
+  // (first-time milestone / activity suggestions
   // branching, unchanged), not a second, simplified reimplementation.
   onPlanSomething?: () => void;
   // Limen v2: the graduation decision point's "Close honestly" option
@@ -58,6 +59,8 @@ type Props = {
   // changed (cancelled from the morning-of card).
   onRequestPlanEditor?: (mode: 'change' | 'details') => void;
   onPlanChanged?: () => void;
+  // Your own "next time, ask..." notes in the check-in (2026-10-10).
+  notesOn?: boolean;
   // A card turned itself off for this chat ("Turn these off"): the thread
   // reloads its reminder settings.
   onPromptsChanged?: () => void;
@@ -82,6 +85,7 @@ export function PrimaryInterventionCard({
   onRequestPlanEditor,
   onPlanChanged,
   onPromptsChanged,
+  notesOn,
 }: Props) {
   switch (intervention.intervention_type) {
     case 'no_ghost_r1':
@@ -169,6 +173,7 @@ export function PrimaryInterventionCard({
           connectionId={connectionId}
           intervention={intervention}
           otherName={otherName}
+          notesOn={notesOn}
           onResolved={onResolved}
           onPromptsChanged={onPromptsChanged}
         />
@@ -1453,12 +1458,14 @@ function CheckInPrompt({
   connectionId,
   intervention,
   otherName,
+  notesOn = true,
   onResolved,
   onPromptsChanged,
 }: {
   connectionId: string;
   intervention: ActiveIntervention;
   otherName: string;
+  notesOn?: boolean;
   onResolved: () => void;
   onPromptsChanged?: () => void;
 }) {
@@ -1472,6 +1479,7 @@ function CheckInPrompt({
         they&apos;re doing.
       </Text>
       <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this.</Text>
+      <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} />
       {errorText}
       {writing ? (
         <StemMessageBox

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { RememberAsksLine } from '@/components/remember-bar';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import {
   BUDGET_OPTIONS,
@@ -60,6 +61,8 @@ type Props = {
   openRequest?: number;
   onStart: () => void;
   onSent?: () => void;
+  // Your own "next time, ask..." notes, shown while picking (2026-10-10).
+  notesOn?: boolean;
 };
 
 const NOTE_STEMS = ['Would any of these work for you? ', "I'd really like to ", 'No pressure at all, '];
@@ -116,7 +119,7 @@ function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: (
   );
 }
 
-export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openRequest, onStart, onSent }: Props) {
+export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openRequest, onStart, onSent, notesOn = true }: Props) {
   const name = firstName(otherName);
   const [state, setState] = useState<PlanState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -322,6 +325,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
               </View>
             </View>
             <ScrollView contentContainerClassName="gap-3 pb-4" keyboardShouldPersistTaps="handled">
+              <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} />
               {children}
               {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
               {nudge}

@@ -2244,3 +2244,18 @@ Founder decided (docs/DECISIONS.md section 9): Remember moves into the chat as a
 
 Next: ask the founder about the Guide, then build Remember.
 
+### Session, October 10, 2026 (5): Remember moves into the chat
+
+Migration `20261010000003_remember_in_chat.sql` (bumps `limen_db_version()` to `20261010000003`). Server functions `organize-remember-entry` and `summarize-remember-timeline` deleted from the repo (the app no longer calls them; they can be deleted from the Supabase dashboard too).
+
+- **No Remember tab.** Every chat (including ended and graduated ones) has a slim bar "What I want to remember about X" (`remember-bar.tsx`) that opens a private page (`remember/[connectionId].tsx`).
+- **Organized by meetup:** one card per meetup that happened, newest first ("Your 2nd meetup · Thu, Oct 8 · Walk by the lake", date and activity from the plan). Notes written in between go under "Since your last meetup" / "Between your 1st and 2nd meetups" / "Before your first meetup". One note per meetup (unique index), editable.
+- **Three optional questions** (`remember-note-editor.tsx`): "What did you learn about X?", "What made you smile?", "Next time, I'd love to ask X...", plus "Anything else" with the mic placeholder. No AI, no "entry/timeline/organize/follow-up" wording.
+- **"Next time, ask X about..."** list at the top; "Asked" moves one to "Already asked" (Undo).
+- **Notes coming back** (new reminder setting `notes`, all chats or one chat): after a meetup counts the bar asks once "Anything you'd like to remember about X?" (Not now, or opening it, records it in `remember_asks`; only the newest meetup, within 3 weeks); otherwise the bar shows "Next time: ...". The planning card (every step) and the check-in show "From your notes: next time, you wanted to ask X about". The separate "Before you plan something" pop-up is gone.
+- Ended / closed chats keep the bar; the page says "Your notes stay here after a chat ends. You can delete them anytime."
+- Export moved to Settings ("Your notes about friends", Download my notes).
+- Old notes: `follow_up_note` copied to `ask_next`; notes written "after meetup N" attached to that meetup when it's the only one.
+- Verified locally: `notesql.sql` (one note per meetup, meetup must be in the same chat, the other person can't see, change or delete notes or asks, setting saves), qa-notes (new) 34/34, qa-meet 36/36, qa-meetups 54/54, qa-mochi 6/6, qa-noghost 30/30, qa-oct9 37/37, qa-oct9b 62/62, qa-oct9c 20/20, qa-plan 70/70, qa-remind 42/42, qa-share 21/21, qa-testtab 27/27. qa-noghost now taps the check-in's own "Not now" (a video offer below it can show its own, depending on timing). Fixed `qa/run.sh all`, which never started anything (the suite list had line breaks). Docs: DECISIONS.md section 9 (built) and 9b (Guide draft table the founder asked to keep), AGENTS.md bullet, qa/README.md, HANDOFF_TABS.md.
+- Not changed: a person blocked by the other sees that chat as "Not available" in Inbox but can still open it and reach their own notes there.
+

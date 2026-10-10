@@ -14,7 +14,7 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 6. Reminders (no-ghost) | Decided 2026-10-10, built ("Quieter reminders" and "Remind me later" bullets in AGENTS.md) |
 | 7. Meetups | Decided 2026-10-08 to 10-10, built (meetup plans, planning by invite, counting meetups; AGENTS.md bullets). Open: the morning-of video should fit any meetup (waiting on founder) |
 | 8. Graduation | Not reviewed yet |
-| 9. Remember and Guide | Remember decided 2026-10-10, not built yet. Guide not reviewed yet |
+| 9. Remember and Guide | Remember decided and built 2026-10-10. Guide: a draft plan is below, founder still deciding which videos |
 | 10. Money and settings | Not reviewed yet |
 
 ---
@@ -86,7 +86,7 @@ The 15 points that came from personality similarity move to life situation (+5, 
 6. **Ghosting rule (real now).** If someone lets 2 or more conversations go silent until the 7-day auto-close (the other person wrote last, no reply, no honest exit) within 60 days, they are shown last in other people's suggestions for the next 30 days. Never shown, resets on its own, one slip doesn't count.
 7. **Suspend switch.** `users.suspended_at`. A suspended account is hidden from everyone and cannot start or send messages. Flip it from the Supabase dashboard after reviewing a report.
 
-## 9. Remember (decided 2026-10-10, not built yet)
+## 9. Remember (decided and built 2026-10-10)
 
 Remember moves into the chat. It helps in the moment and keeps a light record of the friendship, in friendship words, never work words.
 
@@ -99,6 +99,22 @@ Remember moves into the chat. It helps in the moment and keeps a light record of
 7. **After a chat ends or graduates**, notes stay and are reached from that chat's row in Inbox, with a line: "Your notes stay here after a chat ends. You can delete them anytime."
 8. **Mic icon stays** as a placeholder (the founder will work on voice input for all screens later).
 9. **No note icon on Inbox rows** for now.
+
+## 9b. Guide (draft for the founder to come back to, not decided)
+
+Founder's thinking so far (2026-10-10): no Guide tab. Each piece should show up at the moment it helps; the full list stays in Profile for anyone who wants to browse. The founder isn't sure how many videos are needed. Suggested rule: video only where feelings run high, everything else a 30-second read.
+
+| Moment | Today | Suggestion |
+|---|---|---|
+| Joining | 2 videos: Begin With Curiosity, How We Show Up | Keep both. They set the norms everyone agrees to. |
+| Before a first meetup | Video: The First Meetup Does Not Need to Be Perfect | Keep. It's the moment nerves are highest. |
+| After meeting a few times | Video: Friendship Grows a Little at a Time | Make it a short read, shown after the 2nd meetup. |
+| A chat goes quiet | Read: The rhythm of messaging | Keep as a short read, linked from the check-in. |
+| Something feels off | Read: When friendship gets hard | Keep, linked from Pause and "Another way to see it". |
+| Ending | Read: The honest exit | Keep, linked from End. |
+| The other 6 reads | Curiosity and care, What friendship actually looks like, Early friendship fragility, How to write an honest profile, Understanding your social patterns, Everyday friendship | Mostly repeat the above. Fold useful lines into those; move "honest profile" into the profile setup screens. |
+
+That would leave 3 videos and about 4 short reads. Open question for the founder: are 3 videos (joining x2, first meetup) enough for launch?
 
 ## Founder to-do list (not code)
 

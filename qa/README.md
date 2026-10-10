@@ -38,6 +38,7 @@ Database-only checks (fast, each wrapped in a transaction that rolls back):
 
 ```bash
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/remsql.sql
+psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/notesql.sql   # notes privacy
 ```
 
 Suites and what they cover (all passing on 2026-10-10):
@@ -53,6 +54,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-noghost | Quiet chats: getting-started note, check-in, quiet close |
 | qa-remind | Reminder settings, phone layout, safety tips, after a good meetup |
 | qa-share | "Remind me later" after a good meetup |
+| qa-notes | Remember in the chat: bar, notes by meetup, Next time list, planning card, check-in, setting, ended chats, Settings download |
 | qa-mochi | Admin account basics |
 | qa-testtab | Test tab tools and "Act as" |
 

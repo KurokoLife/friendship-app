@@ -1,258 +1,260 @@
 import { supabase } from '@/lib/supabase';
 
-// Shared by RememberEntryComposer (create) and the Timeline's own inline
-// edit (item 1, 2026-08-15), moved here so both stay byte-identical
-// rather than risking drift between two copies of the same validation.
-// Plain YYYY-MM-DD text input rather than a native date picker, matching
-// this project's own established precedent (profile-basics.tsx's
-// birthdate field, for the same stale-Metro-bundle-after-a-native-
-// dependency-change reason documented there). Returns null for an empty
-// string (the date is optional), a Date for a valid one, or undefined for
-// genuinely invalid text so the caller can tell "not provided" apart from
-// "typo".
-export function parseMeetupDate(text: string): Date | null | undefined {
-  const trimmed = text.trim();
-  if (!trimmed) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (!match) return undefined;
-  const [, y, m, d] = match;
-  const date = new Date(Number(y), Number(m) - 1, Number(d));
-  if (Number.isNaN(date.getTime())) return undefined;
-  if (date.getFullYear() !== Number(y) || date.getMonth() !== Number(m) - 1 || date.getDate() !== Number(d)) {
-    return undefined;
-  }
-  return date;
-}
+// Remember (2026-10-10, docs/DECISIONS.md section 9). Private notes about
+// one friend, kept inside the chat and organized by meetup. Written in the
+// person's own words: no AI anywhere here. Own-row RLS only, the other
+// person never sees any of it.
 
-// Formats a parsed Date back into YYYY-MM-DD using its own local
-// getFullYear/getMonth/getDate (never toISOString, which would convert
-// through UTC and risk the exact off-by-one-day bug item 2 of this same
-// session fixed on the display side, see dateLabel in
-// remember/[connectionId].tsx).
-export function formatMeetupDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-// 2026-08-12: a real, previously blocked cap/pool response used to
-// throw a plain Error here, whose own comment claimed it "surfaces
-// through the same error-display path every other failure already uses,
-// no new UI state needed" — but both real callers (remember-entry-
-// composer.tsx, remember/[connectionId].tsx) used a bare `catch {}` that
-// discarded `err.message` entirely, replacing it with a generic fallback
-// string. The user never saw the real blocked message, let alone an
-// upgrade option. Distinguished as its own error type so callers can
-// check `instanceof` and show the real message plus, for a free-tier
-// block, an "Upgrade to Premium" link, matching universal-text-box's
-// own CreditBlockedError pattern.
-export class RememberBlockedError extends Error {
-  tier?: string;
-  constructor(message: string, tier?: string) {
-    super(message);
-    this.tier = tier;
-  }
-}
-
-// Remember: private, per-user notes about a friendship. Built against the
-// milestone/elapsed-time meetup system (2026-07-28 redesign), not the
-// original date-based spec, see the migration's own header comment.
-// "Timeline by meetup number" uses connections.meetup_count (only
-// incremented on mutual "went well" confirmation), not a raw date.
-
-export type RememberPerson = {
-  connection_id: string;
-  other_user_id: string;
-  display_name: string | null;
-  photo_url: string | null;
-  meetup_count: number;
-  entry_count: number;
-  latest_entry_snippet: string | null;
-  latest_entry_raw: string | null;
-  latest_entry_at: string | null;
-};
-
-export type RememberEntry = {
+export type RememberNote = {
   id: string;
   connection_id: string;
-  user_id: string;
+  meetup_id: string | null;
+  learned: string | null;
+  smiled: string | null;
+  ask_next: string | null;
+  ask_next_done_at: string | null;
   raw_text: string;
+  // Older notes (before 2026-10-10) may still carry an AI summary.
   organized_text: string | null;
-  follow_up_note: string | null;
-  meetup_number_at_entry: number;
-  created_at: string;
-  // The actual date the user says the meetup happened, optional, display
-  // only (never a sort key, see the migration's own header comment).
-  // Null for older entries and for anyone who skips picking one, in which
-  // case the Timeline falls back to created_at.
   meetup_date: string | null;
+  created_at: string;
 };
 
-export async function fetchRememberPeople(): Promise<RememberPerson[]> {
-  const { data } = await supabase
-    .from('remember_people')
-    .select('*')
-    .order('latest_entry_at', { ascending: false, nullsFirst: false });
-  return (data ?? []) as RememberPerson[];
+export type RememberMeetup = {
+  id: string;
+  number: number; // 1 for the first meetup that happened, and so on
+  date: string; // YYYY-MM-DD
+  activity: string | null;
+  place: string | null;
+};
+
+export type NoteFields = {
+  learned: string;
+  smiled: string;
+  askNext: string;
+  other: string;
+};
+
+export type OpenAsk = { noteId: string; text: string };
+
+const NOTE_COLUMNS =
+  'id, connection_id, meetup_id, learned, smiled, ask_next, ask_next_done_at, raw_text, organized_text, meetup_date, created_at';
+
+export function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
 }
 
-// Chronological by real confirmed meetup number, not raw date. created_at
-// is only a tiebreaker between entries that share the same
-// meetup_number_at_entry bucket (for example two notes both written
-// before the first confirmed meetup).
-export async function fetchTimelineEntries(connectionId: string): Promise<RememberEntry[]> {
+// A plain YYYY-MM-DD date shown in the person's own calendar day (never
+// through new Date(iso), which would read it as UTC midnight and show the
+// day before for anyone in the US).
+export function formatDay(day: string, withWeekday = true): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: withWeekday ? 'short' : undefined,
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+export function noteDay(note: RememberNote): string {
+  if (note.meetup_date) return note.meetup_date;
+  const d = new Date(note.created_at);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function noteIsEmpty(f: NoteFields): boolean {
+  return !f.learned.trim() && !f.smiled.trim() && !f.askNext.trim() && !f.other.trim();
+}
+
+export function fieldsFromNote(note: RememberNote | null): NoteFields {
+  return {
+    learned: note?.learned ?? '',
+    smiled: note?.smiled ?? '',
+    askNext: note?.ask_next ?? '',
+    other: note?.raw_text ?? '',
+  };
+}
+
+// Meetups that happened in this chat, oldest first, numbered.
+export async function fetchMeetupsThatHappened(connectionId: string): Promise<RememberMeetup[]> {
+  const { data } = await supabase
+    .from('meetups')
+    .select('id, occurred_date, confirmed_date, proposed_date, activity, place, created_at')
+    .eq('connection_id', connectionId)
+    .eq('status', 'occurred')
+    .order('occurred_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true });
+  return (
+    (data ?? []) as {
+      id: string;
+      occurred_date: string | null;
+      confirmed_date: string | null;
+      proposed_date: string;
+      activity: string | null;
+      place: string | null;
+    }[]
+  ).map((m, i) => ({
+    id: m.id,
+    number: i + 1,
+    date: m.occurred_date ?? m.confirmed_date ?? m.proposed_date,
+    activity: m.activity,
+    place: m.place,
+  }));
+}
+
+export async function fetchNotes(connectionId: string): Promise<RememberNote[]> {
   const { data } = await supabase
     .from('remember_entries')
-    .select('*')
+    .select(NOTE_COLUMNS)
     .eq('connection_id', connectionId)
-    .order('meetup_number_at_entry', { ascending: true })
     .order('created_at', { ascending: true });
-  return (data ?? []) as RememberEntry[];
+  return (data ?? []) as RememberNote[];
 }
 
-// "Summarize for me" on the Timeline screen: explicit, user-tapped, never
-// ambient (same choice pattern as "Organize with AI" on a single entry).
-// Regenerated fresh on every call, nothing is cached client- or
-// server-side, see the edge function's own header comment for why.
-export async function summarizeRememberTimeline(connectionId: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('summarize-remember-timeline', {
-    body: { connectionId },
-  });
-  if (error) throw error;
-  if (data?.blocked) throw new RememberBlockedError(data.message as string, data.tier as string | undefined);
-  if (data?.error) throw new Error(data.error as string);
-  if (!data?.summary) throw new Error('No summary returned');
-  return data.summary as string;
+function clean(s: string): string | null {
+  const t = s.trim();
+  return t ? t : null;
 }
 
-export async function organizeRememberEntry(
-  rawText: string,
-  otherName: string
-): Promise<{ summary: string; followUp: string | null }> {
-  const { data, error } = await supabase.functions.invoke('organize-remember-entry', {
-    body: { rawText, otherName },
-  });
-  if (error) throw error;
-  if (data?.blocked) throw new RememberBlockedError(data.message as string, data.tier as string | undefined);
-  if (data?.error) throw new Error(data.error as string);
-  if (!data?.summary) throw new Error('No summary returned');
-  return { summary: data.summary as string, followUp: (data.followUp as string | null) ?? null };
-}
-
-// Only ever called after the user has explicitly approved what's being
-// saved (raw text is always theirs; organizedText/followUpNote, when
-// present, have already been shown back to them, editable, before this
-// runs). Never called automatically the moment AI output comes back.
-export async function saveRememberEntry(params: {
+// Saves a note. With a meetupId, there's one note per meetup: it's updated
+// if it exists. Without one, it's a note between meetups.
+export async function saveNote(params: {
   connectionId: string;
   userId: string;
-  rawText: string;
-  organizedText: string | null;
-  followUpNote: string | null;
-  // Optional, user-picked "when this actually happened" date (YYYY-MM-DD),
-  // display only, see the migration's own header comment for why this is
-  // never used for ordering.
-  meetupDate: string | null;
+  meetupId: string | null;
+  noteId: string | null;
+  fields: NoteFields;
 }): Promise<void> {
-  await supabase.from('remember_entries').insert({
+  const row = {
+    learned: clean(params.fields.learned),
+    smiled: clean(params.fields.smiled),
+    ask_next: clean(params.fields.askNext),
+    raw_text: params.fields.other.trim(),
+    updated_at: new Date().toISOString(),
+  };
+  if (params.noteId) {
+    const { data: before } = await supabase
+      .from('remember_entries')
+      .select('ask_next')
+      .eq('id', params.noteId)
+      .maybeSingle();
+    const askChanged = (before as { ask_next: string | null } | null)?.ask_next !== row.ask_next;
+    const { error } = await supabase
+      .from('remember_entries')
+      .update(askChanged ? { ...row, ask_next_done_at: null } : row)
+      .eq('id', params.noteId);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from('remember_entries').insert({
+    ...row,
     connection_id: params.connectionId,
     user_id: params.userId,
-    raw_text: params.rawText,
-    meetup_date: params.meetupDate,
-    organized_text: params.organizedText,
-    follow_up_note: params.followUpNote,
+    meetup_id: params.meetupId,
   });
+  if (error) throw error;
+  if (params.meetupId) await markMeetupAsked(params.meetupId, params.userId);
 }
 
-// Item 1, 2026-08-15: direct edit, no AI-organize step. A deliberately
-// different flow from saveRememberEntry's own create-time raw-vs-AI
-// choice: at edit time there's already real content on screen (the
-// user's own prior raw text, and possibly an already-approved organized
-// version), so the need is corrective/additive ("fix or expand"), not
-// "start from a blank page and decide whether AI should help." Keeps
-// the user in direct control of already-approved text rather than
-// reopening a new AI-invocation surface on top of it. organizedText/
-// followUpNote are optional here specifically so a raw-only entry stays
-// raw-only unless the caller explicitly passes a value for them.
-export async function updateRememberEntry(params: {
-  entryId: string;
-  rawText: string;
-  organizedText?: string | null;
-  followUpNote?: string | null;
-  meetupDate: string | null;
-}): Promise<void> {
-  const update: Record<string, unknown> = {
-    raw_text: params.rawText,
-    meetup_date: params.meetupDate,
-  };
-  if (params.organizedText !== undefined) update.organized_text = params.organizedText;
-  if (params.followUpNote !== undefined) update.follow_up_note = params.followUpNote;
-  const { error } = await supabase.from('remember_entries').update(update).eq('id', params.entryId);
+export async function deleteNote(noteId: string): Promise<void> {
+  const { error } = await supabase.from('remember_entries').delete().eq('id', noteId);
   if (error) throw error;
 }
 
-export async function deleteRememberEntry(entryId: string): Promise<void> {
-  await supabase.from('remember_entries').delete().eq('id', entryId);
+export async function deleteAllNotes(connectionId: string): Promise<void> {
+  const { error } = await supabase.from('remember_entries').delete().eq('connection_id', connectionId);
+  if (error) throw error;
 }
 
-export async function deleteAllEntriesForConnection(connectionId: string): Promise<void> {
-  await supabase.from('remember_entries').delete().eq('connection_id', connectionId);
+// "Asked": moves a question off the "Next time, ask..." list. Undo puts
+// it back.
+export async function setAsked(noteId: string, asked: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('remember_entries')
+    .update({ ask_next_done_at: asked ? new Date().toISOString() : null })
+    .eq('id', noteId);
+  if (error) throw error;
 }
 
-// Pre-meetup reminder (Step 2 of the Remember spec): there's no
-// scheduled_at anymore to anchor a "day before" reminder to, so this is
-// read at the next real planning moment instead, when "Let's plan
-// something" is re-engaged for a connection that already has entries.
-// Prefers the most recent follow-up note (a concrete "ask about X"); when
-// no entry has one, falls back to the most recent organized summary, then
-// the most recent raw text, so a reminder can still surface even from an
-// entry someone chose to save without AI organizing.
-export async function fetchLatestRememberNote(connectionId: string): Promise<string | null> {
+export function openAsksFrom(notes: RememberNote[]): OpenAsk[] {
+  return notes
+    .filter((n) => n.ask_next && n.ask_next.trim() && !n.ask_next_done_at)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map((n) => ({ noteId: n.id, text: n.ask_next!.trim() }));
+}
+
+export async function fetchOpenAsks(connectionId: string): Promise<OpenAsk[]> {
   const { data } = await supabase
     .from('remember_entries')
-    .select('organized_text, follow_up_note, raw_text')
+    .select('id, ask_next, ask_next_done_at, created_at')
     .eq('connection_id', connectionId)
-    .order('created_at', { ascending: false })
-    .limit(5);
-  const entries = (data ?? []) as { organized_text: string | null; follow_up_note: string | null; raw_text: string }[];
-  const withFollowUp = entries.find((e) => e.follow_up_note);
-  if (withFollowUp) return withFollowUp.follow_up_note;
-  const latest = entries[0];
-  if (!latest) return null;
-  return latest.organized_text ?? latest.raw_text;
+    .not('ask_next', 'is', null)
+    .is('ask_next_done_at', null)
+    .order('created_at', { ascending: false });
+  return ((data ?? []) as { id: string; ask_next: string | null }[])
+    .filter((n) => n.ask_next && n.ask_next.trim())
+    .map((n) => ({ noteId: n.id, text: n.ask_next!.trim() }));
 }
 
-// A real export, not just a UI promise: every entry the caller has ever
-// written, across every connection, grouped by person. JSON is the
-// canonical format (nothing is lost, structure is preserved); the screen
-// that calls this decides how to hand it to the user (a browser download
-// on web, the native Share sheet elsewhere).
-export async function buildRememberExport(): Promise<string> {
-  const [{ data: people }, { data: entries }] = await Promise.all([
-    supabase.from('remember_people').select('*'),
-    supabase.from('remember_entries').select('*').order('created_at', { ascending: true }),
+// After a meetup counts, the chat asks once: "Anything you'd like to
+// remember about X?" Returns the meetup to ask about, or null. Only the
+// most recent meetup, only within 3 weeks of it, only if there's no note
+// for it yet and it hasn't been asked before.
+const ASK_WINDOW_DAYS = 21;
+
+export async function meetupToAskAbout(connectionId: string, userId: string): Promise<RememberMeetup | null> {
+  const meetups = await fetchMeetupsThatHappened(connectionId);
+  const latest = meetups[meetups.length - 1];
+  if (!latest) return null;
+  const [y, m, d] = latest.date.split('-').map(Number);
+  if (Date.now() - new Date(y, m - 1, d).getTime() > ASK_WINDOW_DAYS * 24 * 60 * 60 * 1000) return null;
+  const [{ data: note }, { data: asked }] = await Promise.all([
+    supabase.from('remember_entries').select('id').eq('meetup_id', latest.id).maybeSingle(),
+    supabase.from('remember_asks').select('meetup_id').eq('meetup_id', latest.id).eq('user_id', userId).maybeSingle(),
   ]);
+  if (note || asked) return null;
+  return latest;
+}
 
-  const peopleList = (people ?? []) as RememberPerson[];
-  const entryList = (entries ?? []) as RememberEntry[];
+export async function markMeetupAsked(meetupId: string, userId: string): Promise<void> {
+  await supabase.from('remember_asks').upsert({ user_id: userId, meetup_id: meetupId }, { onConflict: 'user_id,meetup_id', ignoreDuplicates: true });
+}
 
-  const byConnection = new Map<string, RememberPerson>();
-  for (const p of peopleList) byConnection.set(p.connection_id, p);
-
-  const grouped: Record<string, { display_name: string | null; entries: RememberEntry[] }> = {};
-  for (const entry of entryList) {
-    const person = byConnection.get(entry.connection_id);
-    const key = entry.connection_id;
-    if (!grouped[key]) {
-      grouped[key] = { display_name: person?.display_name ?? 'A member', entries: [] };
-    }
-    grouped[key].entries.push(entry);
+// A real export of every note, grouped by person. JSON keeps everything.
+// Settings hands it to the person (a download on web, the Share sheet on a
+// phone).
+export async function buildRememberExport(): Promise<string> {
+  const [{ data: notes }, { data: names }] = await Promise.all([
+    supabase.from('remember_entries').select(NOTE_COLUMNS).order('created_at', { ascending: true }),
+    supabase.from('connection_participant_profiles').select('connection_id, display_name'),
+  ]);
+  const nameFor = new Map<string, string | null>();
+  for (const n of (names ?? []) as { connection_id: string; display_name: string | null }[]) {
+    nameFor.set(n.connection_id, n.display_name);
   }
-
-  return JSON.stringify(
-    {
-      exported_at: new Date().toISOString(),
-      people: Object.values(grouped),
-    },
-    null,
-    2
-  );
+  const grouped: Record<string, { name: string; notes: unknown[] }> = {};
+  for (const n of (notes ?? []) as RememberNote[]) {
+    if (!grouped[n.connection_id]) grouped[n.connection_id] = { name: nameFor.get(n.connection_id) ?? 'A member', notes: [] };
+    grouped[n.connection_id].notes.push({
+      written: n.created_at,
+      what_i_learned: n.learned,
+      what_made_me_smile: n.smiled,
+      next_time_id_love_to_ask: n.ask_next,
+      asked: Boolean(n.ask_next_done_at),
+      anything_else: n.raw_text || null,
+      older_summary: n.organized_text,
+    });
+  }
+  return JSON.stringify({ exported_at: new Date().toISOString(), people: Object.values(grouped) }, null, 2);
 }

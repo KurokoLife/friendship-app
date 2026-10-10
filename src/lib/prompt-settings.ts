@@ -6,9 +6,9 @@ import { supabase } from '@/lib/supabase';
 // heard back yet can't be turned off: it protects the person waiting, and
 // it only ever shows once.
 
-export type PromptKind = 'check_in' | 'meet_nudge' | 'morning_of' | 'calendar' | 'guides';
+export type PromptKind = 'check_in' | 'meet_nudge' | 'morning_of' | 'calendar' | 'guides' | 'notes';
 
-export const PROMPT_KINDS: PromptKind[] = ['check_in', 'meet_nudge', 'morning_of', 'calendar', 'guides'];
+export const PROMPT_KINDS: PromptKind[] = ['check_in', 'meet_nudge', 'morning_of', 'calendar', 'guides', 'notes'];
 
 export const PROMPT_LABELS: Record<PromptKind, { title: string; detail: string }> = {
   check_in: {
@@ -31,6 +31,10 @@ export const PROMPT_LABELS: Record<PromptKind, { title: string; detail: string }
     title: 'Short guides',
     detail: 'Now and then, an offer to watch a short video guide.',
   },
+  notes: {
+    title: 'Your notes coming back',
+    detail: 'After a meetup, asks once if there\'s anything you\'d like to remember. Shows what you wanted to ask next time when you plan or check in.',
+  },
 };
 
 export type PromptSetting = { all: boolean; chat: boolean };
@@ -42,6 +46,7 @@ export const ALL_ON: PromptSettings = {
   morning_of: { all: true, chat: true },
   calendar: { all: true, chat: true },
   guides: { all: true, chat: true },
+  notes: { all: true, chat: true },
 };
 
 export function isOn(settings: PromptSettings | null, kind: PromptKind): boolean {

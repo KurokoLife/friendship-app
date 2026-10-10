@@ -36,7 +36,7 @@ picks up the tabs. Read this first, then the files it points to.
 
 ## 4. Docs, in order of trust
 
-1. `docs/DECISIONS.md`: founder decisions by area, with a status table. Area 9 "Remember and Guide" is **not reviewed yet** (the next area).
+1. `docs/DECISIONS.md`: founder decisions by area, with a status table. Area 9: Remember decided and built 2026-10-10; Guide has a draft plan (section 9b), not decided.
 2. AGENTS.md, section "LIMEN V2 DECISIONS": the newest decisions (Oct 3 to Oct 10). They supersede everything else in AGENTS.md. The long F1 to F33 sections below them are history and are often stale (Premium, credits, Browse, R2/R3 reminders and the old meetup system are all gone).
 3. `docs/LIMEN_V2_DECISIONS.md`: the Oct 3 ethics review (no AI writing, 3 suggestions a week, flat caps, graduation, stories, money).
 4. PROGRESS.md: the session log. Read the last 8 entries (Oct 8 to Oct 10). Older entries are history.
@@ -44,19 +44,19 @@ picks up the tabs. Read this first, then the files it points to.
 
 ## 5. The tabs today
 
-The tab bar is set in `src/app/(tabs)/_layout.tsx`: Discover, Saved, Inbox, Remember, Profile, and Test (admins and test accounts only). Browse is hidden (`href: null`). The account key there remounts every tab when someone switches accounts.
+The tab bar is set in `src/app/(tabs)/_layout.tsx`: Discover, Saved, Inbox, Profile (Remember tab removed 2026-10-10, notes now live in each chat), and Test (admins and test accounts only). Browse is hidden (`href: null`). The account key there remounts every tab when someone switches accounts.
 
 | Tab | File | State |
 |---|---|---|
 | Discover | `(tabs)/home.tsx` | 3 suggestions per rolling week (`generate-match-suggestions`). Interested gate and approved-selfie check before the first message. Area 4 is only partly decided. |
 | Saved | `(tabs)/saved.tsx` | No expiry. A save disappears only if the account is deleted or the pair no longer fits gender or age (`saved_profiles` view). Not reviewed in v2. |
 | Inbox | `(tabs)/inbox.tsx` | Reviewed and rebuilt Oct 8 to 10: New hellos, invites to meet, planning stages, capacity line ("N of 3 active conversations"), Paused / Ended / Closed / Graduated sections. Considered done. |
-| Remember | `(tabs)/remember.tsx`, `remember/[connectionId].tsx` | Built July/August. **Decided 2026-10-10 to move into the chat** (docs/DECISIONS.md section 9), not built yet. Section 6 describes what's there today. |
+| Remember | `(tabs)/remember.tsx`, `remember/[connectionId].tsx` | **Rebuilt 2026-10-10 inside the chat** (docs/DECISIONS.md section 9). The tab file is gone; section 6 below describes the old version. |
 | Profile | `(tabs)/profile.tsx` | Rebuilt Oct 6: your profile as others see it, private fields in an "Only you can see this" box. Links to Edit (`profile-build.tsx`), Guide (`guides.tsx`) and Settings. Area 2 decided. |
 | Guide (no tab) | `guides.tsx`, `guide/[id].tsx`, `module/[id].tsx` | Flat list: 2 onboarding videos, "The First Meetup Does Not Need to Be Perfect", "Friendship Grows a Little at a Time", then 9 text modules. Data in `src/lib/modules-data.ts`, `src/lib/guide-only-entries.ts`, `src/lib/module-videos.ts`. Reached only from Profile. |
 | Settings (no tab) | `settings.tsx` | Edit profile, Reminders and nudges (on/off for all chats), blocked accounts, reports, Terms/Privacy, delete account. Area 10 not reviewed. |
 
-## 6. Remember: what exists now
+## 6. Remember before 2026-10-10 (replaced, kept for history)
 
 - **People list** (`remember_people` view): anyone you've met at least once (`connections.meetup_count > 0`, kept up to date by the meetup counting from Oct 10) or written a note about.
 - **Timeline per person:** entries grouped by meetup number (`meetup_number_at_entry`, set by a trigger), each with an optional date. Each entry can be edited or deleted, and all history with one person can be deleted with a two-tap confirm.

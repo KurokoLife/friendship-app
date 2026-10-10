@@ -78,17 +78,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="remember"
-        options={{
-          title: 'Remember',
-          tabBarIcon: ({ color, size }) => (
-            <SpotlightTarget markKey="tab_remember">
-              <Ionicons name="book-outline" size={size} color={color} />
-            </SpotlightTarget>
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
