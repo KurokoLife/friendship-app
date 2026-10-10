@@ -995,6 +995,12 @@ export default function ThreadScreen() {
           }}
           onContentSizeChange={() => {
             if (nearBottomRef.current) scrollRef.current?.scrollToEnd({ animated: false });
+          }}
+          // The bars above load after the messages and make this area
+          // shorter. Keep the newest message or card fully in view when that
+          // happens (2026-10-10: a card was cut off at the bottom).
+          onLayout={() => {
+            if (nearBottomRef.current) scrollRef.current?.scrollToEnd({ animated: false });
           }}>
           {messages.length === 0 && (
             <Text className="text-center text-caption text-stone-400 dark:text-stone-600">

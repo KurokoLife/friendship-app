@@ -17,8 +17,45 @@ export type RememberNote = {
   // Older notes (before 2026-10-10) may still carry an AI summary.
   organized_text: string | null;
   meetup_date: string | null;
+  topics: TopicKey[] | null;
   created_at: string;
 };
+
+// Topic chips on free notes (2026-10-10). A short fixed list on purpose:
+// custom tags get messy and add clutter. Stored as these keys.
+export const TOPICS = [
+  { key: 'family', label: 'Family' },
+  { key: 'work', label: 'Work' },
+  { key: 'loves', label: 'Things they love' },
+  { key: 'going_through', label: 'Going through' },
+  { key: 'ideas', label: 'Ideas for us' },
+] as const;
+export type TopicKey = (typeof TOPICS)[number]['key'];
+export function topicLabel(key: string): string {
+  return TOPICS.find((t) => t.key === key)?.label ?? key;
+}
+
+// Topic filters and search show only once there are this many notes for
+// one person. Below that, a short list is easier to read.
+export const FILTER_FROM_NOTES = 6;
+
+// A free note is one open box: the first line is its title, the rest its
+// body. Older notes between meetups may still use the three questions.
+export function isFreeNote(n: RememberNote): boolean {
+  return !n.meetup_id && !n.learned?.trim() && !n.smiled?.trim() && !n.ask_next?.trim();
+}
+
+export function splitTitle(text: string): { title: string; body: string } {
+  const t = text.trim();
+  const i = t.indexOf('\n');
+  if (i === -1) return { title: t, body: '' };
+  return { title: t.slice(0, i).trim(), body: t.slice(i + 1).trim() };
+}
+
+// Every word of a note, for search.
+export function noteText(n: RememberNote): string {
+  return [n.learned, n.smiled, n.ask_next, n.raw_text, n.organized_text].filter(Boolean).join(' ').toLowerCase();
+}
 
 export type RememberMeetup = {
   id: string;
@@ -38,7 +75,7 @@ export type NoteFields = {
 export type OpenAsk = { noteId: string; text: string };
 
 const NOTE_COLUMNS =
-  'id, connection_id, meetup_id, learned, smiled, ask_next, ask_next_done_at, raw_text, organized_text, meetup_date, created_at';
+  'id, connection_id, meetup_id, learned, smiled, ask_next, ask_next_done_at, raw_text, organized_text, meetup_date, topics, created_at';
 
 export function ordinal(n: number): string {
   const rem100 = n % 100;
@@ -167,6 +204,47 @@ export async function saveNote(params: {
   if (params.meetupId) await markMeetupAsked(params.meetupId, params.userId);
 }
 
+// A free note: one open box plus optional topics. Not tied to a meetup.
+export async function saveFreeNote(params: {
+  connectionId: string;
+  userId: string;
+  noteId: string | null;
+  text: string;
+  topics: TopicKey[];
+}): Promise<void> {
+  const row = {
+    raw_text: params.text.trim(),
+    topics: params.topics,
+    updated_at: new Date().toISOString(),
+  };
+  if (params.noteId) {
+    const { error } = await supabase.from('remember_entries').update(row).eq('id', params.noteId);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from('remember_entries').insert({
+    ...row,
+    connection_id: params.connectionId,
+    user_id: params.userId,
+    meetup_id: null,
+  });
+  if (error) throw error;
+}
+
+// Notes marked "Ideas for us", newest first, for the planning card. Only
+// the person who wrote them ever sees them.
+export async function fetchIdeaNotes(connectionId: string): Promise<{ noteId: string; text: string }[]> {
+  const { data } = await supabase
+    .from('remember_entries')
+    .select('id, raw_text, created_at')
+    .eq('connection_id', connectionId)
+    .contains('topics', ['ideas'])
+    .order('created_at', { ascending: false });
+  return ((data ?? []) as { id: string; raw_text: string | null }[])
+    .filter((n) => n.raw_text && n.raw_text.trim())
+    .map((n) => ({ noteId: n.id, text: splitTitle(n.raw_text!).title }));
+}
+
 export async function deleteNote(noteId: string): Promise<void> {
   const { error } = await supabase.from('remember_entries').delete().eq('id', noteId);
   if (error) throw error;
@@ -246,8 +324,11 @@ export async function buildRememberExport(): Promise<string> {
   const grouped: Record<string, { name: string; notes: unknown[] }> = {};
   for (const n of (notes ?? []) as RememberNote[]) {
     if (!grouped[n.connection_id]) grouped[n.connection_id] = { name: nameFor.get(n.connection_id) ?? 'A member', notes: [] };
+    const free = isFreeNote(n);
     grouped[n.connection_id].notes.push({
       written: n.created_at,
+      title: free && n.raw_text ? splitTitle(n.raw_text).title : null,
+      topics: (n.topics ?? []).map(topicLabel),
       what_i_learned: n.learned,
       what_made_me_smile: n.smiled,
       next_time_id_love_to_ask: n.ask_next,

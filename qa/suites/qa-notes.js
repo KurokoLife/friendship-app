@@ -46,12 +46,19 @@ const { U, check, tap, text, go, q } = L;
   let rows = await q(`select meetup_id, learned, ask_next from remember_entries where connection_id=$1`, [E]);
   check('One note on the 2nd meetup', rows.length === 1 && rows[0].meetup_id === m2.id, JSON.stringify(rows));
 
-  // A note between meetups
+  // A free note (2026-10-10): one open box, first line is the title, topic chips
   await tap(a.page, 'Write something down', { nth: 0, wait: 1000 });
-  await a.page.fill('textarea[aria-label="What did you enjoy?"]', 'His story about the dog');
+  t = await text(a.page);
+  check('Free note: one box and topic chips, no questions', t.includes('A note for yourself') && t.includes('Topic, if you like') && t.includes('Things they love') && t.includes('Ideas for us') && !t.includes('What did you enjoy?'), t.slice(0, 900));
+  await a.page.fill('textarea[aria-label="Your note"]', 'His story about the dog\nA beagle called Miso');
+  await a.page.getByRole('checkbox', { name: 'Topic: Things they love' }).click();
   await tap(a.page, 'Save', { wait: 2000 });
   t = await text(a.page);
   check('Note under "Since your last meetup"', t.includes('Since your last meetup') && t.includes('His story about the dog'));
+  check('Title, body and topic shown', t.includes('A beagle called Miso') && t.includes('Things they love'));
+  let free = await q(`select raw_text, topics, meetup_id from remember_entries where connection_id=$1 and meetup_id is null`, [E]);
+  check('Saved as a free note with its topic', free.length === 1 && free[0].topics.join() === 'loves' && free[0].raw_text.startsWith('His story about the dog'), JSON.stringify(free));
+  check('Few notes: no search or filters yet', (await a.page.locator('input[aria-label="Search your notes"]').count()) === 0);
   check('Order: since last, then 2nd, then 1st', t.indexOf('Since your last meetup') < t.indexOf('Your 2nd meetup') && t.indexOf('Your 2nd meetup') < t.indexOf('Your 1st meetup'));
 
   // Asked moves it off the list, Undo brings it back
@@ -63,9 +70,27 @@ const { U, check, tap, text, go, q } = L;
 
   // Edit
   await tap(a.page, 'Edit', { nth: 0, wait: 1000 });
-  await a.page.fill('textarea[aria-label="What did you enjoy?"]', 'His story about the dog and the cat');
+  await a.page.fill('textarea[aria-label="Your note"]', 'His story about the dog and the cat\nA beagle called Miso');
   await tap(a.page, 'Save', { wait: 2000 });
   check('Edit saves', (await text(a.page)).includes('His story about the dog and the cat'));
+
+  // From 6 notes: search and topic filters
+  await q(`insert into remember_entries (connection_id, user_id, raw_text, topics) values
+     ($1,$2,'Sister visits in May','{family}'), ($1,$2,'New job at the library','{work}'),
+     ($1,$2,'Try the pottery class together','{ideas}'), ($1,$2,'Moving flats soon','{going_through}')`, [E, U.aisha]);
+  await go(a.page, `/remember/${E}`, 3000);
+  t = await text(a.page);
+  check('Six notes: search and filters appear', (await a.page.locator('input[aria-label="Search your notes"]').count()) === 1 && t.includes('Going through'), t.slice(0, 900));
+  await a.page.getByRole('button', { name: 'Show Family' }).click();
+  await a.page.waitForTimeout(800);
+  t = await text(a.page);
+  check('Topic filter shows only that topic', t.includes('Sister visits in May') && !t.includes('New job at the library') && t.includes('1 note'), t.slice(0, 900));
+  await tap(a.page, 'Show all', { wait: 800 });
+  await a.page.fill('input[aria-label="Search your notes"]', 'guitar');
+  await a.page.waitForTimeout(800);
+  t = await text(a.page);
+  check('Search finds meetup notes too', t.includes('He just started learning guitar') && t.includes('Your 2nd meetup') && !t.includes('Sister visits in May'), t.slice(0, 900));
+  await tap(a.page, 'Show all', { wait: 800 });
 
   // Back in the chat: no second ask, shows the next-time line
   await go(a.page, `/thread/${E}`, 3500, { expand: false });
@@ -78,6 +103,7 @@ const { U, check, tap, text, go, q } = L;
   t = await text(a.page);
   check('Planning card shows your note', t.includes('From your notes: next time, you wanted to ask David about') && t.includes('How his first gig went'), t.slice(-600));
   check('No separate pop-up', !t.includes('Before you plan something'));
+  check('Planning card shows "Ideas for us" notes', t.includes('From your notes: ideas for you and David') && t.includes('Try the pottery class together'), t.slice(-700));
 
   // Check-in shows it
   await q(`delete from plan_boards where connection_id=$1`, [E]).catch(() => {});
@@ -124,7 +150,7 @@ const { U, check, tap, text, go, q } = L;
   await tap(a.page, 'Delete', { nth: 0, wait: 800 });
   await tap(a.page, 'Tap again to delete', { wait: 1800 });
   rows = await q(`select count(*)::int n from remember_entries where connection_id=$1`, [E]);
-  check('Delete one (two taps)', rows[0].n === 1);
+  check('Delete one (two taps)', rows[0].n === 5, rows[0].n);
   await tap(a.page, 'Delete everything about David', { wait: 800 });
   await tap(a.page, 'Tap again to delete everything about David', { wait: 1800 });
   rows = await q(`select count(*)::int n from remember_entries where connection_id=$1`, [E]);

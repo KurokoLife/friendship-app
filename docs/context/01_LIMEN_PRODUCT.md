@@ -90,7 +90,9 @@ Working rules that follow from these:
 
 - No AI, no tab. The "What I want to remember about X" bar opens a private page, one card per meetup that counted (date and activity from the plan), newest first, plus "Since your last meetup".
 - Three optional questions per meetup: "What did you learn about X?", "What did you enjoy?", "Next time, I'd love to ask X...", plus room for anything else. A "Next time, ask X about..." list at the top, with "Asked".
-- Your own notes come back after a meetup counts (asked once), inside the planning card, and in the check-in. Can be turned off.
+- "Write something down" (a note not tied to a meetup): one open box, the first line becomes the title. Optional topic chips from a fixed list: Family, Work, Things they love, Going through, Ideas for us. No custom tags.
+- Search and topic filters appear once there are 6 or more notes for that person.
+- Your own notes come back after a meetup counts (asked once), inside the planning card (including notes marked "Ideas for us"), and in the check-in. Can be turned off.
 - Notes stay after a chat ends (reached from Inbox) and can be deleted anytime. Export is in Settings. The mic icon is a placeholder.
 
 ## 11. Graduation

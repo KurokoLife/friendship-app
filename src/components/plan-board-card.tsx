@@ -325,7 +325,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
               </View>
             </View>
             <ScrollView contentContainerClassName="gap-3 pb-4" keyboardShouldPersistTaps="handled">
-              <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} />
+              <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} withIdeas />
               {children}
               {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
               {nudge}

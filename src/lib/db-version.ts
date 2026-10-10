@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 
 // The newest database update this version of the app needs (2026-10-10).
 // Bump together with limen_db_version() in the newest migration.
-export const REQUIRED_DB_VERSION = '20261010000003';
+export const REQUIRED_DB_VERSION = '20261010000004';
 
 // Database updates the Test tab points to when something is missing, in the
 // order to run them. Each one is safe to run again.
@@ -21,6 +21,7 @@ export const RECENT_DB_UPDATES = [
   '20261010000001_quieter_reminders_check_ins.sql',
   '20261010000002_share_reminder.sql',
   '20261010000003_remember_in_chat.sql',
+  '20261010000004_meetup_answer_free_notes.sql',
 ];
 
 export const MIGRATION_URL_BASE =

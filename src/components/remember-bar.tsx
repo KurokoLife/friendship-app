@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { fetchOpenAsks, markMeetupAsked, meetupToAskAbout, type OpenAsk, type RememberMeetup } from '@/lib/remember';
+import { fetchIdeaNotes, fetchOpenAsks, markMeetupAsked, meetupToAskAbout, type OpenAsk, type RememberMeetup } from '@/lib/remember';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
@@ -98,37 +98,70 @@ export function RememberBar({
 }
 
 // "From your notes": the questions the person wanted to ask next time,
-// shown inside the planning card and the check-in. Own words only, and
-// only for the person who wrote them.
-export function RememberAsksLine({ connectionId, otherName, notesOn }: { connectionId: string; otherName: string; notesOn: boolean }) {
+// shown inside the planning card and the check-in. In the planning card it
+// also lists their notes marked "Ideas for us" (2026-10-10). Own words
+// only, and only for the person who wrote them.
+export function RememberAsksLine({
+  connectionId,
+  otherName,
+  notesOn,
+  withIdeas = false,
+}: {
+  connectionId: string;
+  otherName: string;
+  notesOn: boolean;
+  withIdeas?: boolean;
+}) {
   const [asks, setAsks] = useState<OpenAsk[]>([]);
+  const [ideas, setIdeas] = useState<{ noteId: string; text: string }[]>([]);
   const first = otherName.split(' ')[0] || otherName;
 
   useEffect(() => {
     let cancelled = false;
     if (!notesOn) {
       setAsks([]);
+      setIdeas([]);
       return;
     }
-    fetchOpenAsks(connectionId).then((a) => {
-      if (!cancelled) setAsks(a);
-    });
+    Promise.all([fetchOpenAsks(connectionId), withIdeas ? fetchIdeaNotes(connectionId) : Promise.resolve([])]).then(
+      ([a, i]) => {
+        if (cancelled) return;
+        setAsks(a);
+        setIdeas(i);
+      }
+    );
     return () => {
       cancelled = true;
     };
-  }, [connectionId, notesOn]);
+  }, [connectionId, notesOn, withIdeas]);
 
-  if (asks.length === 0) return null;
+  if (asks.length === 0 && ideas.length === 0) return null;
   return (
-    <View className="gap-1 rounded-xl border border-stone-200 bg-white p-3 dark:border-stone-700 dark:bg-stone-800">
-      <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">
-        From your notes: next time, you wanted to ask {first} about
-      </Text>
-      {asks.slice(0, 3).map((a) => (
-        <Text key={a.noteId} className="text-body text-stone-800 dark:text-stone-100">
-          • {a.text}
-        </Text>
-      ))}
+    <View className="gap-2 rounded-xl border border-stone-200 bg-white p-3 dark:border-stone-700 dark:bg-stone-800">
+      {ideas.length > 0 && (
+        <View className="gap-1">
+          <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">
+            From your notes: ideas for you and {first}
+          </Text>
+          {ideas.slice(0, 3).map((i) => (
+            <Text key={i.noteId} className="text-body text-stone-800 dark:text-stone-100">
+              • {i.text}
+            </Text>
+          ))}
+        </View>
+      )}
+      {asks.length > 0 && (
+        <View className="gap-1">
+          <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">
+            From your notes: next time, you wanted to ask {first} about
+          </Text>
+          {asks.slice(0, 3).map((a) => (
+            <Text key={a.noteId} className="text-body text-stone-800 dark:text-stone-100">
+              • {a.text}
+            </Text>
+          ))}
+        </View>
+      )}
       <Text className="text-caption italic text-stone-400 dark:text-stone-500">Only you see this.</Text>
     </View>
   );

@@ -236,7 +236,7 @@ export async function cancelMeetup(meetupId: string, concernResolution?: string)
 
 export type OccurrenceReportResult =
   | { resolved: false; waiting_on_other: true }
-  | { resolved: true; status: 'occurred' | 'not_occurred' | 'unresolved' };
+  | { resolved: true; status: 'occurred' | 'not_occurred' | 'unresolved' | 'stale' };
 
 export async function reportMeetupOccurrence(
   meetupId: string,
@@ -248,7 +248,14 @@ export async function reportMeetupOccurrence(
     p_reported_yes: reportedYes,
     p_reported_date: reportedDate ?? null,
   });
-  if (error) throw error;
+  if (error) {
+    // Plain words for the cases that can still happen (2026-10-10). Any
+    // other error keeps its raw text so test accounts can see it.
+    if (/not_yet/.test(error.message)) throw new FriendlyError("This can be answered once the day of the meetup has come.");
+    if (/not_in_chat/.test(error.message)) throw new FriendlyError("This meetup isn't in one of your chats.");
+    if (/not_signed_in/.test(error.message)) throw new FriendlyError('Please sign in again and try once more.');
+    throw error;
+  }
   return data as OccurrenceReportResult;
 }
 

@@ -21,6 +21,7 @@ import {
   type PostMeetupReflectionResponse,
 } from '@/lib/friendship-journey';
 import { supabase } from '@/lib/supabase';
+import { getActingAs } from '@/lib/test-mode';
 import { formatMeetupDay, formatMeetupTime, formatWhen } from '@/lib/meetup-format';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
@@ -757,6 +758,21 @@ type OccurrenceMode =
 // the user mid-flow if something else is now higher-priority, the same
 // local-state-until-truly-done pattern MeetupOutcomeCard's own exitMode
 // already established.
+function errorText(e: unknown): string {
+  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message);
+  return String(e);
+}
+
+function OccurrenceError({ error, detail }: { error: string | null; detail: string | null }) {
+  if (!error) return null;
+  return (
+    <View className="gap-0.5">
+      <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>
+      {detail ? <Text className="text-caption text-stone-400 dark:text-stone-500">Test account detail: {detail}</Text> : null}
+    </View>
+  );
+}
+
 function MeetupOccurrenceCheck({
   connectionId,
   intervention,
@@ -790,6 +806,11 @@ function MeetupOccurrenceCheck({
   const [draft, setDraft] = useState('');
   const [draftEdited, setDraftEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [actingAs, setActingAs] = useState<string | null>(null);
+  useEffect(() => {
+    getActingAs().then(setActingAs);
+  }, []);
   // Any failed step shows a message instead of silently doing nothing
   // (2026-10-08: "didn't show up" failed silently).
   const attempt = async (fn: () => Promise<void>) => {
@@ -799,6 +820,9 @@ function MeetupOccurrenceCheck({
       await fn();
     } catch (e) {
       setError(e instanceof FriendlyError ? e.message : "That didn't go through. Please try again.");
+      // Test accounts also see the technical reason, so a problem on the
+      // live site can be traced (2026-10-10).
+      setErrorDetail(!(e instanceof FriendlyError) && actingAs ? errorText(e) : null);
     } finally {
       setBusy(false);
     }
@@ -884,7 +908,7 @@ function MeetupOccurrenceCheck({
   if (mode === 'ask' && loggedByOther) {
     return (
       <Card>
-        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+        <OccurrenceError error={error} detail={errorDetail} />
         <Text className="text-body text-stone-700 dark:text-stone-300">
           {otherName} added a meetup: you two met on {dateLabel ?? 'a recent day'}
           {loggedActivity ? ` (${loggedActivity})` : ''}. Is that right?
@@ -895,8 +919,9 @@ function MeetupOccurrenceCheck({
             label="No, that's not right"
             onPress={() =>
               attempt(async () => {
-                await reportMeetupOccurrence(meetupId, false);
-                setMode('logged_no');
+                const result = await reportMeetupOccurrence(meetupId, false);
+                if (result.resolved && result.status === 'stale') onResolved();
+                else setMode('logged_no');
               })
             }
           />
@@ -919,7 +944,7 @@ function MeetupOccurrenceCheck({
   if (mode === 'ask') {
     return (
       <Card>
-        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+        <OccurrenceError error={error} detail={errorDetail} />
         <Text className="text-body text-stone-700 dark:text-stone-300">
           {dateLabel ? `Did you meet ${otherName} on ${dateLabel}?` : `Did you meet with ${otherName}?`}
         </Text>

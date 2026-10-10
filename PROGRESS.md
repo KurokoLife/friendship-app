@@ -157,3 +157,10 @@ No app code changed. CLAUDE.md now loads only AGENTS.md (cut to the current deci
 ### Session, October 10, 2026 (7): the "why" document
 
 No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard parts of adult friendship it eases, and why each part of the app exists (research vs judgment marked). Auto-loaded via CLAUDE.md and added to the founder's Project.
+
+## 2026-10-10 (later): free notes with topics, "Did you meet?" answer fix
+
+- Founder report: on David C.'s card "added a meetup... Is that right?", both "Yes, we met" and "No, that's not right" showed "That didn't go through". The same flow passes locally, so the live card was older than its meetup (already counted, let go, removed, or moved by a test tool) or hit the UTC-only date check. `report_meetup_occurrence` now puts an old card away (`stale`) instead of failing, checks the day in the meetup's own time zone too, and returns short codes the app words plainly. Test accounts see the raw reason under any other error.
+- Chat: the newest message or card stays fully in view when the bars above load (it was cut off at the bottom on a laptop-height window).
+- Remember: "Write something down" is one open box (first line = title) with optional fixed topic chips (Family, Work, Things they love, Going through, Ideas for us). Meetup notes unchanged. "Ideas for us" notes show in the planning card. Search and topic filters from 6 notes.
+- Migration `20261010000004_meetup_answer_free_notes.sql`. New: `qa/suites/qa-answer.js`, `qa/sql-checks/meetanswersql.sql`; qa-notes extended. Passing: qa-notes 42/42, qa-meet 36/36, qa-meetups 54/54, qa-plan 70/70, qa-remind 42/42, qa-share 21/21, qa-answer 3/3, meetanswersql all lines.

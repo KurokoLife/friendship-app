@@ -24,7 +24,7 @@ Last updated 2026-10-10.
 - The migration must bump `limen_db_version()` to its own number. Also update `REQUIRED_DB_VERSION` and `RECENT_DB_UPDATES` in `src/lib/db-version.ts` (the Test tab warns when the live database is behind).
 - The founder runs it by pasting the raw link into the Supabase SQL Editor:
   `https://raw.githubusercontent.com/KurokoLife/friendship-app/limen-v2-ethics-alignment/supabase/migrations/<file>`
-- Current version: `20261010000003` (Remember in the chat).
+- Current version: `20261010000004` (free notes with topics, "Did you meet?" answer fix).
 - Patterns: private tables use own-row RLS; anything another person must never see goes through SECURITY DEFINER functions that return only the caller's own data; prompt cards are rows in `connection_interventions`, ranked by `get_active_intervention` so only one shows.
 
 ## Server functions
@@ -39,7 +39,7 @@ Last updated 2026-10-10.
   `bash qa/setup.sh && bash qa/start-db.sh && bash qa/apply.sh && bash qa/build.sh && bash qa/restart.sh` (expect "web 200 / api 200").
 - After SQL changes: `bash qa/apply.sh` then `bash qa/restart.sh`. After app changes: `bash qa/build.sh`.
 - Run suites in the background: `bash qa/run.sh qa-remind qa-share` (or `all`), read `qa/.local/out-<suite>.txt`. Database-only checks: `psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/<file>.sql`.
-- Suites: qa-oct9, qa-oct9b, qa-oct9c, qa-meetups (morning-of steps fail before 5am LA time, by design), qa-plan, qa-meet, qa-noghost, qa-remind, qa-share, qa-mochi, qa-testtab, qa-notes (Remember). SQL checks in `qa/sql-checks/`. Details and helpers in `qa/README.md`.
+- Suites: qa-oct9, qa-oct9b, qa-oct9c, qa-meetups (morning-of steps fail before 5am LA time, by design), qa-plan, qa-meet, qa-noghost, qa-remind, qa-share, qa-mochi, qa-testtab, qa-notes (Remember), qa-answer ("Did you meet?" answers on old cards, laptop window). SQL checks in `qa/sql-checks/`. Details and helpers in `qa/README.md`.
 - Server functions (AI) don't run locally; screens must fall back gracefully.
 - If a tap does nothing in a script, look for two elements with the same text.
 - In the real app, the Test tab (admins and test accounts) can "Act as" a test account and move time per chat: quiet chat, meetups, nudges, planning, reminders due now, fill chats to the limit, end a pause.

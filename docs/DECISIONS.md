@@ -99,6 +99,9 @@ Remember moves into the chat. It helps in the moment and keeps a light record of
 7. **After a chat ends or graduates**, notes stay and are reached from that chat's row in Inbox, with a line: "Your notes stay here after a chat ends. You can delete them anytime."
 8. **Mic icon stays** as a placeholder (the founder will work on voice input for all screens later).
 9. **No note icon on Inbox rows** for now.
+10. **Free notes (2026-10-10, later).** Meetup notes keep the three questions. A note not tied to a meetup ("Write something down") is one open box: the first line becomes the title, no separate title field.
+11. **Topic chips, fixed list only:** Family, Work, Things they love, Going through, Ideas for us. Optional, any number per note. No custom tags (they get messy and add clutter). "Ideas for us" notes also come back in the planning card.
+12. **Search and topic filters only from 6 notes** for that person (meetup notes count). Below that, a plain list is easier to read.
 
 ## 9b. Guide (draft for the founder to come back to, not decided)
 

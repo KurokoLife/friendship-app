@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RememberFreeNoteEditor } from '@/components/remember-free-note-editor';
 import { RememberNoteEditor } from '@/components/remember-note-editor';
 import { goBack } from '@/lib/navigation';
 import {
@@ -13,7 +14,15 @@ import {
   fetchMeetupsThatHappened,
   fetchNotes,
   fieldsFromNote,
+  FILTER_FROM_NOTES,
   formatDay,
+  isFreeNote,
+  noteText,
+  saveFreeNote,
+  splitTitle,
+  TOPICS,
+  topicLabel,
+  type TopicKey,
   markMeetupAsked,
   noteDay,
   openAsksFrom,
@@ -53,6 +62,8 @@ export default function RememberNotesScreen() {
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [askHandled, setAskHandled] = useState(false);
+  const [query, setQuery] = useState('');
+  const [topicFilter, setTopicFilter] = useState<TopicKey | null>(null);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured || !connectionId) {
@@ -134,6 +145,18 @@ export default function RememberNotesScreen() {
     }
   };
 
+  const saveFree = (note: RememberNote | null) => async (text: string, topics: TopicKey[]) => {
+    if (!myId || !connectionId) return 'Please try again.';
+    try {
+      await saveFreeNote({ connectionId, userId: myId, noteId: note?.id ?? null, text, topics });
+      setEditing(null);
+      await load();
+      return null;
+    } catch {
+      return "Couldn't save that. Please try again.";
+    }
+  };
+
   const remove = async (noteId: string) => {
     if (confirmDelete !== noteId) {
       setConfirmDelete(noteId);
@@ -206,8 +229,40 @@ export default function RememberNotesScreen() {
     </View>
   );
 
+  const topicChips = (n: RememberNote) =>
+    n.topics && n.topics.length > 0 ? (
+      <View className="flex-row flex-wrap gap-1.5">
+        {n.topics.map((t) => (
+          <View key={t} className="rounded-full bg-stone-100 px-2.5 py-0.5 dark:bg-stone-700">
+            <Text className="text-caption text-stone-600 dark:text-stone-300">{topicLabel(t)}</Text>
+          </View>
+        ))}
+      </View>
+    ) : null;
+
+  const freeNoteBody = (n: RememberNote) => {
+    const { title, body } = splitTitle(n.raw_text ?? '');
+    return (
+      <>
+        <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{title}</Text>
+        {body ? <Text className="text-body text-stone-800 dark:text-stone-200">{body}</Text> : null}
+        {topicChips(n)}
+      </>
+    );
+  };
+
   const freeNoteCard = (n: RememberNote) =>
-    editing?.kind === 'free' && editing.note?.id === n.id ? (
+    editing?.kind === 'free' && editing.note?.id === n.id && isFreeNote(n) ? (
+      <RememberFreeNoteEditor
+        key={n.id}
+        firstName={first}
+        heading={`A note from ${formatDay(noteDay(n))}`}
+        initialText={n.raw_text ?? ''}
+        initialTopics={(n.topics ?? []) as TopicKey[]}
+        onSave={saveFree(n)}
+        onCancel={() => setEditing(null)}
+      />
+    ) : editing?.kind === 'free' && editing.note?.id === n.id ? (
       <RememberNoteEditor
         key={n.id}
         firstName={first}
@@ -221,7 +276,7 @@ export default function RememberNotesScreen() {
         key={n.id}
         className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
         <Text className="text-caption text-stone-400 dark:text-stone-500">{formatDay(noteDay(n))}</Text>
-        {answers(n)}
+        {isFreeNote(n) ? freeNoteBody(n) : answers(n)}
         {noteActions(n, () => setEditing({ kind: 'free', note: n }))}
       </View>
     );
@@ -231,6 +286,19 @@ export default function RememberNotesScreen() {
     if (g === meetups.length) return 'Since your last meetup';
     return `Between your ${ordinal(g)} and ${ordinal(g + 1)} meetups`;
   };
+
+  // Topic filters and search, only once there are enough notes to need
+  // them (2026-10-10).
+  const showFilters = notes.length >= FILTER_FROM_NOTES;
+  const q = query.trim().toLowerCase();
+  const filtering = showFilters && (q.length > 0 || topicFilter !== null);
+  const meetupTitle = (m: RememberMeetup) =>
+    [`Your ${ordinal(m.number)} meetup`, formatDay(m.date), m.activity].filter(Boolean).join(' · ');
+  const matches = filtering
+    ? notes
+        .filter((n) => (!topicFilter || (n.topics ?? []).includes(topicFilter)) && (!q || noteText(n).includes(q)))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    : [];
 
   const sections: ReactNode[] = [];
   for (let g = meetups.length; g >= 0; g--) {
@@ -246,7 +314,7 @@ export default function RememberNotesScreen() {
     if (g === 0) break;
     const m = meetups[g - 1];
     const note = noteForMeetup(m.id);
-    const title = [`Your ${ordinal(m.number)} meetup`, formatDay(m.date), m.activity].filter(Boolean).join(' · ');
+    const title = meetupTitle(m);
     if (editing?.kind === 'meetup' && editing.meetup.id === m.id) {
       sections.push(
         <RememberNoteEditor
@@ -325,11 +393,12 @@ export default function RememberNotesScreen() {
           )}
 
           {editing?.kind === 'free' && editing.note === null ? (
-            <RememberNoteEditor
+            <RememberFreeNoteEditor
               firstName={first}
-              heading={meetups.length > 0 ? 'Since your last meetup' : 'A note for yourself'}
-              initial={fieldsFromNote(null)}
-              onSave={save(editing)}
+              heading="A note for yourself"
+              initialText=""
+              initialTopics={[]}
+              onSave={saveFree(null)}
               onCancel={() => setEditing(null)}
             />
           ) : (
@@ -346,7 +415,86 @@ export default function RememberNotesScreen() {
             </Text>
           )}
 
-          {sections}
+          {showFilters && (
+            <View className="gap-2">
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search your notes"
+                placeholderTextColor={MUTED_ICON_COLOR}
+                accessibilityLabel="Search your notes"
+                className="rounded-xl border border-stone-300 px-3 py-2.5 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+              />
+              <View className="flex-row flex-wrap gap-2">
+                {TOPICS.map((t) => {
+                  const on = topicFilter === t.key;
+                  return (
+                    <Pressable
+                      key={t.key}
+                      onPress={() => setTopicFilter(on ? null : t.key)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={`Show ${t.label}`}
+                      className={`rounded-full border px-3 py-1.5 ${
+                        on ? 'border-accent-500 bg-accent-500/10' : 'border-stone-300 dark:border-stone-600'
+                      }`}>
+                      <Text
+                        className={`text-caption ${on ? 'font-semibold text-accent-500' : 'text-stone-600 dark:text-stone-300'}`}>
+                        {t.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {filtering ? (
+            <View className="gap-3">
+              <View className="flex-row items-center gap-4">
+                <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">
+                  {matches.length === 0
+                    ? 'No notes match.'
+                    : `${matches.length} ${matches.length === 1 ? 'note' : 'notes'}`}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setQuery('');
+                    setTopicFilter(null);
+                  }}
+                  hitSlop={6}>
+                  <Text className="text-caption font-semibold text-accent-500">Show all</Text>
+                </Pressable>
+              </View>
+              {matches.map((n) => {
+                const m = n.meetup_id ? meetups.find((x) => x.id === n.meetup_id) : undefined;
+                if (!m) return freeNoteCard(n);
+                if (editing?.kind === 'meetup' && editing.meetup.id === m.id) {
+                  return (
+                    <RememberNoteEditor
+                      key={n.id}
+                      firstName={first}
+                      heading={meetupTitle(m)}
+                      initial={fieldsFromNote(n)}
+                      onSave={save(editing)}
+                      onCancel={() => setEditing(null)}
+                    />
+                  );
+                }
+                return (
+                  <View
+                    key={n.id}
+                    className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
+                    <Text className="text-caption font-semibold text-accent-500">{meetupTitle(m)}</Text>
+                    {answers(n)}
+                    {noteActions(n, () => setEditing({ kind: 'meetup', meetup: m }))}
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            sections
+          )}
 
           {doneAsks.length > 0 && (
             <View className="gap-2">
