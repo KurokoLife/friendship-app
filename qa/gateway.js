@@ -147,6 +147,24 @@ http
         return send(res, 200, await newSession(url.searchParams.get('user')));
       }
       if (p === '/__test/log') return send(res, 200, log);
+      if (p === '/functions/v1/generate-match-suggestions') {
+        // Local stand-in (2026-10-10): same database rules as the real
+        // function, simple ranking, plain written reason.
+        if (!claims) return send(res, 401, { error: 'Not authenticated' });
+        const body = JSON.parse((await readBody(req)) || '{}');
+        const { rows } = await pool.query(
+          `select candidate_id from public.discover_next_candidates($1, $2)
+           order by case when ghosting_penalized then 3 when previously_suggested then 2 when interested_in_viewer then 0 else 1 end, candidate_id
+           limit 1`,
+          [claims.sub, body.tz ?? null]
+        );
+        if (!rows[0]) return send(res, 200, { added: false });
+        const { rows: added } = await pool.query(
+          `select public.discover_add($1, $2, 'You might enjoy getting to know each other.', null, $3) as ok`,
+          [claims.sub, rows[0].candidate_id, body.tz ?? null]
+        );
+        return send(res, 200, { added: added[0].ok === true });
+      }
       if (p.startsWith('/functions/v1/')) return send(res, 200, { error: 'Not available in the local test copy' });
       if (p.startsWith('/storage/v1/')) return send(res, 404, { error: 'not found' });
       return send(res, 404, { error: 'not found' });

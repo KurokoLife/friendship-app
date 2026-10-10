@@ -12,8 +12,10 @@ import {
   connectionHasMutualInterest,
   expressInterest,
   fetchMyInterestIds,
+  SAVED_FULL_COPY,
   SELFIE_PENDING_COPY,
-  WAITING_FOR_INTEREST_COPY,
+  saveForLater,
+  waitingForInterestCopy,
 } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
@@ -140,10 +142,21 @@ export default function CandidateProfileScreen() {
       );
   };
 
+  // At most 5 saved, each for 30 days (2026-10-10).
   const handleSave = async () => {
+    if (!id) return;
     setPendingAction('save');
-    await upsertConnection({ saved: true });
+    setNotice(null);
+    const result = await saveForLater(id);
     setPendingAction(null);
+    if (result === 'full') {
+      setNotice(SAVED_FULL_COPY);
+      return;
+    }
+    if (result === 'error') {
+      setError('Something went wrong. Please try again.');
+      return;
+    }
     setState((prev) => ({ ...prev, saved: true }));
   };
 
@@ -172,7 +185,7 @@ export default function CandidateProfileScreen() {
       router.push({ pathname: '/thread/[id]', params: { id: result.connectionId } });
     } else if (result.status === 'waiting') {
       setInterested(true);
-      setNotice(WAITING_FOR_INTEREST_COPY);
+      setNotice(waitingForInterestCopy((profile?.display_name ?? 'They').split(' ')[0]));
     } else if (result.status === 'not_verified') {
       router.push('/selfie-check');
     } else if (result.status === 'selfie_pending') {

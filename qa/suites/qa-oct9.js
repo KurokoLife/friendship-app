@@ -120,14 +120,16 @@ const PHOTON = { features: [
   await q(`insert into blocks (blocker_id, blocked_id) values ($1, $2)`, [U.maria, U.david]);
   await q(`update connections set status = 'blocked' where id = $1`, [C]);
   await go(d.page, '/inbox', 3000);
+  await tap(d.page, 'Past', { wait: 1000 });
   t = await text(d.page);
-  check("Blocked person's Inbox: Not available under Closed, never 'Blocked'", t.includes('Not available') && t.includes('CLOSED') && !/blocked/i.test(t), t.slice(0, 300));
+  check("Blocked person's Inbox: Not available under Past, never 'Blocked'", t.includes('Not available') && !/blocked/i.test(t), t.slice(0, 300));
   await go(d.page, `/thread/${C}`, 3500);
   t = await text(d.page);
   check("Blocked person's chat never says blocked", t.includes("isn't available anymore") && !/\bblocked\b/i.test(t));
   await go(m.page, '/inbox', 3000);
+  await tap(m.page, 'Past', { wait: 1000 });
   t = await text(m.page);
-  check("Blocker's Inbox says Blocked", t.includes('BLOCKED') && t.includes('Blocked'));
+  check("Blocker's Inbox says Blocked, can hide it", t.includes('Blocked') && t.includes('Hide this chat'));
 
   // ---- 6. Reconnect: profile opens even when no longer matching ----
   await q(`update users set selfie_verified_at = now() where id = any($1)`, [[U.aisha, ELENA]]);

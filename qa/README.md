@@ -40,6 +40,7 @@ Database-only checks (fast, each wrapped in a transaction that rolls back):
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/remsql.sql
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/notesql.sql   # notes privacy
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/meetanswersql.sql   # "Did you meet?" on old cards, topics
+psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/discoversql.sql   # Discover, Interested, Saved, hidden chats
 ```
 
 Suites and what they cover (all passing on 2026-10-10):
@@ -56,6 +57,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-remind | Reminder settings, phone layout, safety tips, after a good meetup |
 | qa-share | "Remind me later" after a good meetup |
 | qa-notes | Remember in the chat: bar, notes by meetup, free notes with topic chips, search and filters from 6 notes, Next time list, planning card (incl. "Ideas for us"), check-in, setting, ended chats, Settings download |
+| qa-discover | Discover one a day, up to 3 waiting, nobody while full; Interested and Saved for 30 days; Inbox tabs, hide a blocked chat |
 | qa-refresh | Cards and notes survive a page refresh; no "AI" on main screens; reminders sheet and payment page wording |
 | qa-answer | "Yes, we met" / "No, that's not right" on an old card, at a laptop window size |
 | qa-mochi | Admin account basics |

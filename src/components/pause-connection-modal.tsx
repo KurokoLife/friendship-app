@@ -11,7 +11,7 @@ import {
 
 // What a pause means, shown wherever someone chooses one.
 export function pauseExplainer(otherName: string): string {
-  return `While a chat is paused there are no reminders, neither of you can send messages, and it doesn't count toward your 3 active conversations. ${otherName} will see your note, that the chat is paused, and when it opens again. You can resume sooner if you like.`;
+  return `While a chat is paused there are no reminders, and neither of you can send messages. It still counts as one of your 3 active conversations. ${otherName} will see your note, that the chat is paused, and when it opens again. You can resume sooner if you like.`;
 }
 
 // Starters the person finishes in their own words. The app never writes

@@ -29,7 +29,7 @@ Working rules that follow from these:
 
 ## 3. Joining (onboarding)
 
-11 screens: Intro → Phone number and code → Basics (first and last name, shown as "Maria S.", birthdate as Month/Day/Year, optional referral code with no reward promised) → Account recovery (Google, Apple, email, or skip; phone stays the sign-in) → Identity (your gender: Woman / Man / Non-binary; who you'd like to meet, mutual; age range) → Profile build (10 steps) → How you connect (10 questions, then one AI reflection about yourself, not used for matching) → Two required videos ("Begin With Curiosity", "How We Show Up") → Readiness (friendship-only rule, scam check, ghosting rule) → All set ("You'll get up to 3 a week") with an offer to do the selfie check now or later.
+11 screens: Intro → Phone number and code → Basics (first and last name, shown as "Maria S.", birthdate as Month/Day/Year, optional referral code with no reward promised) → Account recovery (Google, Apple, email, or skip; phone stays the sign-in) → Identity (your gender: Woman / Man / Non-binary; who you'd like to meet, mutual; age range) → Profile build (10 steps) → How you connect (10 questions, then one AI reflection about yourself, not used for matching) → Two required videos ("Begin With Curiosity", "How We Show Up") → Readiness (friendship-only rule, scam check, ghosting rule) → All set ("You'll meet one new person each day") with an offer to do the selfie check now or later.
 
 ## 4. Profile
 
@@ -42,11 +42,12 @@ Working rules that follow from these:
 ## 5. Discover and connecting
 
 - Tabs: Discover, Saved, Inbox, Profile (and Test for admins and test accounts). No Browse, no Remember tab, no Guide tab.
-- 3 suggestions per rolling 7 days, for everyone, chosen by AI scoring (`generate-match-suggestions`). Matching weights: life situation 30, values 25, meeting rhythm 13, plus hangout style, friendship type, language, opening-up pace, activities. Personality answers are not used.
-- Saved: no expiry. A save disappears only if an account is deleted or the pair no longer fits gender or age.
-- "Interested" instead of "Say hello". The chat opens only when both say Interested. One-sided interest is never shown to the other person, but it quietly moves you up in their next suggestions.
+- One new person a day (in your own time zone), up to 3 waiting; the oldest gives way. Nobody shows while you have 3 active chats, and people with 3 active chats never appear. Never anyone you've had a chat with, in any state. Someone whose card passed can come back after 21 days, at the bottom. Picked by scoring (`generate-match-suggestions`, which only adds today's one person; `get_discover` decides what shows). Matching weights: life situation 30, values 25, meeting rhythm 13, plus hangout style, friendship type, language, opening-up pace, activities. Personality answers are not used.
+- Saved: at most 5, each for 30 days. Saving moves the person out of Discover. Anyone you start a chat with leaves Saved.
+- "Interested" instead of "Say hello". The chat opens only when both say Interested. One-sided interest is never shown to the other person, but it quietly moves you to the front of their next suggestions. The person moves to Saved under "You said Interested". It closes on its own after 30 days if it doesn't become mutual, with one calm note ("Your interest in X has come to a close..."). At most 5 open.
 - Selfie check: once per account, approved only (reviewed by an admin in Settings). Needed before saying Interested or sending a first message. While it waits: "Your selfie is waiting for our review". Two people who already talked can reconnect without it.
-- Limits for everyone: 3 active conversations and 5 hellos waiting for a reply. Graduated chats don't count. Inbox shows "N of 3 active conversations · room for N more".
+- Limits for everyone: 3 active conversations (paused chats count) and 5 hellos waiting for a reply. Graduated chats don't count. Inbox shows "N of 3 active conversations · room for N more".
+- Inbox tabs: Active (opens first: active and paused chats, new hellos), Friends (graduated), Past (ended, closed, blocked, with history and notes). The person who blocked can "Hide this chat"; the blocked person only sees "Not available".
 - A match with no hello: a gentle suggestion from 2 days, closes quietly at 14 days.
 - Ghosting rule: someone who lets 2 or more chats close unanswered within 60 days is shown last in suggestions for 30 days. Never shown to anyone, resets on its own.
 - Suspend switch: `users.suspended_at` (set in Supabase after reviewing a report).
@@ -57,7 +58,7 @@ Working rules that follow from these:
 - Header actions: Pause · End · Report · Block.
 - Reflect (AI, `reflection-coach`): "Check" gives fixed observations about your own draft (didn't ask anything back, didn't share anything of yours, missed their point, jumped much deeper); "Another way to see it" gives three readings (their circumstances, how they might see you, your fear), never a verdict, and always ends by sending you back to ask them. It never writes a message. Shows the other person's "How I like care" when there is one. `generate-reply-draft` is retired.
 - Scam note: if an early message from the other person mentions money or moving to another app, the receiver sees a calm warning. Checked on the phone, nothing stored.
-- Pause: 3 days, 1 week or 2 weeks; always with a short note in your own words; both people see who paused and until when; no messages while paused; only the pauser can resume early; the other person can end; at most 2 pauses per person per chat in 30 days.
+- Pause: 3 days, 1 week or 2 weeks (still counts as one of your 3 active chats); always with a short note in your own words; both people see who paused and until when; no messages while paused; only the pauser can resume early; the other person can end; at most 2 pauses per person per chat in 30 days.
 - End (honest exit): send a short message (starters you finish yourself) or end without one; the other person still sees an honest "this connection was ended" banner. Optional private reason, never shown to them. Reopening an ended chat takes an extra confirm.
 - Report (8 categories, unsafe meetup shows 911 and hotlines, can also block) and Block (instant, both directions; the blocked person only sees "This conversation isn't available anymore").
 

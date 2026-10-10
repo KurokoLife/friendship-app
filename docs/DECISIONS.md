@@ -9,7 +9,7 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 1. Onboarding | Decided 2026-10-04, built on branch `limen-v2-ethics-alignment` |
 | 2. Profile (what others see) | Decided 2026-10-04, built |
 | 3. Safety (romance and scam protection) | Decided 2026-10-04, built |
-| 4. Discovery and matching | Partly decided (Interested gate, matching weights, hard nos). Rest not reviewed yet |
+| 4. Discovery and matching | Decided and built 2026-10-10 (one a day, Saved and Interested for 30 days, Inbox tabs) |
 | 5. Messaging and reflection | Partly decided 2026-10-09/10 (pause, chat layout, invites, check-ins; see AGENTS.md "LIMEN V2 DECISIONS" bullets). Reflect / Check not reviewed yet |
 | 6. Reminders (no-ghost) | Decided 2026-10-10, built ("Quieter reminders" and "Remind me later" bullets in AGENTS.md) |
 | 7. Meetups | Decided 2026-10-08 to 10-10, built (meetup plans, planning by invite, counting meetups; AGENTS.md bullets). Open: the morning-of video should fit any meetup (waiting on founder) |
@@ -85,6 +85,16 @@ The 15 points that came from personality similarity move to life situation (+5, 
 5. **Selfie check before you can say Interested or send a first message.** Free option A: the app asks for a selfie doing a random pose, the founder compares it with the profile photo in an in-app review screen (Settings, visible to admins only) and approves or rejects. The selfie is deleted after review; only "verified" is kept. Clear consent is asked first. Can move to an automatic check (AWS Rekognition, about $0.016 per person) later without changing what users see.
 6. **Ghosting rule (real now).** If someone lets 2 or more conversations go silent until the 7-day auto-close (the other person wrote last, no reply, no honest exit) within 60 days, they are shown last in other people's suggestions for the next 30 days. Never shown, resets on its own, one slip doesn't count.
 7. **Suspend switch.** `users.suspended_at`. A suspended account is hidden from everyone and cannot start or send messages. Flip it from the Supabase dashboard after reviewing a report.
+
+## 4. Discover, Saved and Inbox (decided and built 2026-10-10)
+
+1. **One new person a day**, in the person's own time zone. Up to 3 wait at a time; when a 4th arrives the oldest gives way. Research: people grow pickier the longer they browse in one sitting (Pronk and Denissen), and more options lead to worse choices (Wu and Chiou). Hinge's one-a-day pick led to 8 times more dates.
+2. **Nobody while you have 3 active chats**, and people with 3 active chats never appear in anyone's Discover. Paused chats count as active.
+3. **Never anyone you've had a chat with**, in any state (active, paused, ended, graduated, closed, blocked). Starting over after an ended chat goes through that chat's "View profile", not Discover.
+4. **Someone who let your card pass** can come back weeks later (after 21 days), at the bottom. Someone who already said Interested in you goes first, never labelled.
+5. **Interested is private and closes after 30 days** if it doesn't become mutual. The person moves to Saved, under "You said Interested". Wording when you tap it: "Sent privately. If David says Interested too, a chat opens for you both. David is only told if that happens. People decide at their own pace, and that's okay. If it doesn't become mutual within 30 days, it closes on its own." After 30 days, shown once: "Your interest in David has come to a close. It didn't turn into a chat this time, and that happens often. Timing, room in someone's life, and fit all play a part. New people are on the way." Nothing closes earlier, so the timing never reveals what the other person did. At most 5 open.
+6. **Saved: at most 5, each for 30 days.** Saving moves the person out of Discover. Anyone you start a chat with leaves Saved.
+7. **Inbox tabs:** Active (opens first: active and paused chats, new hellos), Friends (graduated), Past (ended, closed, blocked; history and notes kept). The person who blocked sees "Blocked" and can "Hide this chat" (history kept, "Hidden chats (n) · Show"). The blocked person only sees "Not available".
 
 ## 9. Remember (decided and built 2026-10-10)
 

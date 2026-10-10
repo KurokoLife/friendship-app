@@ -171,3 +171,9 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Payment page: removed "What comes after the pilot". Reminders sheet: removed 'Never "your turn"' and "Settings for all chats".
 - Refresh: follow-up steps of cards whose first answer is already saved are held on the device (`src/lib/held-card.ts`) until closed; a newer server card wins. Remember keeps unsaved text and the open note; the after-meetup notes question counts as asked only on save/cancel/Not now.
 - New `qa/suites/qa-refresh.js` (18 checks). All suites passing.
+
+## 2026-10-10 (evening): Discover one a day, Saved and Interested 30 days, Inbox tabs
+
+- Founder decisions (docs/DECISIONS.md section 4): one new person a day, up to 3 waiting; nobody while you have 3 active chats (paused count); people at capacity never shown; never anyone you've had a chat with; let-go people back after 21 days at the bottom. Interested and Save move people to Saved; both last 30 days; Interested closes with a one-time note; at most 5 of each. Inbox tabs Active / Friends / Past; the blocker can hide a blocked chat.
+- Found: a pause could be used to open a fourth chat (paused didn't count, and a pause ending had no capacity check). Paused now counts. A chat opened from a saved row kept status null; it now becomes 'pending'.
+- Migration `20261010000005_discover_daily_saved_inbox.sql`; `generate-match-suggestions` rewritten to add only today's one person (redeploy). Local gateway stub for it. New `qa-discover` (19 checks), `discoversql.sql`. qa-oct9 and qa-oct9b updated to the new rules. All suites passing.

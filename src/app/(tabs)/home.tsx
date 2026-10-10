@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoachMark } from '@/components/coach-mark';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
-import { expressInterest, fetchMyInterestIds, SELFIE_PENDING_COPY, WAITING_FOR_INTEREST_COPY } from '@/lib/safety';
+import { expressInterest, SAVED_FULL_COPY, saveForLater, SELFIE_PENDING_COPY, waitingForInterestCopy } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -43,19 +43,6 @@ type Suggestion = {
   locationCity: string | null;
   distanceMiles: number | null;
   selfieVerified?: boolean;
-};
-
-type ConnectionStatus = 'pending' | 'active' | 'passed';
-
-// Saved and messaged are independent facts about a connection, a person
-// can be both at once, so they're tracked separately rather than as one
-// status value. status is reserved for the connection's actual lifecycle
-// (pending once a message is sent, later active, etc.); passed also lives
-// here since it's a real terminal state, not something that coexists with
-// saved or messaged.
-type ConnectionState = {
-  saved: boolean;
-  status: ConnectionStatus | null;
 };
 
 // __DEV__-only: shown when F1's "Skip to home" shortcut lands here with no
@@ -97,49 +84,62 @@ const DEV_FALLBACK_SUGGESTIONS: Suggestion[] = [
   },
 ];
 
-// F11: the home screen users land on after onboarding. AI matching is the
-// primary discovery path (F12's filter/browse is secondary and separate).
-// No swipe gesture anywhere, Save/Message/Pass are all deliberate taps.
-// Photo is never part of this screen's data at all, not just hidden in the
-// UI, discovery_profiles' photo_url is only fetched once someone taps a
-// card and opens the full profile at /candidate/[id].
-// Fix 7: match_suggestions is read directly here (a plain, instant
-// query), not by calling generate-match-suggestions on every page load.
-// The Edge Function is only invoked as a fallback when this comes back
-// empty (a brand new user, or a cache the invalidation trigger just
-// cleared), the same "generate once, cache it" path that function has
-// always had, just no longer the ONLY path. Freshness is a rolling 24
-// hour window (created_at), matching the Edge Function's own cache
-// check, kept in sync by hand since a Deno function can't import this.
-// Limen v2: suggestions are weekly (3 per rolling 7 days, same for everyone).
-const CACHE_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
+// Discover (rebuilt 2026-10-10, docs/DECISIONS.md section 4). One new
+// person a day, at most 3 waiting, nobody while you have 3 active chats
+// (paused ones count). Never anyone you've had a chat with. Saving or
+// saying Interested moves the person to Saved. The database decides all
+// of this (get_discover); generate-match-suggestions only adds today's
+// person when get_discover says there's room for one.
+type DiscoverState = {
+  full: boolean;
+  can_add: boolean;
+  next_at?: string;
+  items: { candidate_id: string; reasoning: string; human_detail: string | null; created_at: string }[];
+};
+
+function deviceTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export default function HomeScreen() {
   const [loaded, setLoaded] = useState(false);
-  // True only while a first-time (or post-invalidation) generation is
-  // actually in flight, distinct from `loaded`, drives the skeleton below
-  // rather than a blank screen or the generic full-screen spinner.
   const [generating, setGenerating] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [states, setStates] = useState<Record<string, ConnectionState>>({});
+  const [full, setFull] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Fix #3: kept separate from `error` above (styled for real load
-  // failures), a capacity limit is calm, expected app behavior per the
-  // blueprint's own "avoid shaming labels" framing, not an error.
+  // A calm note after Save, Interested or a limit. Not an error.
   const [capacityNotice, setCapacityNotice] = useState<string | null>(null);
-  // Mutual Interested gate (docs/DECISIONS.md section 3): the people this
-  // member already said Interested to. Only their own outgoing choices,
-  // nobody can see who chose them.
-  const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
   const [usingDevFallback, setUsingDevFallback] = useState(false);
-  // capReached comes from
-  // generate-match-suggestions, confirmed absent before this (the cache-
-  // first architecture previously just silently served fewer/cached
-  // suggestions with nothing telling the client it happened). Only shown
-  // when there's truly nothing left to show, see the render below, never
-  // layered on top of real suggestions that are still available.
-  const [capReached, setCapReached] = useState(false);
+
+  const toSuggestions = async (items: DiscoverState['items']): Promise<Suggestion[]> => {
+    if (items.length === 0) return [];
+    const { data: profiles } = await supabase
+      .from('discovery_profiles')
+      .select('user_id, display_name, age_band, life_transitions, location_city, distance_miles, selfie_verified')
+      .in('user_id', items.map((i) => i.candidate_id));
+    return items
+      .map((row): Suggestion | null => {
+        const profile = profiles?.find((p) => p.user_id === row.candidate_id);
+        if (!profile) return null;
+        return {
+          userId: row.candidate_id,
+          displayName: profile.display_name,
+          ageBand: profile.age_band,
+          lifeTransitions: profile.life_transitions ?? [],
+          reasoning: row.reasoning,
+          humanDetail: row.human_detail ?? null,
+          locationCity: profile.location_city,
+          distanceMiles: profile.distance_miles,
+          selfieVerified: Boolean(profile.selfie_verified),
+        };
+      })
+      .filter((s): s is Suggestion => s !== null);
+  };
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -147,100 +147,45 @@ export default function HomeScreen() {
       return;
     }
     setError(null);
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
       if (__DEV__) {
         setSuggestions(DEV_FALLBACK_SUGGESTIONS);
-        setStates({});
         setUsingDevFallback(true);
       }
       setLoaded(true);
       return;
     }
     setUsingDevFallback(false);
-    fetchMyInterestIds().then(setInterestedIds);
-
-    const freshCutoff = new Date(Date.now() - CACHE_FRESHNESS_MS).toISOString();
-    const [{ data: cachedRows }, { data: connections }] = await Promise.all([
-      supabase
-        .from('match_suggestions')
-        .select('candidate_id, reasoning, human_detail')
-        .eq('user_id', user.id)
-        .gte('created_at', freshCutoff),
-      supabase.from('connections').select('user_b_id, status, saved').eq('user_a_id', user.id),
-    ]);
-
-    const stateMap: Record<string, ConnectionState> = {};
-    for (const row of connections ?? []) {
-      stateMap[row.user_b_id] = {
-        saved: Boolean(row.saved),
-        status: (row.status as ConnectionStatus | null) ?? null,
-      };
-    }
-
-    if (cachedRows && cachedRows.length > 0) {
-      const candidateIds = cachedRows.map((r) => r.candidate_id);
-      const { data: candidateProfiles } = await supabase
-        .from('discovery_profiles')
-        .select('user_id, display_name, age_band, life_transitions, location_city, distance_miles, selfie_verified')
-        .in('user_id', candidateIds);
-
-      const visible = cachedRows
-        .map((row): Suggestion | null => {
-          const profile = candidateProfiles?.find((p) => p.user_id === row.candidate_id);
-          if (!profile) return null;
-          return {
-            userId: row.candidate_id,
-            displayName: profile.display_name,
-            ageBand: profile.age_band,
-            lifeTransitions: profile.life_transitions ?? [],
-            reasoning: row.reasoning,
-            humanDetail: row.human_detail ?? null,
-            locationCity: profile.location_city,
-            distanceMiles: profile.distance_miles,
-            selfieVerified: Boolean(profile.selfie_verified),
-          };
-        })
-        .filter((s): s is Suggestion => s !== null)
-        .filter((s) => stateMap[s.userId]?.status !== 'passed');
-
-      setSuggestions(visible);
-      setStates(stateMap);
+    const tz = deviceTimeZone();
+    const read = async () => {
+      const { data, error: rpcError } = await supabase.rpc('get_discover', { p_tz: tz });
+      if (rpcError) throw rpcError;
+      return data as DiscoverState;
+    };
+    try {
+      let state = await read();
+      setFull(state.full);
+      setSuggestions(await toSuggestions(state.items));
       setLoaded(true);
-      return;
+      if (state.can_add) {
+        // Today's new person. Only added when there's room for one.
+        setGenerating(true);
+        const { data: fnData } = await supabase.functions.invoke('generate-match-suggestions', { body: { tz } });
+        if (fnData?.added) {
+          state = await read();
+          setFull(state.full);
+          setSuggestions(await toSuggestions(state.items));
+        }
+        setGenerating(false);
+      }
+    } catch {
+      setGenerating(false);
+      setLoaded(true);
+      setError("We couldn't load Discover. Pull to refresh in a moment.");
     }
-
-    // Cache empty or fully stale: a real first-time generation, this can
-    // be slightly slower, the skeleton below covers it instead of a
-    // blank screen.
-    setStates(stateMap);
-    setLoaded(true);
-    setGenerating(true);
-    const { data: fnData, error: fnError } = await supabase.functions.invoke('generate-match-suggestions');
-    setGenerating(false);
-
-    if (fnError) {
-      setError("We couldn't load today's suggestions. Pull to refresh in a moment.");
-      return;
-    }
-
-    const fresh = ((fnData?.suggestions ?? []) as Suggestion[]).filter(
-      (s) => stateMap[s.userId]?.status !== 'passed'
-    );
-    // The suggestion function doesn't return the verified flag; look it up.
-    let verifiedIds = new Set<string>();
-    if (fresh.length > 0) {
-      const { data: flags } = await supabase
-        .from('discovery_profiles')
-        .select('user_id, selfie_verified')
-        .in('user_id', fresh.map((s) => s.userId));
-      verifiedIds = new Set((flags ?? []).filter((f) => f.selfie_verified).map((f) => f.user_id as string));
-    }
-    setSuggestions(fresh.map((s) => ({ ...s, selfieVerified: verifiedIds.has(s.userId) })));
-    setCapReached(Boolean(fnData?.capReached));
   }, []);
 
   useFocusEffect(
@@ -249,67 +194,60 @@ export default function HomeScreen() {
     }, [load])
   );
 
-  const upsertConnection = async (
-    candidateId: string,
-    fields: { saved?: boolean; status?: ConnectionStatus }
-  ) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('connections')
-      .upsert(
-        { user_a_id: user.id, user_b_id: candidateId, ...fields },
-        { onConflict: 'user_a_id,user_b_id' }
-      );
-  };
+  const firstName = (id: string) =>
+    (suggestions.find((s) => s.userId === id)?.displayName ?? 'They').split(' ')[0];
+  const removeCard = (id: string) => setSuggestions((prev) => prev.filter((s) => s.userId !== id));
 
   const handleSave = async (candidateId: string) => {
     setPendingAction(candidateId + 'save');
-    await upsertConnection(candidateId, { saved: true });
+    setCapacityNotice(null);
+    const result = await saveForLater(candidateId);
     setPendingAction(null);
-    setStates((prev) => ({
-      ...prev,
-      [candidateId]: { ...(prev[candidateId] ?? { status: null }), saved: true },
-    }));
-  };
-
-  const handleStatus = async (candidateId: string, status: ConnectionStatus) => {
-    setPendingAction(candidateId + status);
-    await upsertConnection(candidateId, { status });
-    setPendingAction(null);
-    setStates((prev) => ({
-      ...prev,
-      [candidateId]: { ...(prev[candidateId] ?? { saved: false }), status },
-    }));
-    if (status === 'passed') {
-      setSuggestions((prev) => prev.filter((s) => s.userId !== candidateId));
+    if (result === 'full') {
+      setCapacityNotice(SAVED_FULL_COPY);
+      return;
     }
+    if (result === 'error') {
+      setError('Something went wrong. Please try again.');
+      return;
+    }
+    setCapacityNotice(`Saved. ${firstName(candidateId)} is in Saved for the next 30 days.`);
+    removeCard(candidateId);
   };
 
-  // Mutual Interested gate (docs/DECISIONS.md section 3) replaces "Say
-  // hello". Saying Interested is private: the other person is only told if
-  // they choose this member too, and then a chat opens for both. Before the
-  // selfie check is approved, the tap leads to the selfie check instead.
+  const handlePass = async (candidateId: string) => {
+    setPendingAction(candidateId + 'passed');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from('connections')
+        .upsert({ user_a_id: user.id, user_b_id: candidateId, status: 'passed' }, { onConflict: 'user_a_id,user_b_id' });
+    }
+    setPendingAction(null);
+    removeCard(candidateId);
+  };
+
+  // Mutual Interested gate (docs/DECISIONS.md section 3). Saying Interested
+  // is private: the other person is only told if they choose this member
+  // too. While waiting, the person moves to Saved ("You said Interested").
   const handleInterested = async (candidateId: string) => {
     setPendingAction(candidateId + 'interested');
     setCapacityNotice(null);
+    const name = firstName(candidateId);
     const result = await expressInterest(candidateId);
     setPendingAction(null);
     if (result.status === 'mutual') {
       router.push({ pathname: '/thread/[id]', params: { id: result.connectionId } });
     } else if (result.status === 'waiting') {
-      setInterestedIds((prev) => new Set(prev).add(candidateId));
-      setCapacityNotice(WAITING_FOR_INTEREST_COPY);
+      setCapacityNotice(waitingForInterestCopy(name));
+      removeCard(candidateId);
     } else if (result.status === 'not_verified') {
       router.push('/selfie-check');
     } else if (result.status === 'selfie_pending') {
       setCapacityNotice(SELFIE_PENDING_COPY);
     } else if (result.status === 'ended') {
-      // Starting over after an honest exit needs its own confirmation,
-      // which lives on the profile screen.
       router.push({ pathname: '/candidate/[id]', params: { id: candidateId } });
     } else {
       setCapacityNotice(result.message);
@@ -329,15 +267,13 @@ export default function HomeScreen() {
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerClassName="gap-6 px-6 pb-10 pt-10">
           <View className="gap-2">
-            <Text className="text-display text-stone-900 dark:text-stone-50">
-              Today&apos;s suggestions
-            </Text>
+            <Text className="text-display text-stone-900 dark:text-stone-50">People for you</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              A few people we think you might connect with, and why.
+              One new person each day. Take your time with each one.
             </Text>
           </View>
 
-          <CoachMark markKey="tab_discover" text="Discover shows a few people picked for you each week." />
+          <CoachMark markKey="tab_discover" text="Discover shows one new person each day." />
 
           {!isSupabaseConfigured && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">
@@ -354,36 +290,27 @@ export default function HomeScreen() {
             <Text className="text-caption text-stone-500 dark:text-stone-400">{capacityNotice}</Text>
           )}
 
-          {generating && (
-            <>
-              <SuggestionSkeletonCard />
-              <SuggestionSkeletonCard />
-            </>
-          )}
-
-          {!generating && suggestions.length === 0 && !error && capReached && (
-            <View className="gap-3 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
-              {/* Limen v2: a small, curated set each week, the same for
-                  everyone. No credits or Premium unlock more. */}
-              <Text className="text-body text-stone-600 dark:text-stone-300">
-                That&apos;s this week&apos;s suggestions. A few at a time is on purpose, it leaves room to really get
-                to know someone. New ones arrive later this week.
-              </Text>
-            </View>
-          )}
-
-          {!generating && suggestions.length === 0 && !error && !capReached && (
+          {full && (
             <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                No new suggestions right now. We look for a few thoughtful matches each week.
+                You&apos;re giving 3 people your attention right now. New people will show here again when you have room.
               </Text>
             </View>
           )}
 
-          {!generating && suggestions.map((s) => {
-            const state = states[s.userId];
-            const isSaved = state?.saved ?? false;
-            const isInterested = interestedIds.has(s.userId);
+          {generating && <SuggestionSkeletonCard />}
+
+          {!full && !generating && suggestions.length === 0 && !error && (
+            <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
+              <Text className="text-body text-stone-600 dark:text-stone-300">
+                A new person comes each day. Check back tomorrow.
+              </Text>
+            </View>
+          )}
+
+          {!full && suggestions.map((s) => {
+            const isSaved = false;
+            const isInterested = false;
             const fragment = lifeTransitionFragment(s.lifeTransitions);
             const distanceLabel = formatDistance(s.distanceMiles, s.locationCity);
             return (
@@ -428,7 +355,7 @@ export default function HomeScreen() {
 
                 <View className="flex-row gap-2">
                   <Pressable
-                    onPress={() => handleStatus(s.userId, 'passed')}
+                    onPress={() => handlePass(s.userId)}
                     disabled={pendingAction === s.userId + 'passed'}
                     className="flex-1 items-center rounded-full border border-stone-300 py-3 active:opacity-70 dark:border-stone-600">
                     <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">

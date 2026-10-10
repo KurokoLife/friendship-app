@@ -53,7 +53,7 @@ type CapacityStatus = {
 function capacityLine(c: CapacityStatus): string {
   const room = c.active_cap - c.active_count;
   if (room <= 0) {
-    return `${c.active_count} of ${c.active_cap} active conversations. Limen keeps it to ${c.active_cap} at a time so each one gets real attention. Paused chats don't count, so to make room you can pause or end one.`;
+    return `${c.active_count} of ${c.active_cap} active conversations, paused ones included. Limen keeps it to ${c.active_cap} at a time so each one gets real attention.`;
   }
   return `${c.active_count} of ${c.active_cap} active conversations · room for ${room} more`;
 }
@@ -100,6 +100,11 @@ export default function InboxScreen() {
   const [pauses, setPauses] = useState<Map<string, PauseDetails>>(new Map());
   const [planTurns, setPlanTurns] = useState<Record<string, PlanTurn>>({});
   const [loadCount, setLoadCount] = useState(0);
+  // Tabs (2026-10-10): Active (with paused), Friends (graduated), Past.
+  const [tab, setTab] = useState<'active' | 'friends' | 'past'>('active');
+  // Chats the person blocked and chose to hide. History is kept.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -136,6 +141,8 @@ export default function InboxScreen() {
       supabase.from('blocks').select('blocked_id').eq('blocker_id', user.id),
       getPauseDetails(),
     ]);
+    const { data: hiddenRows } = await supabase.from('hidden_chats').select('connection_id');
+    setHidden(new Set(((hiddenRows ?? []) as { connection_id: string }[]).map((h) => h.connection_id)));
     fetchMyPlanTurns().then(setPlanTurns);
     setPauses(new Map(pauseRows.map((p) => [p.connection_id, p])));
     setIBlocked(new Set(((blockRows ?? []) as { blocked_id: string }[]).map((b) => b.blocked_id)));
@@ -223,24 +230,14 @@ export default function InboxScreen() {
   // by real recency alongside everything else instead.
   const needsReply: Conversation[] = [];
   const paused: Conversation[] = [];
-  const blocked: Conversation[] = [];
-  const ended: Conversation[] = [];
+  const past: Conversation[] = [];
   const graduated: Conversation[] = [];
   const rest: Conversation[] = [];
   const blockedByThem = (c: Conversation) => c.connection_status === 'blocked' && !iBlocked.has(c.other_user_id);
   for (const c of conversations) {
-    if (blockedByThem(c)) {
-      ended.push(c);
-    } else if (c.connection_status === 'blocked') {
-      blocked.push(c);
-    } else if (c.connection_status === 'ended') {
-      ended.push(c);
+    if (['blocked', 'ended', 'inactive'].includes(c.connection_status ?? '')) {
+      past.push(c);
     } else if (c.connection_status === 'graduated') {
-      // Blueprint's own required Inbox section, a real, deliberate state
-      // (not a closure like Ended/Blocked), its own section per the spec
-      // rather than folded into "Conversations", so a genuinely
-      // successful outcome is visible as its own category, not blended
-      // in with everything else.
       graduated.push(c);
     } else if (c.connection_status === 'paused') {
       paused.push(c);
@@ -250,6 +247,23 @@ export default function InboxScreen() {
       rest.push(c);
     }
   }
+  const hiddenPast = past.filter((c) => hidden.has(c.connection_id));
+  const shownPast = past.filter((c) => !hidden.has(c.connection_id) || showHidden);
+
+  const hideChat = async (connectionId: string, hide: boolean) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    if (hide) await supabase.from('hidden_chats').insert({ user_id: user.id, connection_id: connectionId });
+    else await supabase.from('hidden_chats').delete().eq('connection_id', connectionId);
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (hide) next.add(connectionId);
+      else next.delete(connectionId);
+      return next;
+    });
+  };
 
   const renderConversation = (c: Conversation) => {
     const fragment = lifeTransitionFragment(c.life_transitions);
@@ -325,7 +339,7 @@ export default function InboxScreen() {
           // inactive doesn't get artificially demoted below a week-old
           // still-active one), while still making it visually
           // unmistakable at a glance that it isn't a live conversation.
-          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Inactive</Text>
+          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Closed</Text>
         ) : (
           <>
             {showReplyReminder && (
@@ -346,6 +360,13 @@ export default function InboxScreen() {
             )}
           </>
         )}
+        {c.connection_status === 'blocked' && !blockedByThem(c) && (
+          <Pressable onPress={() => hideChat(c.connection_id, !hidden.has(c.connection_id))} hitSlop={6} className="self-start">
+            <Text className="text-caption text-stone-400 dark:text-stone-500">
+              {hidden.has(c.connection_id) ? 'Show this chat again' : 'Hide this chat'}
+            </Text>
+          </Pressable>
+        )}
       </Pressable>
     );
   };
@@ -358,23 +379,29 @@ export default function InboxScreen() {
 
           <CoachMark markKey="tab_inbox" text="This is where your conversations happen." />
 
-          {/* Fix #3: calm, non-alarming framing throughout, even at the
-              cap ("time to check in on one before starting more" rather
-              than anything resembling a warning), matching the
-              blueprint's own "avoid shaming labels" instruction for this
-              screen. */}
-          {capacity && (
-            <View className="gap-0.5">
-              <Text className="text-caption text-stone-400 dark:text-stone-600">{capacityLine(capacity)}</Text>
-              {capacity.pending_count > 0 && (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
-                  {capacity.pending_count} of {capacity.pending_cap} hellos waiting for a reply
+          <View className="flex-row gap-2">
+            {([
+              ['active', 'Active'],
+              ['friends', 'Friends'],
+              ['past', 'Past'],
+            ] as const).map(([key, label]) => (
+              <Pressable
+                key={key}
+                onPress={() => setTab(key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === key }}
+                className={`rounded-full border px-4 py-2 ${
+                  tab === key ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50' : 'border-stone-300 dark:border-stone-600'
+                }`}>
+                <Text
+                  className={`text-caption font-semibold ${
+                    tab === key ? 'text-stone-50 dark:text-stone-900' : 'text-stone-600 dark:text-stone-300'
+                  }`}>
+                  {label}
                 </Text>
-              )}
-            </View>
-          )}
-
-          <UpcomingMeetupsStrip names={openChatNames} refreshKey={loadCount} />
+              </Pressable>
+            ))}
+          </View>
 
           {!isSupabaseConfigured && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">
@@ -382,107 +409,113 @@ export default function InboxScreen() {
             </Text>
           )}
 
-          {conversations.length === 0 && newMutual.length === 0 && isSupabaseConfigured && (
-            <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
-              <Text className="text-body text-stone-600 dark:text-stone-300">
-                When you and someone both say Interested, your conversation opens here.
-              </Text>
-            </View>
-          )}
-
-          {newMutual.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                You both chose to connect
-              </Text>
-              {newMutual.map((m) => (
-                <Pressable
-                  key={m.connection_id}
-                  onPress={() => router.push({ pathname: '/thread/[id]', params: { id: m.connection_id } })}
-                  className="gap-1 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4 active:opacity-80">
-                  <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
-                    {m.display_name ?? 'A member'}
-                  </Text>
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    {Date.now() - new Date(m.opened_at).getTime() >= 2 * DAY_MS
-                      ? `You both said Interested. A short hello is plenty. If neither of you writes by ${shortDay(
-                          m.closes_at
-                        )}, this match closes quietly.`
-                      : "You both said Interested. Say hello when you're ready."}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-
-          {needsReply.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                New hellos
-              </Text>
-              {needsReply.map(renderConversation)}
-            </View>
-          )}
-
-          {rest.length > 0 && (
-            <View className="gap-3">
-              {needsReply.length > 0 && (
-                <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                  Conversations
-                </Text>
+          {tab === 'active' && (
+            <>
+              {capacity && (
+                <View className="gap-0.5">
+                  <Text className="text-caption text-stone-400 dark:text-stone-600">{capacityLine(capacity)}</Text>
+                  {capacity.pending_count > 0 && (
+                    <Text className="text-caption text-stone-400 dark:text-stone-600">
+                      {capacity.pending_count} of {capacity.pending_cap} hellos waiting for a reply
+                    </Text>
+                  )}
+                </View>
               )}
-              {rest.map(renderConversation)}
-            </View>
+
+              <UpcomingMeetupsStrip names={openChatNames} refreshKey={loadCount} />
+
+              {rest.length + needsReply.length + paused.length + newMutual.length === 0 && isSupabaseConfigured && (
+                <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
+                  <Text className="text-body text-stone-600 dark:text-stone-300">
+                    When you and someone both say Interested, your conversation opens here.
+                  </Text>
+                </View>
+              )}
+
+              {newMutual.length > 0 && (
+                <View className="gap-3">
+                  <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                    You both chose to connect
+                  </Text>
+                  {newMutual.map((m) => (
+                    <Pressable
+                      key={m.connection_id}
+                      onPress={() => router.push({ pathname: '/thread/[id]', params: { id: m.connection_id } })}
+                      className="gap-1 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4 active:opacity-80">
+                      <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+                        {m.display_name ?? 'A member'}
+                      </Text>
+                      <Text className="text-caption text-stone-500 dark:text-stone-400">
+                        {Date.now() - new Date(m.opened_at).getTime() >= 2 * DAY_MS
+                          ? `You both said Interested. A short hello is plenty. If neither of you writes by ${shortDay(
+                              m.closes_at
+                            )}, this match closes quietly.`
+                          : "You both said Interested. Say hello when you're ready."}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {needsReply.length > 0 && (
+                <View className="gap-3">
+                  <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">New hellos</Text>
+                  {needsReply.map(renderConversation)}
+                </View>
+              )}
+
+              {rest.length + paused.length > 0 && (
+                <View className="gap-3">
+                  {needsReply.length > 0 && (
+                    <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                      Conversations
+                    </Text>
+                  )}
+                  {rest.map(renderConversation)}
+                  {paused.map(renderConversation)}
+                </View>
+              )}
+            </>
           )}
 
-          {paused.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                Paused
-              </Text>
-              {paused.map(renderConversation)}
-            </View>
+          {tab === 'friends' && (
+            <>
+              {graduated.length === 0 ? (
+                <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
+                  <Text className="text-body text-stone-600 dark:text-stone-300">
+                    When you and someone decide together to keep your friendship going outside Limen, they&apos;ll be here.
+                  </Text>
+                </View>
+              ) : (
+                <View className="gap-3">{graduated.map(renderConversation)}</View>
+              )}
+            </>
           )}
 
-          {/* Blueprint's own required Inbox section. A genuinely
-              successful outcome, styled distinctly from Paused/Ended/
-              Blocked (which are all, in different ways, a conversation
-              winding down), the accent color elsewhere in this app marks
-              a positive/selected state, reused here for the same
-              reason. */}
-          {graduated.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                Graduated
-              </Text>
-              {graduated.map(renderConversation)}
-            </View>
-          )}
-
-          {/* 20260817000000: a real, deliberate closure (Honest Exit),
-              distinct from a healthy conversation. Message history stays
-              visible for both participants' own reference, same
-              precedent Blocked already established below. */}
-          {ended.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                Closed
-              </Text>
-              {ended.map(renderConversation)}
-            </View>
-          )}
-
-          {/* Report & Block: blocked connections stay visible here, not
-              deleted, message history remains reachable for the
-              blocker's own reference, the thread itself shows it as
-              read-only. */}
-          {blocked.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
-                Blocked
-              </Text>
-              {blocked.map(renderConversation)}
-            </View>
+          {tab === 'past' && (
+            <>
+              {past.length === 0 ? (
+                <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
+                  <Text className="text-body text-stone-600 dark:text-stone-300">
+                    Chats that ended or closed stay here, with your notes.
+                  </Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  <Text className="text-caption text-stone-400 dark:text-stone-600">
+                    Your messages and notes stay here after a chat ends.
+                  </Text>
+                  {shownPast.map(renderConversation)}
+                  {hiddenPast.length > 0 && (
+                    <Pressable onPress={() => setShowHidden((v) => !v)} className="self-start">
+                      <Text className="text-caption text-stone-400 dark:text-stone-500">
+                        {showHidden ? 'Hide hidden chats' : `Hidden chats (${hiddenPast.length}) · Show`}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       </SafeAreaView>

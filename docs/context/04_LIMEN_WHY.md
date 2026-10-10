@@ -50,10 +50,11 @@ Limen's rule: **ease these hard parts, don't remove them.** The hard parts are w
 - **Private fields stay private** so people can be honest (for example, hide a divorce from the profile but still be matched on it).
 
 ### Discover and connecting
-- **3 suggestions a week** because focus beats volume (eases 1). People should give each person real attention.
+- **One new person a day, at most 3 waiting** because people grow pickier the longer they browse in one sitting, and more options lead to worse choices (research). One a day keeps attention on one person at a time while giving a calm reason to come back (eases 1). Nobody new while you have 3 chats, so attention goes to the people you're already talking to.
+- **Interested and Saved close after 30 days, with a calm note** so nobody waits forever, and nobody is ever told what the other person did (eases 2).
 - **Matching on life situation, values and rhythm** because shared circumstances and a similar pace of meeting predict whether two people can actually keep seeing each other (judgment, based on research on time together).
 - **Mutual "Interested" before chat, one-sided interest never shown** protects people from feeling rejected and from unwanted messages (eases 2, 7). Quietly moving someone who was interested in you up your list respects your choice while helping a match happen.
-- **Limits of 3 active chats and 5 waiting hellos, the same for everyone** so people invest in a few friendships instead of collecting many (eases 1). Graduated chats don't count, because graduation is the goal.
+- **Limits of 3 active chats and 5 waiting hellos, the same for everyone** so people invest in a few friendships instead of collecting many (eases 1). Paused chats count, so a pause can't be used to open a fourth. Graduated chats don't count, because graduation is the goal.
 - **No paid extras** because selling more matches sells options instead of focus (eases 1).
 - **Selfie check once, approved by a person** because people must trust that the other person is real before meeting (eases 7).
 - **Ghosting rule, never shown, resets on its own** protects others without shaming anyone (eases 8).

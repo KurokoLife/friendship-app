@@ -72,7 +72,7 @@ async function rpcAs(user, sql, params = []) {
   await q(`insert into messages (connection_id, sender_id, content, type) values ($1,$2,'back again','text')`, [C1, U.maria]);
   await go(m.page, '/inbox', 3000);
   t = await text(m.page);
-  check('At the limit, wording explains why and what to do', t.includes('3 of 3 active conversations. Limen keeps it to 3 at a time') && t.includes('pause or end one'));
+  check('At the limit, wording explains why and what to do', t.includes('3 of 3 active conversations, paused ones included. Limen keeps it to 3 at a time'));
   const cap = await rpcAs(U.maria, `select create_connection_with_capacity_check($1)`, [PRIYA]);
   check('A 4th conversation is refused at the limit', cap.error && cap.error.includes('active_cap_reached'), cap.error);
   // Reopening a closed chat also respects the limit
@@ -141,7 +141,7 @@ async function rpcAs(user, sql, params = []) {
   check('Header shows Pause · End · Report · Block', ['Pause', 'End', 'Report', 'Block'].every((w) => t.includes(w)));
   await tap(m.page, 'Pause', { wait: 1200 });
   t = await text(m.page);
-  check('Pause explains the rules', t.includes('Pause this chat?') && t.includes("doesn't count toward your 3 active conversations") && t.includes('will see your note'));
+  check('Pause explains the rules', t.includes('Pause this chat?') && t.includes('It still counts as one of your 3 active conversations') && t.includes('will see your note'));
   check('Pause offers 3 days / 1 week / 2 weeks only', t.includes('3 days') && t.includes('1 week') && t.includes('2 weeks') && !t.includes("when I'm ready"));
   await tap(m.page, '3 days', { wait: 600 });
   check('Pause asks for a short note', t.includes('A short note to David C.'));
@@ -172,7 +172,7 @@ async function rpcAs(user, sql, params = []) {
   const oldPause = await rpcAs(U.david, `select resume_connection($1)`, [C4]);
   check('Old resume shortcut is closed', oldPause.error && /permission denied/.test(oldPause.error), oldPause.error);
   const capP = await rpcAs(U.maria, `select active_count from my_connection_capacity()`);
-  check('Paused chat does not count as active', capP.rows && capP.rows[0].active_count === 0, JSON.stringify(capP.rows));
+  check('Paused chat counts as active (2026-10-10)', capP.rows && capP.rows[0].active_count === 1, JSON.stringify(capP.rows));
   const tooLong = await rpcAs(U.maria, `select pause_connection_with_duration($1, now() + interval '30 days', 'x')`, [C4]);
   check('Cannot pause twice at once', tooLong.error && tooLong.error.includes('already_paused'), tooLong.error);
 

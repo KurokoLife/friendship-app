@@ -955,7 +955,7 @@ export default function ThreadScreen() {
                 </Text>
                 <Text className="text-caption text-stone-500 dark:text-stone-400">
                   {pause.paused_by_me
-                    ? "No reminders, no messages, and it doesn't count toward your 3 active conversations. It opens again on its own on that date."
+                    ? "No reminders and no messages. It still counts as one of your 3 active conversations, and it opens again on its own on that date."
                     : `It opens again on its own on that date. Until then there are no reminders or messages. If waiting doesn't work for you, you can end the connection.`}
                 </Text>
                 {pauseError && <Text className="text-caption text-red-600 dark:text-red-400">{pauseError}</Text>}

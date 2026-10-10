@@ -72,19 +72,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const MATCH_REFRESH_SECRET = Deno.env.get('MATCH_REFRESH_SECRET');
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const MODEL = 'claude-sonnet-5';
-const MAX_SUGGESTIONS = 5;
-// Rolling window, not a calendar day: match_suggestions rows older than
-// this are treated as stale and regenerated. This still governs display
-// freshness/cache-hit speed only, a deliberate, separate axis from the
-// daily cap above (suggested_date), left as Fix 7 designed it; a user
-// near a midnight boundary may occasionally see a cached suggestion
-// linger briefly into a new calendar day before this window expires,
-// a pre-existing, minor timing quirk this fix doesn't change.
-// Limen v2: suggestions are weekly, so a batch stays fresh for 7 days.
-const CACHE_FRESHNESS_HOURS = 7 * 24;
-
-// Limen v2: suggestions per rolling week, same for everyone.
-const SUGGESTIONS_PER_WEEK = 3;
+// 2026-10-10: one new person a day, at most 3 waiting (see addTodaysPerson).
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -328,7 +316,8 @@ function activityBonusScore(viewer: Viewer, candidate: Candidate): number {
 // receives the already-computed 0-15 bonus, never the underlying trait
 // numbers.
 async function bigFiveScore(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   candidateId: string
 ): Promise<number> {
   const { data, error } = await supabase.rpc('big_five_proximity_score', { p_candidate_id: candidateId });
@@ -350,7 +339,8 @@ type ScoreBreakdown = {
 };
 
 async function weightedScore(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   viewer: Viewer,
   candidate: Candidate
 ): Promise<ScoreBreakdown> {
@@ -574,176 +564,97 @@ Strict rules, reject any temptation to do otherwise:
 Respond with ONLY a JSON array, no prose before or after, no markdown code fences. Each element: {"candidate_id": "...", "reasoning": "...", "human_detail": "..."}`;
 }
 
-type SuggestionResult = {
-  userId: string;
-  displayName: string | null;
-  ageBand: string | null;
-  lifeTransitions: string[];
-  reasoning: string;
-  humanDetail: string | null;
-  locationCity: string | null;
-  distanceMiles: number | null;
+// 2026-10-10: one new person a day (docs/DECISIONS.md section 4).
+// The database decides whether someone gets a new person today and who
+// can be picked (discover_next_candidates: nobody you've had a chat with,
+// nobody with 3 active chats, nobody you passed on, saved or said
+// Interested to, nobody shown in the last 21 days, and nothing while you
+// have 3 active chats yourself). This function only ranks those people,
+// writes the short "why" for the top one, and adds them (discover_add,
+// which checks again). Discover itself reads get_discover().
+const VIEWER_COLUMNS =
+  'display_name, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, dealbreakers, languages, friendship_type, friendship_types, communication_style_openness';
+
+type NextCandidate = {
+  candidate_id: string;
+  interested_in_viewer: boolean | null;
+  ghosting_penalized: boolean | null;
+  previously_suggested: boolean | null;
 };
 
-// Fix #3, capacity system: rewritten from "delete this user's whole
-// cache then insert up to MAX_SUGGESTIONS new ones" to "top up today's
-// cache with at most dailyCap distinct candidates total, ever, for this
-// calendar date". The old delete-then-insert approach could never
-// support a real daily cap, both the client-triggered fallback and the
-// 6-hourly batch cron called it repeatedly and it would happily hand
-// out a fresh MAX_SUGGESTIONS=5 candidates every single time, blowing
-// past 2/day for a free user four times a day. suggested_date (already
-// on the table, previously reduced to just metadata) is now the real
-// cap boundary; rows already inserted today are never deleted or
-// replaced by this function, only ever added to, up to the cap.
-async function generateAndCacheSuggestions(
-  supabase: ReturnType<typeof createClient>,
+// deno-lint-ignore no-explicit-any
+type Db = any;
+
+async function addTodaysPerson(
+  service: Db,
+  scoringClient: Db,
   userId: string,
   viewer: Viewer,
-  candidatePool: Candidate[],
-  alreadySeen: Set<string>,
-  dailyCap: number
-): Promise<SuggestionResult[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  // Limen v2 (2026-10-03): the cap window is now a rolling 7 days, not a
-  // calendar day. "dailyCap" keeps its parameter name for a smaller diff,
-  // but it's the weekly cap (SUGGESTIONS_PER_WEEK) everywhere it's passed.
-  const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  tz: string | null
+): Promise<boolean> {
+  const { data: next } = await service.rpc('discover_next_candidates', { p_user_id: userId, p_tz: tz });
+  const allowed = (next ?? []) as NextCandidate[];
+  if (allowed.length === 0) return false;
 
-  const { data: todayRows } = await supabase
-    .from('match_suggestions')
-    .select('candidate_id, reasoning, human_detail')
-    .eq('user_id', userId)
-    .gte('suggested_date', weekStart);
-  const existingToday = (todayRows ?? []) as { candidate_id: string; reasoning: string; human_detail: string | null }[];
-  const todaySuggestedIds = new Set(existingToday.map((r) => r.candidate_id));
-  const remaining = Math.max(0, dailyCap - todaySuggestedIds.size);
+  const { data: poolRows } = await service.rpc('compatible_candidates_for', { p_user_id: userId });
+  const flags = new Map(allowed.map((n) => [n.candidate_id, n]));
+  const pool = ((poolRows ?? []) as Candidate[]).filter((c) => flags.has(c.user_id));
+  if (pool.length === 0) return false;
 
-  let newRows: { candidate_id: string; reasoning: string; human_detail: string | null }[] = [];
+  const scored = await Promise.all(
+    pool.map(async (c) => ({ candidate: c, score: await weightedScore(scoringClient, viewer, c) }))
+  );
+  // Someone who already said Interested in the viewer goes first (never
+  // revealed). Someone shown before and let go comes back at the bottom,
+  // and anyone under the ghosting rule goes last. Then by score.
+  const rank = (c: Candidate) => {
+    const f = flags.get(c.user_id);
+    if (f?.ghosting_penalized) return 3;
+    if (f?.previously_suggested) return 2;
+    if (f?.interested_in_viewer) return 0;
+    return 1;
+  };
+  scored.sort((a, b) => rank(a.candidate) - rank(b.candidate) || b.score.total - a.score.total);
+  const pick = scored[0].candidate;
 
-  if (remaining > 0) {
-    const available = candidatePool.filter(
-      // Hard nos no longer hide anyone automatically (2026-10-04): the
-      // keyword match wrongly hid real matches. They stay on profiles.
-      (c) => !alreadySeen.has(c.user_id) && !todaySuggestedIds.has(c.user_id)
-    );
-
-    if (available.length > 0) {
-      // Weighted score for every available candidate, computed in
-      // parallel (each call makes one big_five_proximity_score RPC
-      // round trip).
-      const scored = await Promise.all(
-        available.map(async (c) => ({ candidate: c, score: await weightedScore(supabase, viewer, c) }))
-      );
-      // Order (2026-10-04): someone who already said Interested in the
-      // viewer goes first (never revealed, it just lets the viewer decide
-      // too), anyone under the ghosting rule goes last, then by score.
-      const rank = (c: Candidate) => (c.ghosting_penalized ? 2 : c.interested_in_viewer ? 0 : 1);
-      scored.sort((a, b) => rank(a.candidate) - rank(b.candidate) || b.score.total - a.score.total);
-      // Capped by whatever's actually left of today's allowance, not the
-      // flat MAX_SUGGESTIONS constant, that constant now only bounds a
-      // single Claude call's batch size (kept below for that reason).
-      const selected = scored.slice(0, Math.min(remaining, MAX_SUGGESTIONS, scored.length)).map((s) => s.candidate);
-
-      const reasoningByCandidate = new Map<string, string>();
-      const humanDetailByCandidate = new Map<string, string>();
-
-      if (ANTHROPIC_API_KEY) {
-        try {
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'x-api-key': ANTHROPIC_API_KEY,
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: MODEL,
-              // Thinking tokens count against this budget too (confirmed
-              // live: a single-candidate analysis on
-              // generate-connection-analysis used 429 thinking tokens
-              // before any real text), and this call covers up to 5
-              // candidates at once, raised well past the original 1200
-              // to leave real headroom.
-              max_tokens: 2500,
-              messages: [{ role: 'user', content: buildPrompt(viewer, selected.map(forDisplay)) }],
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const raw = extractText(data);
-            const jsonText = raw.replace(/^```(json)?/i, '').replace(/```$/, '').trim();
-            const parsed = JSON.parse(jsonText) as {
-              candidate_id: string;
-              reasoning: string;
-              human_detail?: string;
-            }[];
-            for (const entry of parsed) {
-              if (entry?.candidate_id && entry?.reasoning) {
-                reasoningByCandidate.set(entry.candidate_id, entry.reasoning.replace(/\s*—\s*/g, ', '));
-              }
-              if (entry?.candidate_id && entry?.human_detail) {
-                humanDetailByCandidate.set(entry.candidate_id, entry.human_detail.replace(/\s*—\s*/g, ', '));
-              }
-            }
-          }
-        } catch {
-          // Fall through to the non-AI fallback below for any candidate
-          // Claude didn't return usable reasoning for.
-        }
+  let reasoning: string | null = null;
+  let humanDetail: string | null = null;
+  if (ANTHROPIC_API_KEY) {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: buildPrompt(viewer, [forDisplay(pick)]) }],
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const jsonText = extractText(data).replace(/^```(json)?/i, '').replace(/```$/, '').trim();
+        const parsed = JSON.parse(jsonText) as { candidate_id: string; reasoning: string; human_detail?: string }[];
+        const entry = parsed.find((e) => e?.candidate_id === pick.user_id) ?? parsed[0];
+        if (entry?.reasoning) reasoning = entry.reasoning.replace(/\s*—\s*/g, ', ');
+        if (entry?.human_detail) humanDetail = entry.human_detail.replace(/\s*—\s*/g, ', ');
       }
-
-      newRows = selected.map((c) => ({
-        candidate_id: c.user_id,
-        reasoning: reasoningByCandidate.get(c.user_id) ?? fallbackReasoning(viewer, forDisplay(c)),
-        human_detail: humanDetailByCandidate.get(c.user_id) ?? fallbackHumanDetail(forDisplay(c)),
-      }));
-
-      if (newRows.length > 0) {
-        await supabase.from('match_suggestions').upsert(
-          newRows.map((r) => ({ user_id: userId, candidate_id: r.candidate_id, reasoning: r.reasoning, human_detail: r.human_detail, suggested_date: today })),
-          { onConflict: 'user_id,candidate_id,suggested_date', ignoreDuplicates: true }
-        );
-      }
+    } catch {
+      // The plain written fallback below is used instead.
     }
   }
 
-  // What to actually show: everything suggested today (existing rows
-  // this function didn't touch, plus whatever was just added), minus
-  // anyone the viewer has since passed on. Previously-seen/unactioned
-  // suggestions from earlier today are returned here too, exactly as
-  // before, they were never deleted, so re-showing them costs nothing
-  // against the cap.
-  const reasoningById = new Map<string, { reasoning: string; human_detail: string | null }>();
-  for (const r of existingToday) reasoningById.set(r.candidate_id, r);
-  for (const r of newRows) reasoningById.set(r.candidate_id, r);
-
-  const visibleIds = Array.from(reasoningById.keys()).filter((id) => !alreadySeen.has(id));
-  if (visibleIds.length === 0) return [];
-
-  const { data: profiles } = await supabase
-    .from('discovery_profiles')
-    .select('user_id, display_name, age_band, life_transitions, location_city, distance_miles')
-    .in('user_id', visibleIds);
-
-  return visibleIds
-    .map((id) => {
-      const profile = profiles?.find((p) => p.user_id === id);
-      const r = reasoningById.get(id)!;
-      if (!profile) return null;
-      return {
-        userId: id,
-        displayName: profile.display_name,
-        ageBand: profile.age_band,
-        lifeTransitions: profile.life_transitions ?? [],
-        reasoning: r.reasoning,
-        humanDetail: r.human_detail,
-        locationCity: profile.location_city,
-        distanceMiles: profile.distance_miles,
-      };
-    })
-    .filter((s): s is SuggestionResult => s !== null);
+  const { data: added } = await service.rpc('discover_add', {
+    p_user_id: userId,
+    p_candidate_id: pick.user_id,
+    p_reasoning: reasoning ?? fallbackReasoning(viewer, forDisplay(pick)),
+    p_human_detail: humanDetail ?? fallbackHumanDetail(forDisplay(pick)),
+    p_tz: tz,
+  });
+  return added === true;
 }
 
 const EMPTY_VIEWER: Viewer = {
@@ -763,71 +674,21 @@ const EMPTY_VIEWER: Viewer = {
   communication_style_openness: null,
 };
 
-// Batch mode (Fix 7): called only by the pg_cron-driven refresh, never by
-// a client. Iterates every real user and regenerates their cache with a
-// service-role client, since there's no individual user JWT to forward
-// when refreshing everyone at once. Deliberately the one place in this
-// function that uses the service role, gated behind MATCH_REFRESH_SECRET,
-// not reachable with just the anon key the way every other path here is.
-// Processed in parallel across users (each user's own generation is still
-// sequential internally: fetch, then score, then one Claude call). A
-// sequential for-loop here, one user fully finished before the next
-// starts, was tested live and took over two minutes for just 10 users,
-// real risk of pg_net's own response timeout (or the platform's request
-// lifecycle) cutting the invocation off partway through, leaving a
-// partial refresh every 6 hours with no clear signal anything was
-// incomplete. Parallelizing brings total wall-clock time down to roughly
-// one user's worth of latency regardless of how many users there are, an
-// acceptable tradeoff at this project's real scale (10 real accounts);
-// worth revisiting (chunked concurrency) if the user base grows enough
-// that firing every user's Claude call at once becomes a rate-limit
-// concern.
-//
-// 2026-07-28: scoped to users active in the last 7 days
-// (batch_refresh_eligible_users, joined against auth.users.last_sign_in_at,
-// the existing GoTrue-managed signal, no new tracking added). Safe
-// because home.tsx's on-demand fallback is fully independent of this
-// cron, confirmed live: it reads match_suggestions directly and only
-// calls this function's normal per-user path when the cache is empty or
-// stale, with no dependency on the cron ever having run for that user. A
-// user excluded here simply gets a normal-latency real generation the
-// next time they open Discover instead of an instant cached one, the
-// same fallback that already covers a brand-new user before their
-// first-ever cron cycle.
+// Batch mode: called only by the scheduled refresh (MATCH_REFRESH_SECRET),
+// so people who were active this week find today's person waiting. Uses
+// the Los Angeles day, the pilot's city.
 async function runBatchRefresh(): Promise<{ usersProcessed: number }> {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-
-  const { data: users } = await supabase.rpc('batch_refresh_eligible_users', { p_days: 7 });
-
+  const { data: users } = await service.rpc('batch_refresh_eligible_users', { p_days: 7 });
   const results = await Promise.all(
-    (users ?? []).map(async (u) => {
-      const [{ data: viewerRows }, { data: candidatePool }, { data: existingConnections }] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select(
-            'display_name, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, dealbreakers, languages, friendship_type, friendship_types, communication_style_openness'
-          )
-          .eq('user_id', u.id)
-          .maybeSingle(),
-        supabase.rpc('compatible_candidates_for', { p_user_id: u.id }),
-        supabase.from('connections').select('user_b_id').eq('user_a_id', u.id).eq('status', 'passed'),
-      ]);
-
-      // No profile yet (still mid-onboarding) has nothing to score
-      // against, skip rather than generate against an empty viewer.
+    (users ?? []).map(async (u: { id: string }) => {
+      const { data: viewerRows } = await service.from('profiles').select(VIEWER_COLUMNS).eq('user_id', u.id).maybeSingle();
       if (!viewerRows) return false;
-
-      const viewer: Viewer = viewerRows;
-      const alreadySeen = new Set((existingConnections ?? []).map((c) => c.user_b_id));
-      // Limen v2: one flat weekly cap for everyone, never sold.
-      const dailyCap = SUGGESTIONS_PER_WEEK;
-      await generateAndCacheSuggestions(supabase, u.id, viewer, (candidatePool ?? []) as Candidate[], alreadySeen, dailyCap);
-      return true;
+      return addTodaysPerson(service, service, u.id, viewerRows as Viewer, 'America/Los_Angeles');
     })
   );
-
   return { usersProcessed: results.filter(Boolean).length };
 }
 
@@ -842,9 +703,6 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Batch mode, checked before the normal per-user auth path: only the
-  // pg_cron job knows this secret, an ordinary client request (which only
-  // ever has the anon key and a user JWT) can never satisfy this check.
   const batchSecret = req.headers.get('x-batch-secret');
   if (MATCH_REFRESH_SECRET && batchSecret === MATCH_REFRESH_SECRET) {
     const result = await runBatchRefresh();
@@ -865,7 +723,6 @@ Deno.serve(async (req: Request) => {
     global: { headers: { Authorization: authHeader } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -876,118 +733,22 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Fetched once, up front, and reused by both the cache check below and
-  // the fresh-generation path further down. Scoped to status = 'passed'
-  // only, the one status that actually means "don't suggest this person
-  // again", matching browse.tsx's own filter. A prior version of this
-  // function excluded every row regardless of status (saved, pending,
-  // anything), which meant a real account that had saved or messaged its
-  // entire compatible pool got zero suggestions forever, fixed earlier
-  // this project.
-  const { data: existingConnections } = await supabase
-    .from('connections')
-    .select('user_b_id')
-    .eq('user_a_id', user.id)
-    .eq('status', 'passed');
-  const alreadySeen = new Set((existingConnections ?? []).map((c) => c.user_b_id));
-
-  // Fix 7: freshness is now a rolling window (created_at), not a calendar
-  // day (suggested_date). In practice this path is now rarely hit at all,
-  // home.tsx reads match_suggestions directly for the fast case and only
-  // calls this function when its own freshness check already came back
-  // empty, this is mostly a safety net for a genuinely cold cache.
-  const freshCutoff = new Date(Date.now() - CACHE_FRESHNESS_HOURS * 60 * 60 * 1000).toISOString();
-  const { data: cachedAll } = await supabase
-    .from('match_suggestions')
-    .select('candidate_id, reasoning, human_detail')
-    .eq('user_id', user.id)
-    .gte('created_at', freshCutoff);
-
-  const cached = (cachedAll ?? []).filter((row) => !alreadySeen.has(row.candidate_id));
-
-  if (cached.length > 0) {
-    const candidateIds = cached.map((r) => r.candidate_id);
-    const { data: candidateProfiles } = await supabase
-      .from('discovery_profiles')
-      .select('user_id, display_name, age_band, life_transitions, location_city, distance_miles')
-      .in('user_id', candidateIds);
-
-    const validCached = cached
-      .map((row) => {
-        const profile = candidateProfiles?.find((p) => p.user_id === row.candidate_id);
-        if (!profile) return null;
-        return {
-          userId: row.candidate_id,
-          displayName: profile.display_name,
-          ageBand: profile.age_band,
-          lifeTransitions: profile.life_transitions ?? [],
-          reasoning: row.reasoning,
-          humanDetail: row.human_detail ?? null,
-          locationCity: profile.location_city,
-          distanceMiles: profile.distance_miles,
-        };
-      })
-      .filter((s): s is NonNullable<typeof s> => s !== null);
-
-    if (validCached.length > 0) {
-      return new Response(JSON.stringify({ suggestions: validCached }), {
-        headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
-      });
-    }
+  let tz: string | null = null;
+  try {
+    const body = await req.json();
+    if (typeof body?.tz === 'string') tz = body.tz;
+  } catch {
+    // No body: the database uses the Los Angeles day.
   }
 
-  const { data: viewerRows } = await supabase
-    .from('profiles')
-    .select(
-      'display_name, life_transitions, values, activity_interests, hangout_people_preference, hangout_type_preference, meeting_freq, communication_freq, personal_statement, dealbreakers, languages, friendship_type, friendship_types, communication_style_openness'
-    )
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  const viewer: Viewer = viewerRows ?? EMPTY_VIEWER;
-
-  // 2026-10-04: the pool comes from compatible_candidates_for (service
-  // role, scoped to this signed-in user's own id) instead of
-  // discovery_profiles, because the view now hides life transitions a
-  // person chose not to show, and those still count for matching. The
-  // function applies the same hard filters as the view.
-  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: candidatePool } = await serviceClient.rpc('compatible_candidates_for', { p_user_id: user.id });
+  const { data: viewerRows } = await supabase.from('profiles').select(VIEWER_COLUMNS).eq('user_id', user.id).maybeSingle();
+  const viewer: Viewer = (viewerRows as Viewer | null) ?? EMPTY_VIEWER;
+  const added = await addTodaysPerson(service, supabase, user.id, viewer, tz);
 
-  // Limen v2 (2026-10-03): one flat weekly cap for everyone
-  // (SUGGESTIONS_PER_WEEK). No Premium increase and no AI credits: more
-  // options lowers satisfaction and commitment (D'Angelo & Toma 2017), so
-  // capacity is never sold. See docs/LIMEN_V2_DECISIONS.md.
-  const dailyCap = SUGGESTIONS_PER_WEEK;
-  const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const { data: weekRows } = await supabase
-    .from('match_suggestions')
-    .select('candidate_id')
-    .eq('user_id', user.id)
-    .gte('suggested_date', weekStart);
-  const atDailyCap = (weekRows ?? []).length >= dailyCap;
-  const effectiveCap = dailyCap;
-
-  const suggestions = await generateAndCacheSuggestions(
-    supabase,
-    user.id,
-    viewer,
-    (candidatePool ?? []) as Candidate[],
-    alreadySeen,
-    effectiveCap
-  );
-
-  // capReached: true is the real, new signal the client didn't have
-  // before (confirmed absent in discovery, the cache-first architecture
-  // previously just silently served fewer/cached suggestions with no
-  // explicit blocked state), what the client's "buy credits" prompt is
-  // shown against. Only true when genuinely blocked with zero credits
-  // left to spend, never true just because today's cap exists.
-  const capReached = atDailyCap;
-
-  return new Response(JSON.stringify({ suggestions, capReached, usedCredit: false, aiCredits: 0 }), {
+  return new Response(JSON.stringify({ added }), {
     headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
   });
 });

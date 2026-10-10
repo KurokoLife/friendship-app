@@ -9,7 +9,7 @@ Last updated 2026-10-10. The detailed decisions per area are in docs/DECISIONS.m
 | 1. Onboarding | Decided and built (Oct 4) |
 | 2. Profile | Decided and built (Oct 4) |
 | 3. Safety | Decided and built (Oct 4, selfie rules updated Oct 9) |
-| 4. Discover and matching | Partly decided (Interested gate, weights, hard nos, 3 a week). The rest not reviewed |
+| 4. Discover and matching | Decided and built (Oct 10): one a day, Saved and Interested for 30 days, Inbox tabs |
 | 5. Chat and reflection | Mostly decided (pause, layout, invites, check-ins). Reflect / Check not reviewed |
 | 6. Reminders | Decided and built (Oct 10) |
 | 7. Meetups and planning | Decided and built (Oct 8 to 10). Morning-of video waits (see below) |
@@ -18,13 +18,13 @@ Last updated 2026-10-10. The detailed decisions per area are in docs/DECISIONS.m
 | 9b. Guide | Draft only (claude/Guide_Draft_Plan.md) |
 | 10. Money and settings | Not reviewed |
 
-Suggested next: Guide (9b), then Discover and Saved (4), Reflect (5), Graduation (8), Money and settings (10).
+Suggested next: Guide (9b), then Reflect (5), Graduation (8), Money and settings (10).
 
 ## Open founder decisions
 
 1. Guide: are 3 videos (two at joining, one before the first meetup) enough for launch? Should the other reads move to the moments they help?
 2. Morning-of video "The First Meetup Does Not Need to Be Perfect" is also offered before later meetups. Update its title or content to fit any meetup (waiting; a reminder is set for Oct 17).
-3. Discover: what else to change (suggestion card, Saved, pass feedback).
+3. Discover: watch in the pilot whether one a day feels right, and whether people run out of new people in smaller cities.
 4. Reflect / Check: keep as is, or adjust the questions and observations.
 5. Graduation thresholds (6 meetups / 8 weeks for the ready check, 10 meetups or 6 months for the decision point) are judgment calls; confirm or adjust after pilot data.
 6. Journey pass details and when to build the store products.

@@ -34,6 +34,13 @@ export async function expressInterest(otherId: string): Promise<InterestResult> 
     if (/\bended\b/.test(message)) return { status: 'ended' };
     if (message.includes('active_cap_reached')) return { status: 'error', message: CAPACITY_ERROR_MESSAGES.active_cap_reached };
     if (message.includes('pending_cap_reached')) return { status: 'error', message: CAPACITY_ERROR_MESSAGES.pending_cap_reached };
+    if (message.includes('interest_cap_reached')) {
+      return {
+        status: 'error',
+        message:
+          "You're waiting to hear from 5 people already. Each one closes on its own after 30 days, and then you can say Interested again.",
+      };
+    }
     if (message.includes('blocked') || message.includes('unavailable')) {
       return { status: 'error', message: "This person isn't available right now." };
     }
@@ -50,8 +57,10 @@ export async function expressInterest(otherId: string): Promise<InterestResult> 
 // The ids of people the signed-in member already said Interested to. RLS
 // only ever returns the member's own outgoing rows: nobody can see who is
 // interested in them.
+// Only open ones: an Interested closes after 30 days (2026-10-10).
 export async function fetchMyInterestIds(): Promise<Set<string>> {
-  const { data } = await supabase.from('interests').select('to_user_id');
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase.from('interests').select('to_user_id').gt('created_at', since);
   return new Set((data ?? []).map((r) => r.to_user_id as string));
 }
 
@@ -61,8 +70,37 @@ export async function connectionHasMutualInterest(connectionId: string): Promise
   return data === true;
 }
 
-export const WAITING_FOR_INTEREST_COPY =
-  "You said Interested. If they say Interested too, a chat opens for you both. They won't be told unless they choose you as well.";
+// 2026-10-10, founder's wording. Uses the person's name rather than he or
+// she, since gender isn't shown on profiles.
+export function waitingForInterestCopy(name: string): string {
+  return `Sent privately. If ${name} says Interested too, a chat opens for you both. ${name} is only told if that happens. People decide at their own pace, and that's okay. If it doesn't become mutual within 30 days, it closes on its own.`;
+}
+export const WAITING_FOR_INTEREST_COPY = waitingForInterestCopy('they').replace('If they says', 'If they say').replace('they is only', "They're only");
+
+// Saved (2026-10-10): at most 5, each for 30 days.
+export async function saveForLater(otherId: string): Promise<'saved' | 'full' | 'error'> {
+  const { data, error } = await supabase.rpc('save_for_later', { p_other_user_id: otherId });
+  if (error) return 'error';
+  return data === 'full' ? 'full' : 'saved';
+}
+export const SAVED_FULL_COPY =
+  "You have 5 people saved, the most at one time. Saved people stay for 30 days, or you can remove one in Saved to make room.";
+
+export type MyInterest = {
+  other_user_id: string;
+  display_name: string | null;
+  age_band: string | null;
+  created_at: string;
+  closes_at: string;
+  state: 'open' | 'closed';
+};
+export async function fetchMyInterests(): Promise<MyInterest[]> {
+  const { data } = await supabase.rpc('my_interests');
+  return (data ?? []) as MyInterest[];
+}
+export async function ackInterestClosures(): Promise<void> {
+  await supabase.rpc('ack_interest_closures');
+}
 
 // ---------------------------------------------------------------------
 // Selfie check (manual review, option A)

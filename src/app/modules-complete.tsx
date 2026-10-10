@@ -14,8 +14,7 @@ export default function ModulesCompleteScreen() {
         <View className="gap-4 pt-16">
           <Text className="text-display text-stone-900 dark:text-stone-50">You&apos;re all set</Text>
           <Text className="text-body text-stone-600 dark:text-stone-300">
-            Your first suggestions will arrive soon. You&apos;ll get up to 3 a week, so take your time with
-            each one.
+            You&apos;ll meet one new person each day in Discover, so take your time with each one.
           </Text>
           <Text className="text-body text-stone-600 dark:text-stone-300">
             Before you can say hello to anyone, we check that you&apos;re you, with a quick selfie matched to
