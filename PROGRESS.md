@@ -183,3 +183,9 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Founder: no scam warning for "money", "apple card", "whatsup". Cause: narrow word list and only the first 20 messages checked. Now every message until the two have met, wider list (tested against greetings like "whatsup?" so they don't trigger), note under the newest match.
 - Found while checking: a sent message only appeared once the live update arrived; now shown right away.
 - New `qa-inbox-chat` (27 checks). qa-oct9c's account-switch check now reads only the Inbox part of the page. All 17 suites passing.
+
+## 2026-10-10 (evening, later still): Check removed, Reflect tips, no guide offers in chats
+
+- Founder: remove Check; give Reflect more tips for replying. Check sent the draft plus the last 5 messages to the server. Now gone in the app; `reflection-coach` returns 410 for `check`. Reflect first: Notice / Respond / Keep it going tips, scrolling box (it hid the whole chat on a phone otherwise).
+- Short-guide offers removed from chats (they popped up when both people had written, which read as the app watching). Ended-chat video link and the morning-of nerves video stay, both tied to the person's own action.
+- Privacy promise reworded in docs. qa-inbox-chat now 29 checks.

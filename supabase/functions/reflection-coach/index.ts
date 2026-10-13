@@ -198,14 +198,16 @@ Deno.serve(async (req: Request) => {
   let recent: ContextMessage[] = [];
   try {
     const body = await req.json();
-    if (body.mode !== 'check' && body.mode !== 'mirror') throw new Error('bad mode');
+    // 2026-10-10: "Check" is removed (founder decision). It sent a draft
+    // and recent messages; nothing from a chat is accepted here anymore.
+    if (body.mode === 'check') {
+      return json({ error: 'This is no longer available.' }, 410);
+    }
+    if (body.mode !== 'mirror') throw new Error('bad mode');
     mode = body.mode;
     text = typeof body.text === 'string' ? body.text.trim() : '';
-    recent = Array.isArray(body.recentMessages)
-      ? (body.recentMessages as ContextMessage[])
-          .filter((m) => m && (m.sender === 'me' || m.sender === 'them') && typeof m.content === 'string')
-          .slice(-6)
-      : [];
+    // Chat messages are never accepted, even if a client sends them.
+    recent = [];
     if (!text) throw new Error('Missing text');
   } catch {
     return json({ error: 'Invalid request body' }, 400);

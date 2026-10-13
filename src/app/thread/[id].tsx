@@ -27,8 +27,8 @@ import { PrimaryInterventionCard } from '@/components/primary-intervention-card'
 import { RememberBar } from '@/components/remember-bar';
 import { getHeldCard, holdCard, releaseCard, type HeldCard } from '@/lib/held-card';
 import { ReportModal } from '@/components/report-modal';
-import { UniversalTextBox, type CoachContextMessage } from '@/components/universal-text-box';
-import { EndedConnectionVideoLink, VideoGuidanceCard } from '@/components/video-guidance-card';
+import { UniversalTextBox } from '@/components/universal-text-box';
+import { EndedConnectionVideoLink } from '@/components/video-guidance-card';
 import { fetchConnectionCareStyle } from '@/lib/care-style';
 import {
   FriendlyError,
@@ -743,14 +743,6 @@ export default function ThreadScreen() {
     await dismissRhythmMismatch(connectionId, myId);
   };
 
-  // F18: last 3-5 messages, in order, as context for the draft. Only
-  // sender/content cross into the Edge Function, nothing else about the
-  // conversation.
-  const replyAssistContext: CoachContextMessage[] = messages.slice(-5).map((m) => ({
-    sender: m.sender_id === myId ? 'me' : 'them',
-    content: m.content,
-  }));
-
 
   // 2026-07-30: a brand-new conversation (zero messages either direction)
   // requires the sender to have a real profile photo before their first
@@ -1184,26 +1176,10 @@ export default function ThreadScreen() {
                 />
               </View>
             )}
-            {/* Video trigger/placement architecture (2026-08-11), Videos 2/4/5:
-                deliberately rendered AFTER PrimaryInterventionCard, never
-                instead of it -- optional secondary support only, never the
-                primary relational intervention. myId is guaranteed defined
-                here, this whole block already requires it above.
-                2026-08-12 correction: not rendered at all while Video 3
-                (NextMeetupIndicatorV2, above) or Video 6 (inline in
-                PrimaryInterventionCard just above) already has its own
-                offer visible -- the simplest way to guarantee at most one
-                video guidance offer on screen, without a shared resolver or
-                new priority system. Nothing about WHEN 2/4/5 would
-                individually qualify changes; only whether this component
-                mounts at all does. */}
-            {myId && connectionId && isOn(prompts, 'guides') && !video3OfferActive && !video6OfferActive && (
-              <VideoGuidanceCard
-                connectionId={connectionId}
-                myId={myId}
-                currentInterventionType={shownCard?.intervention_type}
-              />
-            )}
+            {/* 2026-10-10: the short-guide offers (Videos 2 and 4) no longer
+                show inside chats. A guide popping up mid-conversation felt
+                like the app was watching. Where guides belong is part of
+                the Guide plan (claude/Guide_Draft_Plan.md). */}
             </View>
           )}
         </ScrollView>
@@ -1372,7 +1348,6 @@ export default function ThreadScreen() {
             value={draft}
             onChangeText={setDraft}
             context="reply"
-            recentMessages={replyAssistContext}
             otherCareStyle={otherCareStyle}
             otherName={other?.display_name ?? null}
           />

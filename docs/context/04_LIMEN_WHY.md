@@ -28,9 +28,9 @@ Limen's rule: **ease these hard parts, don't remove them.** The hard parts are w
 ## Why AI is used only to help people think
 
 - **AI never writes, rewrites or polishes a message.** People suspected of using AI to write are seen as less warm and less cooperative, and recipients value messages that took effort (research). A message is a show of care; if the app writes it, the care is gone.
-- **AI helps people see, not decide.** "Check" points out things in your own draft (you didn't ask anything back, didn't share anything of yours). "Another way to see it" offers three possible readings and always ends by sending you back to ask the other person. It never takes your side, because agreeable AI makes people more sure they're right and less willing to repair things (research).
+- **AI helps people see, not decide.** "Reflect first" offers questions and tips for replying (notice what they shared, respond to it, share a little back, ask one open question), with no AI and nothing sent. "Check" was removed because it sent the other person's messages to be looked at. "Another way to see it" offers three possible readings and always ends by sending you back to ask the other person. It never takes your side, because agreeable AI makes people more sure they're right and less willing to repair things (research).
 - **Starters are allowed, finished in your own words.** They lower the blank-page fear (hard part 2) without doing the work.
-- **The app never reads messages.** Reading private conversations would break trust, and timing is enough to know when a nudge might help.
+- **No one, and no AI, reads chats.** Reading private conversations would break trust, and timing is enough to know when a nudge might help. The scam word check runs only on the receiver's phone and keeps nothing.
 - **AI writes plan ideas and the self-reflection, nothing that speaks for a person.**
 
 ## Why each part works the way it does

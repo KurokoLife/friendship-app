@@ -43,6 +43,7 @@ const { U, check, tap, text, go, q } = L;
   check('Chat: scam note shown once', (t.match(/Limen will never ask you for money/g) || []).length === 1, t.slice(0, 900));
   check('Chat: Reflect, Another way to see it, Reminders', t.includes('Reflect first') && t.includes('Another way to see it') && t.includes('Reminders'));
   check('Chat: no read receipts', !/\b(seen|read at|delivered)\b/i.test(t));
+  check('Chat: no guide offer inside the chat', !t.includes('A short guide on showing up'));
 
   // Send a message in your own words
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('Limen is for meeting, how about a walk Sunday?');
@@ -53,8 +54,13 @@ const { U, check, tap, text, go, q } = L;
   check('Send: shows in the chat', (await text(d.page)).includes('how about a walk Sunday?'), (await text(d.page)).slice(-600));
 
   // Reflect first shows questions; Another way to see it opens
+  await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('a draft');
+  await d.page.waitForTimeout(400);
+  check('No "Check" link, even with a draft (removed)', (await d.page.getByText('Check', { exact: true }).count()) === 0);
   await tap(d.page, 'Reflect first', { wait: 800 });
-  check('Reflect first: questions open', (await text(d.page)).includes('Hide questions'));
+  t = await text(d.page);
+  check('Reflect first: tips for replying', t.includes('Hide questions') && t.includes('Notice') && t.includes('Keep it going') && t.includes('Reply to one thing they said before adding your own news.'), t.slice(-900));
+  await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('');
   await tap(d.page, 'Hide questions', { wait: 500 });
   await d.page.getByText('Unsure how to read something? Another way to see it').click();
   await d.page.waitForTimeout(1000);

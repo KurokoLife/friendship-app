@@ -16,7 +16,7 @@ A friendship app for adults going through change (divorce, a move, loss, a caree
 6. Limen is not meant to be convenient. It builds the "friendship muscle".
 
 Working rules that follow from these:
-- The app never reads message content. Every reminder uses timing only.
+- No one, and no AI, reads your chats. Every reminder uses timing only. The one exception is the scam word check, which runs on the receiver's own phone and sends or stores nothing.
 - Starters are fine, but the person must finish them in their own words (`StemMessageBox`).
 - Equal choices, no pushing, no guilt, never act on someone's behalf.
 - The word "AI" never appears in the app. Limen helps with gentle nudges, reminders and questions.
@@ -54,9 +54,9 @@ Working rules that follow from these:
 
 ## 6. Chat
 
-- Layout (phone first): a slim plan bar and a "What I want to remember about X" bar at the top (tap to open, Hide to close); prompt cards sit under the newest message.
+- Layout (phone first): a slim plan bar and a "What I want to remember about X" bar at the top (tap to open, Hide to close); prompt cards sit under the newest message. No guide offers inside chats (removed Oct 10; where guides belong is part of the Guide plan).
 - Header actions: Pause · End · Report · Block.
-- Reflect (AI, `reflection-coach`): "Check" gives fixed observations about your own draft (didn't ask anything back, didn't share anything of yours, missed their point, jumped much deeper); "Another way to see it" gives three readings (their circumstances, how they might see you, your fear), never a verdict, and always ends by sending you back to ask them. It never writes a message. Shows the other person's "How I like care" when there is one. `generate-reply-draft` is retired.
+- Reflect first: questions and tips shown under the message box, in three groups (Notice, Respond, Keep it going), plus the other person's "How I like care" words when they wrote any. Static text, nothing is sent anywhere. "Check" was removed on Oct 10. "Another way to see it" (`reflection-coach`, mirror only): you describe the moment in your own words and get three readings (their circumstances, how they might see you, your fear), never a verdict, always ending by sending you back to ask them. It never writes a message.
 - Scam note: until you've met in person, if a message from the other person mentions money (money, cash, amounts, Apple Card, gift cards, crypto, bank details) or moving off the app (WhatsApp, Telegram, a phone number or email), the receiver sees a calm warning under the newest such message. Checked on the phone, nothing stored.
 - Pause: 3 days, 1 week or 2 weeks (still counts as one of your 3 active chats); always with a short note in your own words; both people see who paused and until when; no messages while paused; only the pauser can resume early; the other person can end; at most 2 pauses per person per chat in 30 days.
 - End (honest exit): send a short message (starters you finish yourself) or end without one; the other person still sees an honest "this connection was ended" banner. Optional private reason, never shown to them. Reopening an ended chat takes an extra confirm.

@@ -211,7 +211,6 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                     value={draft}
                     onChangeText={handleDraftChange}
                     context="exit"
-                    checkEnabled={false}
                   />
                 </View>
               )}
