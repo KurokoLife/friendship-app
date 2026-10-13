@@ -30,7 +30,11 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-const MODEL = 'claude-sonnet-5';
+// Haiku (2026-10-13): three short ideas don't need a bigger model, and the
+// person is waiting with the card open. Answers in a few seconds.
+const MODEL = 'claude-haiku-5-5';
+// Past this, hand-written ideas show instead of keeping the person waiting.
+const TIMEOUT_MS = 9000;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -220,9 +224,10 @@ Deno.serve(async (req: Request) => {
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 3000,
+        max_tokens: 900,
         messages: [{ role: 'user', content: buildPrompt(ctx) }],
       }),
     });
