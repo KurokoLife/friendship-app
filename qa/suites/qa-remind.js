@@ -66,6 +66,7 @@ const { U, check, tap, text, go, q } = L;
   await tap(m.page, 'Send', { nth: 0, wait: 2500 });
   const sent = await q(`select content from messages where connection_id=$1 and sender_id=$2 order by created_at desc limit 1`, [B, U.maria]);
   check('Check-in message sent in her own words', sent[0]?.content === 'Hi! Just checking in, how was the trip?', sent[0]?.content);
+  check('It shows in the chat right away (no refresh)', (await text(m.page)).includes('Hi! Just checking in, how was the trip?'), (await text(m.page)).slice(0, 900));
   iv = await q(`select count(*)::int n from connection_interventions where connection_id=$1 and status='pending' and intervention_type='conversation_restart_prompt'`, [B]);
   check('A new message puts check-ins away for both', iv[0].n === 0, iv[0].n);
 

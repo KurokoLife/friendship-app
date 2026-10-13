@@ -1,6 +1,6 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-10. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-13. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
@@ -74,7 +74,7 @@ Working rules that follow from these:
 
 ## 8. Planning a meetup
 
-- "Let's plan something" is one person's private draft: pick ideas (3 suggested plus your own), mark any number of rough times (morning / afternoon / evening, next 2 weeks; the card shows when the other person is usually free), add an optional note in your own words, then "Send invite". The invite is one chat message. A newer invite replaces an older one.
+- "Let's plan something" is one person's private draft: pick ideas (3 suggested plus your own), mark any number of rough times (morning / afternoon / evening, next 2 weeks; the card shows when the other person is usually free), add an optional note in your own words (starters include questions like "Is there anything you've been wanting to try?"), then "Send invite". All on one screen, one place to write, one Send (since Oct 13). An unsent note survives a refresh. The invite is one chat message. A newer invite replaces an older one.
 - The other person replies in the chat or taps "Pick a time that works". A time the sender offered sets the plan right away; a different time goes back to the sender to confirm. The sender can also "Set the plan" after agreeing in the chat.
 - Ideas (`plan-ideas` server function; hand-written fallback ideas when it's unavailable): never romantic, adult, risky or drinking-focused; public before the first meetup; use the stricter of the two people's budget, length and travel (never says whose); a home idea only when one said "happy to host" and the other "happy to go to theirs" (asked privately after the first meetup). Headings like "You both like X" only from a real listed interest.
 - Once a plan is agreed, each person is asked "Add it to your calendar?" (Google / Apple or Outlook / Not now), and again whenever the plan changes.
@@ -82,7 +82,7 @@ Working rules that follow from these:
 
 ## 9. Meetups
 
-- Plan card: date, time, place (OpenStreetMap search with Google/Apple Maps links), activity. Moving the plan needs the other person to confirm again; changing only the activity doesn't.
+- Plan card: date, time, place (OpenStreetMap search near your own city, nearest first with distance, Google/Apple Maps links), activity. Moving the plan needs the other person to confirm again; changing only the activity doesn't.
 - Day before: "Still on?". Morning of: a private "How are you feeling?" (Nervous offers the video "The First Meetup Does Not Need to Be Perfect").
 - After: "Did you meet?" asks both, 3 hours after the start (or 9am next day). One yes plus a week with no answer from the other counts. A no from either doesn't. Nobody answering for 2 weeks lets it go.
 - "Met up already? Add it" adds a meetup made outside the app; it counts on the other person's yes, or after a week.
@@ -101,7 +101,7 @@ Working rules that follow from these:
 
 ## 11. Graduation
 
-- One mechanism (`graduation_stage()`). Ready check at 6+ meetups that happened, the first 8+ weeks ago, each person proposed 2+ (about 3 months at twice a month; no meeting pace needed since Oct 13): each is asked privately "Could you two keep this going outside Limen?" (Yes / Not yet / I'm not sure this is a friendship). Graduates only on a mutual yes; nobody sees a non-matching answer.
+- One mechanism (`graduation_stage()`). Ready check at 6+ meetups that happened, the first 8+ weeks ago, each person proposed 2+ (about 3 months at twice a month; no meeting pace needed since Oct 13): each is asked privately "You and X have met N times so far and have a good rhythm. Would you like to continue your friendship without Limen?" (Yes / Not yet / I'm not sure this is a friendship). Graduates only on a mutual yes; nobody sees a non-matching answer.
 - Decision point at 10 meetups or 6 months: graduate, keep going here (private reason), or close honestly.
 - Graduated chats leave the 3-active limit, keep notes, and get 30/90-day continuation checks.
 

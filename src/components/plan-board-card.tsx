@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { RememberAsksLine } from '@/components/remember-bar';
-import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
 import {
   BUDGET_OPTIONS,
   DURATION_OPTIONS,
@@ -33,6 +32,7 @@ import {
   type PlanSlot,
   type PlanState,
 } from '@/lib/plan-board';
+import { loadDraft, saveDraft } from '@/lib/held-card';
 import { supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -65,7 +65,13 @@ type Props = {
   notesOn?: boolean;
 };
 
-const NOTE_STEMS = ['Would any of these work for you? ', "I'd really like to ", 'No pressure at all, '];
+const NOTE_STEMS = [
+  'Would any of these work for you? ',
+  "I'd really like to ",
+  'No pressure at all, ',
+  "Is there anything you've been wanting to try? ",
+  'What do you usually like to do on weekends? ',
+];
 
 function firstName(name: string) {
   return name.split(' ')[0] || name;
@@ -131,13 +137,10 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   const [homeSkipped, setHomeSkipped] = useState(false);
   const [editingHome, setEditingHome] = useState(false);
   const [ownIdea, setOwnIdea] = useState('');
-  const [askOpen, setAskOpen] = useState(false);
-  const [askSent, setAskSent] = useState(false);
   const [dismissedEnding, setDismissedEnding] = useState<string | null>(null);
   const [myTimes, setMyTimes] = useState<Set<string>>(new Set());
   const [availability, setAvailability] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [step, setStep] = useState<'pick' | 'note'>('pick');
   const [note, setNote] = useState('');
   const [noteStem, setNoteStem] = useState<string | null>(null);
   // True once this person tapped "Let's plan something" here. The card is
@@ -165,7 +168,6 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
     if (openRequest) {
       setSheetOpen(true);
       setAskFlow(true);
-      setStep('pick');
     }
   }, [openRequest]);
 
@@ -231,6 +233,17 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
     generatedFor.current = board.id;
     newIdeas(board.id);
   }, [board, open, mine, hasIdeas, needsPrefs, needsHome, generating, newIdeas]);
+
+  // An unsent note survives a refresh (same 3-day draft store as notes).
+  const noteLoadedFor = useRef<string | null>(null);
+  const boardId = state?.board?.status === 'open' ? state.board.id : null;
+  useEffect(() => {
+    if (!boardId || noteLoadedFor.current === boardId) return;
+    noteLoadedFor.current = boardId;
+    loadDraft(`plan-note:${boardId}`).then((saved) => {
+      if (saved) setNote((current) => current || saved);
+    });
+  }, [boardId]);
 
   // Your usual times from the profile start filled in. You can change them.
   useEffect(() => {
@@ -405,103 +418,36 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
       .catch(() => setError("Couldn't save your times. Please try again."));
   };
 
-  // ---- Step 2: a note in your own words, then send ----
-  if (step === 'note') {
-    const trimmed = note.trim();
-    const stemOnly = !!noteStem && (trimmed === noteStem.trim() || trimmed.length <= noteStem.trim().length + 1);
-    const send = () =>
-      run(async () => {
-        await saveChain.current;
-        await sendPlanInvite(board.id, trimmed || null);
-        setSheetOpen(false);
-        setStep('pick');
-        setNote('');
-        setNoteStem(null);
-        setAskFlow(false);
-        onSent?.();
-      }, "That didn't send. Please try again.");
-    return shell(
-      <>
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          Here&apos;s your invite. {name} can reply in the chat, or pick a time that works for them.
-        </Text>
-        <View className="gap-1 rounded-xl border border-stone-200 bg-white p-3 dark:border-stone-700 dark:bg-stone-800">
-          <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">Ideas</Text>
-          {draft.map((i) => (
-            <Text key={i.id} className="text-body text-stone-800 dark:text-stone-100">
-              • {i.title}
-            </Text>
-          ))}
-          <Text className="mt-2 text-caption font-semibold text-stone-600 dark:text-stone-300">Times</Text>
-          {chosenTimes.map((s) => (
-            <Text key={slotKey(s)} className="text-body text-stone-800 dark:text-stone-100">
-              • {slotLabel(s)}
-            </Text>
-          ))}
-        </View>
-        <Text className="mt-1 text-caption font-semibold text-stone-600 dark:text-stone-300">
-          Add a note (optional)
-        </Text>
-        <View className="flex-row flex-wrap gap-2">
-          {NOTE_STEMS.map((s) => (
-            <Chip
-              key={s}
-              label={`${s.trim()}...`}
-              selected={noteStem === s}
-              onPress={() => {
-                setNoteStem(s);
-                setNote(s);
-              }}
-            />
-          ))}
-        </View>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          placeholder="Write it in your own words"
-          placeholderTextColor={MUTED_ICON_COLOR}
-          multiline
-          maxLength={NOTE_MAX}
-          className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
-        />
-        <Text className="text-caption text-stone-400 dark:text-stone-500">
-          {stemOnly ? 'Finish it in your own words, or clear it to send without a note.' : 'Your words, sent with the invite.'}
-        </Text>
-        <View className="flex-row items-center gap-4">
-          <PrimaryButton label={busy ? 'Sending...' : `Send invite to ${name}`} disabled={busy || !ready || stemOnly} onPress={send} />
-          <LinkButton label="Back" muted disabled={busy} onPress={() => setStep('pick')} />
-        </View>
-      </>,
-      summary
-    );
-  }
-
-  // ---- Step 1: ideas and times ----
-  const askStems = ["Is there anything you've been wanting to try? ", 'What do you usually like to do on weekends? '];
-  const askBox = askSent ? (
-    <Text className="text-caption text-stone-500 dark:text-stone-400">Sent. Keep talking it over in the chat.</Text>
-  ) : askOpen ? (
-    <StemMessageBox
-      stems={askStems}
-      onSend={async (text) => {
-        const ok = await sendChatMessage(connectionId, text);
-        if (ok) setAskSent(true);
-        return ok;
-      }}
-      onCancel={() => setAskOpen(false)}
-    />
-  ) : (
-    <Chip label={`Not sure? Ask ${name} in the chat`} selected={false} onPress={() => setAskOpen(true)} />
-  );
+  // One screen, top to bottom (2026-10-13): what, when, an optional note
+  // in your own words, then one Send. Questions for the other person (like
+  // "anything you've been wanting to try?") are starters for this same
+  // note, so there's only one place to write and one button that sends.
+  const trimmed = note.trim();
+  const stemOnly = !!noteStem && (trimmed === noteStem.trim() || trimmed.length <= noteStem.trim().length + 1);
+  const send = () =>
+    run(async () => {
+      await saveChain.current;
+      await sendPlanInvite(board.id, trimmed || null);
+      setSheetOpen(false);
+      setNote('');
+      setNoteStem(null);
+      saveDraft(`plan-note:${board.id}`, null);
+      setAskFlow(false);
+      onSent?.();
+    }, "That didn't send. Please try again.");
+  const changeNote = (value: string) => {
+    setNote(value);
+    saveDraft(`plan-note:${board.id}`, value || null);
+  };
 
   return shell(
     <>
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        Pick any ideas you&apos;d enjoy and mark when you&apos;re free. Then send {name} one invite and talk it over in
-        the chat.
+        Pick any ideas you&apos;d enjoy, mark when you&apos;re free, and add a note if you like. Then send {name} one
+        invite.
       </Text>
 
-      <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">1. What</Text>
+      <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">1. What would you enjoy?</Text>
       {generating && !hasIdeas ? (
         <View className="flex-row items-center gap-2 py-2">
           <ActivityIndicator color={MUTED_ICON_COLOR} />
@@ -523,7 +469,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
         />
       ) : (
         <Text className="text-caption text-stone-500 dark:text-stone-400">
-          That&apos;s all the new ideas for now. Add your own idea, or ask {name} in the chat.
+          That&apos;s all the new ideas for now. Add your own idea, or ask {name} in your note.
         </Text>
       )}
       <View className="gap-2">
@@ -553,7 +499,6 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
           </Text>
         )}
       </View>
-      {askBox}
 
       <Text className="mt-2 text-caption font-semibold text-stone-600 dark:text-stone-300">2. When are you free?</Text>
       <View className="gap-1 rounded-xl border border-accent-500/50 bg-accent-500/10 p-3">
@@ -619,8 +564,47 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
         ))}
       </View>
 
+      <Text className="mt-2 text-caption font-semibold text-stone-600 dark:text-stone-300">
+        3. Add a note (optional)
+      </Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        Not sure what {name} would enjoy? Ask in your note. Tap a starter and finish it in your own words.
+      </Text>
+      <View className="flex-row flex-wrap gap-2">
+        {NOTE_STEMS.map((s) => (
+          <Chip
+            key={s}
+            label={`${s.trim()}...`}
+            selected={noteStem === s}
+            onPress={() => {
+              setNoteStem(s);
+              changeNote(s);
+            }}
+          />
+        ))}
+      </View>
+      <TextInput
+        value={note}
+        onChangeText={changeNote}
+        placeholder="Write it in your own words"
+        placeholderTextColor={MUTED_ICON_COLOR}
+        multiline
+        maxLength={NOTE_MAX}
+        accessibilityLabel="Note to send with your invite"
+        className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+      />
+      {stemOnly && (
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Finish it in your own words, or clear it to send without a note.
+        </Text>
+      )}
+
       <View className="mt-2 gap-1">
-        <PrimaryButton label="Next: add a note" disabled={busy || !ready} onPress={() => setStep('note')} />
+        <PrimaryButton
+          label={busy ? 'Sending...' : `Send invite to ${name}`}
+          disabled={busy || !ready || stemOnly}
+          onPress={send}
+        />
         <Text className="text-caption text-stone-400 dark:text-stone-500">
           {draft.length === 0
             ? 'Pick at least one idea.'
@@ -628,7 +612,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
               ? 'Mark at least one time when you are free.'
               : `${draft.length} ${draft.length === 1 ? 'idea' : 'ideas'}, ${chosenTimes.length} ${
                   chosenTimes.length === 1 ? 'time' : 'times'
-                }. Only you see this until you send it.`}
+                }${trimmed && !stemOnly ? ' and your note' : ''}. Only you see this until you send it. ${name} can reply in the chat, or pick a time that works.`}
         </Text>
       </View>
 

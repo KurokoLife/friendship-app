@@ -52,11 +52,11 @@ function nextDow(dow, from = 1) {
   const ideas = await q(`select * from plan_ideas where connection_id=$1 order by created_at`, [cid]);
   check('Three ideas', ideas.length === 3, ideas.length);
   check('No drinking ideas', !ideas.some((i) => /wine|beer|bar\b|brewer|cocktail|pub\b/i.test(i.title + ' ' + (i.description ?? ''))));
-  check('Ideas and times on one screen', t.includes('1. What') && t.includes('2. When are you free?'), t.slice(0, 900));
+  check('Ideas, times and the note on one screen', t.includes('1. What would you enjoy?') && t.includes('2. When are you free?') && t.includes('3. Add a note (optional)'), t.slice(0, 900));
+  check('One place to write: no separate ask box with its own Send', !t.includes('Not sure? Ask David in the chat') && !t.includes('Next: add a note') && t.includes("Not sure what David would enjoy? Ask in your note.") && t.includes("Is there anything you've been wanting to try?..."), t.slice(0, 2500));
   check('Says plainly when David is usually free', t.includes('David is usually free: weekends') && t.includes('Those times have an orange outline below. Pick as many times as work for you.'), t.slice(0, 1500));
   const mDraft = await q(`select part, extract(dow from day)::int dow from plan_times where connection_id=$1 and user_id=$2`, [cid, U.maria]);
   check("Maria's usual times start filled in", mDraft.length > 0 && mDraft.every((r) => r.part === 'evening' && r.dow >= 1 && r.dow <= 5), JSON.stringify(mDraft.slice(0, 3)));
-  check('Asking for help is offered while picking', t.includes('Not sure? Ask David in the chat'));
   const ideaA = ideas.find((i) => i.slot === 'easy');
   const ideaB = ideas.find((i) => i.slot === 'new');
   await tap(m.page, ideaA.title, { wait: 1800 });
@@ -66,7 +66,7 @@ function nextDow(dow, from = 1) {
   await m.page.waitForTimeout(1500);
   t = await text(m.page);
   const nTimes = mDraft.length + 1;
-  check('Counts ideas and times, private until sent', t.includes(`2 ideas, ${nTimes} times. Only you see this until you send it.`), t.slice(-700));
+  check('Counts ideas and times, private until sent', t.includes(`2 ideas, ${nTimes} times. Only you see this until you send it.`), t.slice(-900));
   let r = await rpcAs(U.david, `select count(*)::int n from plan_times where connection_id=$1`, [cid]);
   check("Maria's draft times are private", r.rows[0].n === 0);
   r = await rpcAs(U.david, `select count(*)::int n from plan_picks where connection_id=$1`, [cid]);
@@ -82,16 +82,20 @@ function nextDow(dow, from = 1) {
   t = await text(m.page);
   check('Chat shows her draft summary', t.includes('Plan something') && t.includes(`Your invite: 2 ideas, ${nTimes} times. Not sent yet.`), t.slice(0, 700));
   await tap(m.page, 'Open', { wait: 1500 });
-  await tap(m.page, 'Next: add a note', { wait: 1200 });
-  t = await text(m.page);
-  check('Note step shows the invite: ideas and times', t.includes("Here's your invite.") && t.includes(`• ${ideaA.title}`) && t.includes(`• ${dayLabel(sat)}, afternoon`) && t.includes('Add a note (optional)'), t.slice(0, 1200));
   await tap(m.page, 'Would any of these work for you?...', { wait: 500 });
   t = await text(m.page);
   const sendBtn = m.page.getByText('Send invite to David', { exact: true });
   check('A starter alone is not enough', t.includes('Finish it in your own words, or clear it to send without a note.') && await sendBtn.evaluate((el) => !!el.closest('[aria-disabled="true"]')), t.slice(-600));
-  const note = m.page.locator('textarea[placeholder="Write it in your own words"]');
-  await note.click(); await note.press('End'); await note.type('Weekends are easiest for me.');
+  const note = m.page.locator('textarea[aria-label="Note to send with your invite"]');
+  await note.click(); await note.press('End'); await note.type('Weekends are easiest');
+  await m.page.waitForTimeout(600);
+  // An unsent note survives a refresh
+  await go(m.page, `/thread/${cid}`, 3500);
+  await tap(m.page, 'Open', { wait: 1500 });
+  check('Unsent note survives a refresh', (await note.inputValue()) === 'Would any of these work for you? Weekends are easiest', await note.inputValue().catch(() => 'none'));
+  await note.click(); await note.press('End'); await note.type(' for me.');
   await m.page.waitForTimeout(300);
+  check('Send line mentions the note', (await text(m.page)).includes(`2 ideas, ${nTimes} times and your note. Only you see this until you send it.`), (await text(m.page)).slice(-500));
   await sendBtn.click();
   await m.page.waitForTimeout(3000);
   const inv = (await q(`select * from plan_invites where connection_id=$1`, [cid]))[0];

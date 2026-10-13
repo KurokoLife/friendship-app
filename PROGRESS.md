@@ -200,3 +200,11 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 
 - Founder: people should ask the other person, not rely on the app to interpret. Removed the link and sheet; `reflection-coach` retired (410). Chat line and a Reflect first tip: "Not sure what they meant? Ask them."
 - Graduation ready check no longer needs a meeting pace (`20261013000000_graduation_no_pace.sql`, `gradsql.sql`).
+
+## 2026-10-13: Plan something on one screen, kinder graduation question
+
+- Founder: two note areas in the planning sheet felt odd, and "the second note doesn't get sent". Merged into one flow (what, when, note, one Send). The note itself did reach the server in testing; the likely cause was that messages sent from the top box (and other cards) didn't show until the live update arrived. Fixed for every card with `onChatMessageSent`.
+- Removed the first-plan feelings pop-up and its Guide link.
+- Graduation ready-check wording changed to the founder's supportive version, with the real meetup count.
+- QA: qa-plan updated (one screen, starters, note survives refresh), qa-remind checks a check-in message shows right away.
+- Place search: only places near the person's city (box around it, nearest first, distance shown). Founder searched in LA and got places in other states and countries. qa-oct9 covers it with a far-away fake result.

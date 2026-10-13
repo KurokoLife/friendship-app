@@ -1602,7 +1602,8 @@ function CheckInPrompt({
 // Limen v2 (2026-10-03) graduation spec, see docs/LIMEN_V2_DECISIONS.md.
 // get_active_intervention returns payload.stage:
 //   - 'ready_check': earliest point (6+ meetups over 8+ weeks, both people
-//     have proposed at least 2 plans, a rhythm is set). Asked privately.
+//     have proposed at least 2 plans; no set pace needed since
+//     2026-10-13). Asked privately, in supportive words.
 //   - 'decision_point': 10 meetups or 6 months since matching. A choice is
 //     required: graduate together, keep going here for now (with a short
 //     private reason), or close honestly.
@@ -1724,10 +1725,13 @@ function GraduationCheckpoint({
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        You and {otherName} both make plans and you have a rhythm. Could you two keep this going outside Limen?
+        {meetups && meetups > 0
+          ? `You and ${otherName} have met ${meetups} times so far and have a good rhythm.`
+          : `You and ${otherName} have met several times so far and have a good rhythm.`}{' '}
+        Would you like to continue your friendship without Limen?
       </Text>
       <Text className="text-caption text-stone-400 dark:text-stone-600">
-        Private. Nobody sees your answer. If you both say yes, you graduate together.
+        Private. Nobody sees your answer. If you both say yes, you graduate together. Your chat and notes stay.
       </Text>
       <View className="gap-2">
         <OptionPill label="Yes" onPress={() => !busy && pick('mostly_on_our_own')} />

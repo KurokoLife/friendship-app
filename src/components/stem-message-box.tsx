@@ -10,6 +10,16 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 // once they have added something of their own, the same rule as the Honest
 // Exit starters. The app never writes the message for them.
 
+// The chat listens here so a message sent from a card shows right away,
+// without waiting for the live update (2026-10-13).
+const sentListeners = new Set<(connectionId: string) => void>();
+export function onChatMessageSent(listener: (connectionId: string) => void): () => void {
+  sentListeners.add(listener);
+  return () => {
+    sentListeners.delete(listener);
+  };
+}
+
 export async function sendChatMessage(connectionId: string, text: string): Promise<boolean> {
   const {
     data: { user },
@@ -18,6 +28,7 @@ export async function sendChatMessage(connectionId: string, text: string): Promi
   const { error } = await supabase
     .from('messages')
     .insert({ connection_id: connectionId, sender_id: user.id, content: text.trim(), type: 'text' });
+  if (!error) sentListeners.forEach((l) => l(connectionId));
   return !error;
 }
 

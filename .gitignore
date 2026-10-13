@@ -47,3 +47,4 @@ example
 qa/.local/
 qa/node_modules/
 qa/package-lock.json
+qa/qa/

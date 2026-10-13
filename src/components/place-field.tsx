@@ -14,7 +14,7 @@ export type PlaceValue = {
 
 export const EMPTY_PLACE: PlaceValue = { name: '', address: null, lat: null, lng: null };
 
-type Suggestion = PlaceValue & { key: string };
+type Suggestion = PlaceValue & { key: string; distance?: string | null };
 
 type PhotonFeature = {
   geometry?: { coordinates?: [number, number] };
@@ -25,8 +25,8 @@ type PhotonFeature = {
 // through Photon (free, no account or key needed) and keeps the place's
 // name, street address and map position, so the plan can open in Google
 // Maps or Apple Maps. Typing a place without picking a suggestion still
-// works, it is just saved as typed. Results lean towards the person's own
-// city from their profile.
+// works, it is just saved as typed. Results stay near the person's own
+// city from their profile (see searchPlaces).
 function toSuggestion(f: PhotonFeature, i: number): Suggestion | null {
   const p = f.properties ?? {};
   const coords = f.geometry?.coordinates;
@@ -44,27 +44,70 @@ function toSuggestion(f: PhotonFeature, i: number): Suggestion | null {
   };
 }
 
-async function searchPlaces(text: string, bias: { lat: number; lng: number } | null): Promise<Suggestion[]> {
-  const params = new URLSearchParams({ q: text, limit: '6', lang: 'en' });
-  if (bias) {
-    // Rounded: the search only needs a rough area, not an exact location.
-    params.set('lat', bias.lat.toFixed(1));
-    params.set('lon', bias.lng.toFixed(1));
-  }
+type Area = { lat: number; lng: number; miles: number };
+
+function milesBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const r = (d: number) => (d * Math.PI) / 180;
+  const x =
+    Math.sin(r(a.lat)) * Math.sin(r(b.lat)) + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.cos(r(b.lng) - r(a.lng));
+  return 3959 * Math.acos(Math.min(1, Math.max(-1, x)));
+}
+
+// "@Eatalian, gardena" -> "Eatalian gardena": symbols and commas only get
+// in the way of the search.
+export function cleanPlaceQuery(text: string): string {
+  return text
+    .replace(/[@#*"“”]/g, ' ')
+    .replace(/[,;]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function photon(params: URLSearchParams): Promise<PhotonFeature[]> {
   const res = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
   if (!res.ok) throw new Error(`Search failed (${res.status})`);
   const json = (await res.json()) as { features?: PhotonFeature[] };
+  return json.features ?? [];
+}
+
+// Near the person only (2026-10-13): when their profile has a location,
+// results are limited to a box around it (their Discover distance, at
+// least 25 and at most 75 miles) and sorted by distance, so a search in Los
+// Angeles never lists places in another state or country.
+async function searchPlaces(raw: string, area: Area | null): Promise<Suggestion[]> {
+  const text = cleanPlaceQuery(raw);
+  if (text.length < 2) return [];
+  const base = () => new URLSearchParams({ q: text, limit: '15', lang: 'en' });
+  let features: PhotonFeature[];
+  if (area) {
+    const dLat = area.miles / 69;
+    const dLng = area.miles / (69 * Math.max(0.2, Math.cos((area.lat * Math.PI) / 180)));
+    const params = base();
+    params.set('bbox', [area.lng - dLng, area.lat - dLat, area.lng + dLng, area.lat + dLat].map((n) => n.toFixed(3)).join(','));
+    params.set('lat', area.lat.toFixed(2));
+    params.set('lon', area.lng.toFixed(2));
+    params.set('location_bias_scale', '0.1');
+    features = await photon(params);
+  } else {
+    features = await photon(base());
+  }
   const seen = new Set<string>();
-  const out: Suggestion[] = [];
-  (json.features ?? []).forEach((f, i) => {
+  const out: (Suggestion & { miles: number | null })[] = [];
+  features.forEach((f, i) => {
     const s = toSuggestion(f, i);
     if (!s) return;
     const k = `${s.name}|${s.address}`;
     if (seen.has(k)) return;
     seen.add(k);
-    out.push(s);
+    const miles = area && s.lat != null && s.lng != null ? milesBetween(area, { lat: s.lat, lng: s.lng }) : null;
+    if (area && miles != null && miles > area.miles * 1.5) return;
+    out.push({ ...s, miles });
   });
-  return out.slice(0, 5);
+  if (area) out.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
+  return out.slice(0, 6).map(({ miles, ...s }) => ({
+    ...s,
+    distance: miles == null ? null : miles < 1 ? 'Under a mile away' : `${Math.round(miles)} mi away`,
+  }));
 }
 
 export function PlaceField({
@@ -82,7 +125,7 @@ export function PlaceField({
   const [searching, setSearching] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
   const [open, setOpen] = useState(false);
-  const bias = useRef<{ lat: number; lng: number } | null>(null);
+  const area = useRef<Area | null>(null);
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -93,11 +136,16 @@ export function PlaceField({
       if (!user) return;
       const { data } = await supabase
         .from('profiles')
-        .select('location_lat, location_lng')
+        .select('location_lat, location_lng, search_radius_miles')
         .eq('user_id', user.id)
         .maybeSingle();
       if (data?.location_lat != null && data?.location_lng != null) {
-        bias.current = { lat: data.location_lat as number, lng: data.location_lng as number };
+        const radius = Number(data.search_radius_miles) || 25;
+        area.current = {
+          lat: data.location_lat as number,
+          lng: data.location_lng as number,
+          miles: Math.min(75, Math.max(25, radius)),
+        };
       }
     })().catch(() => undefined);
   }, []);
@@ -114,7 +162,7 @@ export function PlaceField({
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const found = await searchPlaces(text, bias.current);
+        const found = await searchPlaces(text, area.current);
         if (id !== requestId.current) return;
         setResults(found);
         setSearchFailed(false);
@@ -159,7 +207,9 @@ export function PlaceField({
             <Text className="px-3 py-2 text-caption text-stone-500 dark:text-stone-400">
               {searchFailed
                 ? "Place search isn't working right now. You can keep what you typed."
-                : 'No places found. You can keep what you typed.'}
+                : area.current
+                  ? 'No places found near you. Try just the name, or keep what you typed.'
+                  : 'No places found. You can keep what you typed.'}
             </Text>
           ) : (
             results.map((r) => (
@@ -172,7 +222,11 @@ export function PlaceField({
                 }}
                 className="gap-0.5 border-b border-stone-100 px-3 py-2 active:bg-stone-100 dark:border-stone-700/60 dark:active:bg-stone-700">
                 <Text className="text-body text-stone-900 dark:text-stone-50">{r.name}</Text>
-                {r.address && <Text className="text-caption text-stone-500 dark:text-stone-400">{r.address}</Text>}
+                {(r.address || r.distance) && (
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    {[r.address, r.distance].filter(Boolean).join(' · ')}
+                  </Text>
+                )}
               </Pressable>
             ))
           )}

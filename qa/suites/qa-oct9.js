@@ -7,6 +7,7 @@ async function hitIs(page, label) {
 }
 const PHOTON = { features: [
   { geometry: { coordinates: [-122.2712, 37.8044] }, properties: { osm_type: 'N', osm_id: 1, name: 'Blue Bottle Coffee', housenumber: '300', street: 'Webster Street', city: 'Oakland', state: 'California' } },
+  { geometry: { coordinates: [139.70, 35.66] }, properties: { osm_type: 'N', osm_id: 3, name: 'Blue Bottle Coffee', street: 'Omotesando', city: 'Tokyo', state: 'Tokyo' } },
   { geometry: { coordinates: [-122.27, 37.80] }, properties: { osm_type: 'N', osm_id: 2, name: 'Blue Bottle Coffee', street: 'Broadway', city: 'Oakland', state: 'California' } },
 ] };
 (async () => {
@@ -70,15 +71,23 @@ const PHOTON = { features: [
   check('Same pace: Maria sees you both said', (await text(m.page)).includes('You both said: every few weeks'));
 
   // ---- 4. Place search + maps + activity-only change ----
-  await m.page.route('https://photon.komoot.io/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(PHOTON) }));
+  // 2026-10-13: results stay near the person (Maria lives in Oakland here).
+  await q(`update profiles set location_lat = 37.80, location_lng = -122.27, search_radius_miles = 30 where user_id = $1`, [U.maria]);
+  await go(m.page, `/thread/${C}`, 3500);
+  const photonUrls = [];
+  await m.page.route('https://photon.komoot.io/**', (r) => { photonUrls.push(r.request().url()); return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(PHOTON) }); });
   await tap(m.page, 'Plan a meetup');
   await m.page.locator('input[type=date]').fill(localDate(5));
   await m.page.locator('input[type=time]').fill('10:30');
-  await m.page.getByPlaceholder('Search for a cafe, park, or address').fill('blue bottle');
+  await m.page.getByPlaceholder('Search for a cafe, park, or address').fill('@blue bottle, oakland');
   await m.page.waitForTimeout(1500);
   t = await text(m.page);
   check('Place search shows suggestions with address', t.includes('300 Webster Street, Oakland, California') && t.includes('OpenStreetMap'));
-  await m.page.getByText('300 Webster Street, Oakland, California', { exact: true }).first().click();
+  const lastUrl = new URL(photonUrls[photonUrls.length - 1] ?? 'http://x');
+  check('Search is limited to a box around her city, symbols removed', lastUrl.searchParams.get('q') === 'blue bottle oakland' && (lastUrl.searchParams.get('bbox') ?? '').split(',').length === 4, photonUrls.slice(-1)[0]);
+  check('Far-away places are left out', !t.includes('Tokyo'), t.slice(-600));
+  check('Shows how far each place is', t.includes('Under a mile away'), t.slice(-600));
+  await m.page.getByText(/^300 Webster Street, Oakland, California/).first().click();
   await m.page.waitForTimeout(600);
   check('Picked place shows its address', (await text(m.page)).includes('📍 300 Webster Street'));
   await m.page.getByPlaceholder('e.g. Coffee, then a walk').fill('Coffee');
@@ -110,7 +119,7 @@ const PHOTON = { features: [
   await m.page.unroute('https://photon.komoot.io/**');
   await m.page.route('https://photon.komoot.io/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"features":[]}' }));
   await m.page.waitForTimeout(1500);
-  check('No results: can keep typed text', (await text(m.page)).includes('No places found. You can keep what you typed.'));
+  check('No results: can keep typed text', (await text(m.page)).includes('No places found near you. Try just the name, or keep what you typed.'));
   await tap(m.page, 'Send to David C.', { wait: 2000 });
   t = await text(m.page);
   [row] = await q(`select status, place, place_address from meetups where connection_id = $1 and status = 'proposed'`, [C]);
@@ -179,5 +188,6 @@ const PHOTON = { features: [
   t = await text(m.page);
   check('Test tab: database notice when an update is missing', t.includes('The database needs an update') && t.includes('20261009000000_places_pace_profiles.sql'));
   await q(`alter function public.limen_db_version_x() rename to limen_db_version`); await q(`notify pgrst, 'reload schema'`);
+  await q(`update profiles set location_lat = 34.05, location_lng = -118.24, search_radius_miles = 50 where user_id = $1`, [U.maria]);
   await L.finish();
 })();

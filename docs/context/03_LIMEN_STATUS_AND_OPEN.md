@@ -1,6 +1,6 @@
 # Limen: status, open decisions and to-dos
 
-Last updated 2026-10-10. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
+Last updated 2026-10-13. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
 
 ## Review status by area
 
@@ -12,8 +12,8 @@ Last updated 2026-10-10. The detailed decisions per area are in docs/DECISIONS.m
 | 4. Discover and matching | Decided and built (Oct 10): one a day, Saved and Interested for 30 days, Inbox tabs |
 | 5. Chat and reflection | Decided and built (Oct 13): Check and "Another way to see it" removed, Reflect first tips, care words in the header |
 | 6. Reminders | Decided and built (Oct 10) |
-| 7. Meetups and planning | Decided and built (Oct 8 to 10). Morning-of video waits (see below) |
-| 8. Graduation | Decided (Oct 13): 6 meetups over 8+ weeks, each planned 2+, no pace needed; decision at 10 meetups or 6 months |
+| 7. Meetups and planning | Decided and built (Oct 8 to 13; Plan something on one screen Oct 13). Morning-of video waits (see below) |
+| 8. Graduation | Decided (Oct 13): 6 meetups over 8+ weeks, each planned 2+, no pace needed; decision at 10 meetups or 6 months; supportive question wording |
 | 9. Remember | Decided and built (Oct 10): in the chat, no AI, no tab |
 | 9b. Guide | Draft only (claude/Guide_Draft_Plan.md) |
 | 10. Money and settings | Not reviewed |

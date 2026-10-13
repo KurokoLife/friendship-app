@@ -15,10 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { ChatRemindersSheet } from '@/components/chat-reminders-sheet';
 import { EndConnectionModal } from '@/components/end-connection-modal';
-import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { NextMeetupIndicatorV2, type EditorPrefill } from '@/components/next-meetup-indicator-v2';
 import { PlanBoardCard } from '@/components/plan-board-card';
+import { onChatMessageSent } from '@/components/stem-message-box';
 import { PlanInviteBubble, usePlanInvites } from '@/components/plan-invite';
 import { MeetNudgeCard } from '@/components/meet-nudge-card';
 import { PauseConnectionModal } from '@/components/pause-connection-modal';
@@ -174,7 +174,6 @@ export default function ThreadScreen() {
       cancelled = true;
     };
   }, [connectionId]);
-  const [showFirstMilestone, setShowFirstMilestone] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
   // 20260818000000: the standalone Honest Exit entry point, reachable
@@ -352,6 +351,15 @@ export default function ThreadScreen() {
       .order('created_at', { ascending: true });
     if (data) setMessages(data as Message[]);
   }, [connectionId]);
+
+  // A message sent from a card (check-in, share, plan) shows right away.
+  useEffect(
+    () =>
+      onChatMessageSent((cid) => {
+        if (cid === connectionId) reloadMessages();
+      }),
+    [connectionId, reloadMessages]
+  );
 
   const handlePaused = useCallback(async () => {
     setPauseModalVisible(false);
@@ -703,11 +711,10 @@ export default function ThreadScreen() {
   // (a fresh cycle starting over), so checkin state is reloaded after.
   const handlePlanSomething = async () => {
     if (!connectionId) return;
-    const isFirstTime = await recordPlanActivity(connectionId);
-    if (isFirstTime) {
-      setShowFirstMilestone(true);
-      return;
-    }
+    // The "How are you feeling about this?" pop-up with its Guide link was
+    // removed on 2026-10-13 (no guide offers in chats; nerves are asked
+    // privately on the morning of a meetup).
+    await recordPlanActivity(connectionId);
     // Your own "next time, ask..." notes show inside the planning card
     // (2026-10-10), so there's no separate pop-up here anymore.
     await openPlanBoard();
@@ -728,11 +735,6 @@ export default function ThreadScreen() {
       else if (/chat_not_open/.test(message)) setPlanNotice("You can't plan in this chat right now.");
       else setPlanNotice("Couldn't start planning right now. Please try again.");
     }
-  };
-
-  const handleFirstMilestoneClose = () => {
-    setShowFirstMilestone(false);
-    openPlanBoard();
   };
 
   const handleDismissRhythmNote = async () => {
@@ -1366,15 +1368,6 @@ export default function ThreadScreen() {
         </View>
       </SafeAreaView>
 
-
-      {connectionId && myId && (
-        <FirstMeetupMilestoneModal
-          visible={showFirstMilestone}
-          connectionId={connectionId}
-          userId={myId}
-          onClose={handleFirstMilestoneClose}
-        />
-      )}
 
       {otherId && (
         <ReportModal
