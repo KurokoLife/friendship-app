@@ -23,6 +23,7 @@ const { U, check, tap, text, go, q } = L;
   await q(`update connections set status='active' where id = any($1)`, [[C, C2]]);
   await q(`update connections set meetup_count = 2 where id = $1`, [C2]);
 
+  await q(`update profiles set care_style = 'people showing up for me' where user_id = $1`, [MOCHI]);
   const d = await L.as(U.david);
   await go(d.page, '/inbox', 3500);
   let t = await text(d.page);
@@ -44,6 +45,7 @@ const { U, check, tap, text, go, q } = L;
   check('Chat: Reflect, Another way to see it, Reminders', t.includes('Reflect first') && t.includes('Another way to see it') && t.includes('Reminders'));
   check('Chat: no read receipts', !/\b(seen|read at|delivered)\b/i.test(t));
   check('Chat: no guide offer inside the chat', !t.includes('A short guide on showing up'));
+  check('Chat: care words under the reply pace', t.includes('How Mochi likes care: “people showing up for me”') && t.indexOf('How Mochi likes care') < t.indexOf('What I want to remember'), t.slice(0, 400));
 
   // Send a message in your own words
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('Limen is for meeting, how about a walk Sunday?');
@@ -59,6 +61,7 @@ const { U, check, tap, text, go, q } = L;
   check('No "Check" link, even with a draft (removed)', (await d.page.getByText('Check', { exact: true }).count()) === 0);
   await tap(d.page, 'Reflect first', { wait: 800 });
   t = await text(d.page);
+  check('Reflect first: care words no longer repeated there', (t.match(/likes care/g) || []).length === 1);
   check('Reflect first: tips for replying', t.includes('Hide questions') && t.includes('Notice') && t.includes('Keep it going') && t.includes('Reply to one thing they said before adding your own news.'), t.slice(-900));
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('');
   await tap(d.page, 'Hide questions', { wait: 500 });

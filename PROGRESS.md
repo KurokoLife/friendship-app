@@ -189,3 +189,9 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Founder: remove Check; give Reflect more tips for replying. Check sent the draft plus the last 5 messages to the server. Now gone in the app; `reflection-coach` returns 410 for `check`. Reflect first: Notice / Respond / Keep it going tips, scrolling box (it hid the whole chat on a phone otherwise).
 - Short-guide offers removed from chats (they popped up when both people had written, which read as the app watching). Ended-chat video link and the morning-of nerves video stay, both tied to the person's own action.
 - Privacy promise reworded in docs. qa-inbox-chat now 29 checks.
+
+## 2026-10-12: care words in the chat header, "Why is Discover empty?"
+
+- Founder: move "How X likes care" to the chat header under the reply pace. Done; removed from Reflect first.
+- Priya's live Discover says nobody fits; can't see live data, so added Test tab "Why is Discover empty?" (`test_discover_why`), counting people left after each rule. Migration `20261012000000_discover_why.sql`.
+- Full QA: all 17 suites passing (qa-inbox-chat 31, qa-testtab 28).

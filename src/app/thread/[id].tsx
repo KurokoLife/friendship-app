@@ -844,6 +844,14 @@ export default function ThreadScreen() {
             {statusLine && (
               <Text className="text-caption text-stone-400 dark:text-stone-600">{statusLine}</Text>
             )}
+            {/* 2026-10-12: their own "How I like care" words sit here, under
+                how often they reply, instead of inside Reflect first.
+                Shown only to people they're connected with. */}
+            {otherCareStyle && (
+              <Text numberOfLines={2} className="text-caption text-stone-500 dark:text-stone-400">
+                How {(other?.display_name ?? 'they').split(' ')[0]} likes care: “{otherCareStyle}”
+              </Text>
+            )}
           </Pressable>
           {rhythmNoteText && (
             <View className="mt-1 flex-row items-start gap-2">
@@ -1348,7 +1356,6 @@ export default function ThreadScreen() {
             value={draft}
             onChangeText={setDraft}
             context="reply"
-            otherCareStyle={otherCareStyle}
             otherName={other?.display_name ?? null}
           />
           <Pressable onPress={() => setMirrorVisible(true)} className="self-start">

@@ -54,6 +54,8 @@ const { U, check, tap, text, go, q } = L;
   await tap(a.page, 'Show tips and videos again', { wait: 1500 });
   check('Show tips and videos again', (await text(a.page)).includes('First-time tips and video offers will show again'));
   await q(`insert into ai_usage_events (user_id, function_name) values ($1, 'generate-reply-draft')`, [U.aisha]).catch((e) => console.log('   (ai insert)', e.message));
+  await tap(a.page, 'Why is Discover empty?', { wait: 2000 });
+  check('Why is Discover empty? explains each step', (await text(a.page)).includes('People who could show in Discover for this account') && (await text(a.page)).includes('within your distance'));
   await tap(a.page, 'Clear my daily limits', { wait: 1500 });
   check('Clear my daily limits', (await q(`select count(*)::int n from ai_usage_events where user_id=$1`, [U.aisha]))[0].n === 0);
   await q(`insert into match_suggestions (user_id, candidate_id, reasoning) values ($1,$2,'x')`, [U.aisha, U.maria]).catch((e) => console.log('   (sugg insert)', e.message));

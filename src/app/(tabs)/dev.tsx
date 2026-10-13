@@ -504,6 +504,13 @@ export default function TestToolsScreen() {
                 }}
               />
               <Button
+                label="Why is Discover empty?"
+                busy={busy === 'fresh'}
+                onPress={() =>
+                  rpc('fresh', 'test_discover_why', { p_tz: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null }, (d) => String(d))
+                }
+              />
+              <Button
                 label="Clear my daily limits"
                 busy={busy === 'fresh'}
                 onPress={() => rpc('fresh', 'test_clear_ai_limits', {}, () => 'Daily and weekly limits cleared for this account.')}
