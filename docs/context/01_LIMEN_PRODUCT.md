@@ -57,7 +57,7 @@ Working rules that follow from these:
 - Layout (phone first): a slim plan bar and a "What I want to remember about X" bar at the top (tap to open, Hide to close); prompt cards sit under the newest message. No guide offers inside chats (removed Oct 10; where guides belong is part of the Guide plan).
 - Header actions: Pause · End · Report · Block.
 - Header: name, how often they usually reply, and their "How I like care" words when they wrote any.
-- Reflect first: questions and tips shown under the message box, in three groups (Notice, Respond, Keep it going). Static text, nothing is sent anywhere. "Check" was removed on Oct 10. "Another way to see it" (`reflection-coach`, mirror only): you describe the moment in your own words and get three readings (their circumstances, how they might see you, your fear), never a verdict, always ending by sending you back to ask them. It never writes a message.
+- Reflect first: questions and tips shown under the message box, in three groups (Notice, Respond, Keep it going), including "Not sure what they meant? Ask them." Static text, nothing is sent anywhere. Under it: "Not sure what they meant? Ask them. Only they know." The app never interprets the other person ("Another way to see it" removed Oct 13) and never checks a message ("Check" removed Oct 10).
 - Scam note: until you've met in person, if a message from the other person mentions money (money, cash, amounts, Apple Card, gift cards, crypto, bank details) or moving off the app (WhatsApp, Telegram, a phone number or email), the receiver sees a calm warning under the newest such message. Checked on the phone, nothing stored.
 - Pause: 3 days, 1 week or 2 weeks (still counts as one of your 3 active chats); always with a short note in your own words; both people see who paused and until when; no messages while paused; only the pauser can resume early; the other person can end; at most 2 pauses per person per chat in 30 days.
 - End (honest exit): send a short message (starters you finish yourself) or end without one; the other person still sees an honest "this connection was ended" banner. Optional private reason, never shown to them. Reopening an ended chat takes an extra confirm.
@@ -101,7 +101,7 @@ Working rules that follow from these:
 
 ## 11. Graduation
 
-- One mechanism (`graduation_stage()`). Ready check at 6+ meetups that happened, the first 8+ weeks ago, each person proposed 2+, a rhythm set: each is asked privately "Could you two keep this going outside Limen?" (Yes / Not yet / I'm not sure this is a friendship). Graduates only on a mutual yes; nobody sees a non-matching answer.
+- One mechanism (`graduation_stage()`). Ready check at 6+ meetups that happened, the first 8+ weeks ago, each person proposed 2+ (about 3 months at twice a month; no meeting pace needed since Oct 13): each is asked privately "Could you two keep this going outside Limen?" (Yes / Not yet / I'm not sure this is a friendship). Graduates only on a mutual yes; nobody sees a non-matching answer.
 - Decision point at 10 meetups or 6 months: graduate, keep going here (private reason), or close honestly.
 - Graduated chats leave the 3-active limit, keep notes, and get 30/90-day continuation checks.
 

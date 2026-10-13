@@ -42,7 +42,7 @@ const { U, check, tap, text, go, q } = L;
   check('Chat: notes bar and plan bar', t.includes('What I want to remember about Mochi') && (t.includes('No meetup planned yet') || t.includes('Plan a meetup')));
   check('Chat: meeting in person line', t.includes('Limen is for meeting in person. Chatting is how you get there.'));
   check('Chat: scam note shown once', (t.match(/Limen will never ask you for money/g) || []).length === 1, t.slice(0, 900));
-  check('Chat: Reflect, Another way to see it, Reminders', t.includes('Reflect first') && t.includes('Another way to see it') && t.includes('Reminders'));
+  check('Chat: Reflect first, "ask them" line, Reminders; no "Another way to see it"', t.includes('Reflect first') && t.includes('Not sure what they meant? Ask them. Only they know.') && t.includes('Reminders') && !t.includes('Another way to see it'));
   check('Chat: no read receipts', !/\b(seen|read at|delivered)\b/i.test(t));
   check('Chat: no guide offer inside the chat', !t.includes('A short guide on showing up'));
   check('Chat: care words under the reply pace', t.includes('How Mochi likes care: “people showing up for me”') && t.indexOf('How Mochi likes care') < t.indexOf('What I want to remember'), t.slice(0, 400));
@@ -55,20 +55,17 @@ const { U, check, tap, text, go, q } = L;
   await d.page.waitForTimeout(1500);
   check('Send: shows in the chat', (await text(d.page)).includes('how about a walk Sunday?'), (await text(d.page)).slice(-600));
 
-  // Reflect first shows questions; Another way to see it opens
+  // Reflect first shows the tips
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('a draft');
   await d.page.waitForTimeout(400);
   check('No "Check" link, even with a draft (removed)', (await d.page.getByText('Check', { exact: true }).count()) === 0);
   await tap(d.page, 'Reflect first', { wait: 800 });
   t = await text(d.page);
   check('Reflect first: care words no longer repeated there', (t.match(/likes care/g) || []).length === 1);
+  check('Reflect first: "ask them" tip', t.includes('Not sure what they meant? Ask them, like "what do you mean?"'));
   check('Reflect first: tips for replying', t.includes('Hide questions') && t.includes('Notice') && t.includes('Keep it going') && t.includes('Reply to one thing they said before adding your own news.'), t.slice(-900));
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('');
   await tap(d.page, 'Hide questions', { wait: 500 });
-  await d.page.getByText('Unsure how to read something? Another way to see it').click();
-  await d.page.waitForTimeout(1000);
-  check('Another way to see it: sheet opens', (await text(d.page)).includes("You'll get a few possible readings, not an answer."));
-  await d.page.keyboard.press('Escape');
   await go(d.page, `/thread/${C}`, 3000);
 
   // Reminders sheet

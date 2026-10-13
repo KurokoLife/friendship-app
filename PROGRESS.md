@@ -195,3 +195,8 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Founder: move "How X likes care" to the chat header under the reply pace. Done; removed from Reflect first.
 - Priya's live Discover says nobody fits; can't see live data, so added Test tab "Why is Discover empty?" (`test_discover_why`), counting people left after each rule. Migration `20261012000000_discover_why.sql`.
 - Full QA: all 17 suites passing (qa-inbox-chat 31, qa-testtab 28).
+
+## 2026-10-13: "Another way to see it" removed, graduation without a pace
+
+- Founder: people should ask the other person, not rely on the app to interpret. Removed the link and sheet; `reflection-coach` retired (410). Chat line and a Reflect first tip: "Not sure what they meant? Ask them."
+- Graduation ready check no longer needs a meeting pace (`20261013000000_graduation_no_pace.sql`, `gradsql.sql`).

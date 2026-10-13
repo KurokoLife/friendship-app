@@ -10,23 +10,22 @@ Last updated 2026-10-10. The detailed decisions per area are in docs/DECISIONS.m
 | 2. Profile | Decided and built (Oct 4) |
 | 3. Safety | Decided and built (Oct 4, selfie rules updated Oct 9) |
 | 4. Discover and matching | Decided and built (Oct 10): one a day, Saved and Interested for 30 days, Inbox tabs |
-| 5. Chat and reflection | Mostly decided (pause, layout, invites, check-ins, Check removed and Reflect tips added Oct 10). "Another way to see it" not reviewed |
+| 5. Chat and reflection | Decided and built (Oct 13): Check and "Another way to see it" removed, Reflect first tips, care words in the header |
 | 6. Reminders | Decided and built (Oct 10) |
 | 7. Meetups and planning | Decided and built (Oct 8 to 10). Morning-of video waits (see below) |
-| 8. Graduation | Built per the Oct 3 plan, not reviewed with the founder |
+| 8. Graduation | Decided (Oct 13): 6 meetups over 8+ weeks, each planned 2+, no pace needed; decision at 10 meetups or 6 months |
 | 9. Remember | Decided and built (Oct 10): in the chat, no AI, no tab |
 | 9b. Guide | Draft only (claude/Guide_Draft_Plan.md) |
 | 10. Money and settings | Not reviewed |
 
-Suggested next: Guide (9b), then Reflect (5), Graduation (8), Money and settings (10).
+Suggested next: Profile tab: Guide (9b), then Profile, then Money and settings (10).
 
 ## Open founder decisions
 
 1. Guide: are 3 videos (two at joining, one before the first meetup) enough for launch? Should the other reads move to the moments they help? Guide offers were removed from inside chats on Oct 10 ("A short guide on showing up for a new connection" and "Friendship tends to grow a little at a time"); decide where those belong now.
 2. Morning-of video "The First Meetup Does Not Need to Be Perfect" is also offered before later meetups. Update its title or content to fit any meetup (waiting; a reminder is set for Oct 17).
 3. Discover: watch in the pilot whether one a day feels right, and whether people run out of new people in smaller cities.
-4. "Another way to see it": keep as is, or adjust. (Check was removed on Oct 10; Reflect now has reply tips.)
-5. Graduation thresholds (6 meetups / 8 weeks for the ready check, 10 meetups or 6 months for the decision point) are judgment calls; confirm or adjust after pilot data.
+5. Graduation thresholds were confirmed Oct 13 (twice a month is a good pace); revisit only if pilot data says otherwise.
 6. Journey pass details and when to build the store products.
 
 Decided recently (don't re-ask): a meetup added with "Met up already? Add it" counts after a week even without the other person's yes. Remember has no AI and no tab. No "share my plan" feature.

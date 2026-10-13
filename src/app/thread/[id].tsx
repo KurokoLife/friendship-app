@@ -16,7 +16,6 @@ import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { ChatRemindersSheet } from '@/components/chat-reminders-sheet';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { FirstMeetupMilestoneModal } from '@/components/first-meetup-milestone-modal';
-import { MirrorSheet } from '@/components/mirror-sheet';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { NextMeetupIndicatorV2, type EditorPrefill } from '@/components/next-meetup-indicator-v2';
 import { PlanBoardCard } from '@/components/plan-board-card';
@@ -164,7 +163,6 @@ export default function ThreadScreen() {
   const [planBoardKey, setPlanBoardKey] = useState(0);
   const [planBoardOpenRequest, setPlanBoardOpenRequest] = useState(0);
   const [planNotice, setPlanNotice] = useState<string | null>(null);
-  const [mirrorVisible, setMirrorVisible] = useState(false);
   const [otherCareStyle, setOtherCareStyle] = useState<string | null>(null);
   useEffect(() => {
     if (!connectionId) return;
@@ -1358,11 +1356,11 @@ export default function ThreadScreen() {
             context="reply"
             otherName={other?.display_name ?? null}
           />
-          <Pressable onPress={() => setMirrorVisible(true)} className="self-start">
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-              Unsure how to read something? Another way to see it
-            </Text>
-          </Pressable>
+          {/* 2026-10-13: "Another way to see it" is removed. The app doesn't
+              interpret the other person; the person asks them. */}
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            Not sure what they meant? Ask them. Only they know.
+          </Text>
         </>
         )}
         </View>
@@ -1432,11 +1430,6 @@ export default function ThreadScreen() {
         />
       )}
 
-      <MirrorSheet
-        visible={mirrorVisible}
-        onClose={() => setMirrorVisible(false)}
-        otherName={other?.display_name ?? null}
-      />
     </KeyboardAvoidingView>
   );
 }

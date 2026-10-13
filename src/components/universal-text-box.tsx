@@ -33,6 +33,7 @@ const REPLY_SECTIONS: Section[] = [
     items: [
       'What did they share? What part seems to matter most to them?',
       'Did they ask you something? Answer that first.',
+      'Not sure what they meant? Ask them, like "what do you mean?" or "how so?" Only they know.',
     ],
   },
   {

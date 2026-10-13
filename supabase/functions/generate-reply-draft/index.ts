@@ -19,7 +19,7 @@ Deno.serve((req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
   return new Response(
     JSON.stringify({
-      error: 'Limen no longer writes or rewrites messages. Your own words are the point. Use Reflect or Check instead.',
+      error: 'Limen no longer writes or rewrites messages. Your own words are the point. Use Reflect first instead.',
       retired: true,
     }),
     { status: 410, headers: { ...CORS_HEADERS, 'content-type': 'application/json' } }

@@ -28,7 +28,7 @@ Limen's rule: **ease these hard parts, don't remove them.** The hard parts are w
 ## Why AI is used only to help people think
 
 - **AI never writes, rewrites or polishes a message.** People suspected of using AI to write are seen as less warm and less cooperative, and recipients value messages that took effort (research). A message is a show of care; if the app writes it, the care is gone.
-- **AI helps people see, not decide.** "Reflect first" offers questions and tips for replying (notice what they shared, respond to it, share a little back, ask one open question), with no AI and nothing sent. "Check" was removed because it sent the other person's messages to be looked at. "Another way to see it" offers three possible readings and always ends by sending you back to ask the other person. It never takes your side, because agreeable AI makes people more sure they're right and less willing to repair things (research).
+- **The app never interprets the other person.** When something is unclear, the person asks them ("Not sure what they meant? Ask them. Only they know."). Perspective-taking works best when you actually ask, not when you guess or let something guess for you (research, hard part 3). "Reflect first" offers questions and tips for replying (notice what they shared, respond to it, share a little back, ask one open question), with no AI and nothing sent. "Check" was removed because it sent the other person's messages to be looked at, and "Another way to see it" because it interpreted the other person instead of sending you to ask.
 - **Starters are allowed, finished in your own words.** They lower the blank-page fear (hard part 2) without doing the work.
 - **No one, and no AI, reads chats.** Reading private conversations would break trust, and timing is enough to know when a nudge might help. The scam word check runs only on the receiver's phone and keeps nothing.
 - **AI writes plan ideas and the self-reflection, nothing that speaks for a person.**
@@ -91,7 +91,7 @@ Limen's rule: **ease these hard parts, don't remove them.** The hard parts are w
 - **Lives in the chat, not a tab** because it's useful at the moment you're talking to that person (judgment).
 
 ### Graduation
-- **Ready check after 6 meetups over 8+ weeks, each person proposed at least 2** because friendship takes repeated time and balanced effort (research). The numbers themselves are judgment calls to check with pilot data.
+- **Ready check after 6 meetups over 8+ weeks, each person proposed at least 2** because friendship takes repeated time and balanced effort (research). Twice a month is a good pace and gets there in about 3 months (founder, Oct 13). No meeting pace has to be set: the meetups themselves show the rhythm.
 - **Private answers, graduation only on a mutual yes** so nobody is hurt by a one-sided "not yet" (eases 2).
 - **Decision point at 10 meetups or 6 months** so chats don't stay in the app forever: graduate, keep going here for a stated reason, or end honestly.
 - **Graduated chats free a spot and keep their notes** because leaving the app together is the success.
