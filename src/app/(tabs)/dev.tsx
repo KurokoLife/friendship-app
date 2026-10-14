@@ -557,7 +557,7 @@ export default function TestToolsScreen() {
 
           <Section
             title="All test accounts"
-            hint="Clears chats, messages, meetups, matches, reports, blocks, tips seen and Interested choices for all 9 test accounts.">
+            hint="Clears chats, messages, meetups, matches, reports, blocks, tips seen, Interested choices, planning limits (spending, length, travel), reminder settings and curiosity notes for all 9 test accounts. Profiles and selfie checks stay.">
             {!confirmAll ? (
               <Button label="Reset all test accounts" tone="danger" onPress={() => setConfirmAll(true)} />
             ) : (
