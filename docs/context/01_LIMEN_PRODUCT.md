@@ -82,7 +82,7 @@ Working rules that follow from these:
 
 ## 9. Meetups
 
-- Plan card: date, time, place (OpenStreetMap search near your own city, nearest first with distance, Google/Apple Maps links), activity. Moving the plan needs the other person to confirm again; changing only the activity doesn't.
+- Plan card: date, time, place (Google place search near your own city, nearest first with distance, OpenStreetMap as the backup; Google/Apple Maps links), activity. Moving the plan needs the other person to confirm again; changing only the activity doesn't.
 - Day before: "Still on?". Morning of: a private "How are you feeling?" (Nervous offers the video "The First Meetup Does Not Need to Be Perfect").
 - After: "Did you meet?" asks both, 3 hours after the start (or 9am next day). One yes plus a week with no answer from the other counts. A no from either doesn't. Nobody answering for 2 weeks lets it go.
 - "Met up already? Add it" adds a meetup made outside the app; it counts on the other person's yes, or after a week.

@@ -1,6 +1,6 @@
 # Limen: how we work (for build and test sessions)
 
-Last updated 2026-10-10.
+Last updated 2026-10-13.
 
 ## Working with the founder
 
@@ -30,7 +30,7 @@ Last updated 2026-10-10.
 ## Server functions
 
 - The founder deploys by pasting the file into the Supabase dashboard (Edge Functions → the function → Code → Deploy). There is no CLI access from the workspace.
-- Live: `generate-match-suggestions`, `generate-personality-narrative`, `plan-ideas`, `selfie-review`, `geocode-city`, `delete-account`, `dev-create-session`.
+- Live: `generate-match-suggestions`, `generate-personality-narrative`, `plan-ideas`, `place-search` (Google Places, needs the secret `GOOGLE_PLACES_KEY`; without it the app uses OpenStreetMap), `selfie-review`, `geocode-city`, `delete-account`, `dev-create-session`.
 - Retired or unused: `generate-reply-draft` and `reflection-coach` (both return 410), `generate-activity-suggestions`, `generate-connection-analysis`, `validate-ai-credit-purchase`, `validate-premium-purchase`. `organize-remember-entry` and `summarize-remember-timeline` are deleted.
 
 ## Testing

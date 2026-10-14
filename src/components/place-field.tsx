@@ -14,15 +14,16 @@ export type PlaceValue = {
 
 export const EMPTY_PLACE: PlaceValue = { name: '', address: null, lat: null, lng: null };
 
-type Suggestion = PlaceValue & { key: string; distance?: string | null };
+type Suggestion = PlaceValue & { key: string; distance?: string | null; googleId?: string };
 
 type PhotonFeature = {
   geometry?: { coordinates?: [number, number] };
   properties?: Record<string, string | undefined>;
 };
 
-// Place search for meetup plans (2026-10-09). Searches OpenStreetMap
-// through Photon (free, no account or key needed) and keeps the place's
+// Place search for meetup plans (2026-10-09). Since 2026-10-13 it asks
+// Google Places first (server function place-search, key kept on the
+// server) and falls back to OpenStreetMap through Photon (free, no key) and keeps the place's
 // name, street address and map position, so the plan can open in Google
 // Maps or Apple Maps. Typing a place without picking a suggestion still
 // works, it is just saved as typed. Results stay near the person's own
@@ -106,8 +107,51 @@ async function searchPlaces(raw: string, area: Area | null): Promise<Suggestion[
   if (area) out.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
   return out.slice(0, 6).map(({ miles, ...s }) => ({
     ...s,
-    distance: miles == null ? null : miles < 1 ? 'Under a mile away' : `${Math.round(miles)} mi away`,
+    distance: distanceText(miles),
   }));
+}
+
+function newSession(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+function distanceText(miles: number | null): string | null {
+  if (miles == null) return null;
+  return miles < 1 ? 'Under a mile away' : `${Math.round(miles)} mi away`;
+}
+
+// Google Places through our own server function (2026-10-13). Returns null
+// when Google isn't set up or doesn't answer, so OpenStreetMap is used.
+async function searchGoogle(raw: string, area: Area | null, session: string): Promise<Suggestion[] | null> {
+  const input = cleanPlaceQuery(raw);
+  if (input.length < 2) return [];
+  const { data, error } = await supabase.functions.invoke('place-search', {
+    body: { action: 'autocomplete', input, session, lat: area?.lat, lng: area?.lng, miles: area?.miles },
+  });
+  if (error || !data || data.unavailable || !Array.isArray(data.suggestions)) return null;
+  return (data.suggestions as { id: string; name: string; address: string | null; meters: number | null }[])
+    .slice()
+    .sort((a, b) => (a.meters ?? 1e9) - (b.meters ?? 1e9))
+    .map((g) => ({
+      key: `g:${g.id}`,
+      googleId: g.id,
+      name: g.name,
+      address: g.address,
+      lat: null,
+      lng: null,
+      distance: distanceText(g.meters == null ? null : g.meters / 1609),
+    }));
+}
+
+async function googleDetails(id: string, session: string): Promise<PlaceValue | null> {
+  const { data, error } = await supabase.functions.invoke('place-search', { body: { action: 'details', id, session } });
+  const p = data?.place;
+  if (error || !p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return null;
+  return { name: p.name || '', address: p.address ?? null, lat: p.lat, lng: p.lng };
 }
 
 export function PlaceField({
@@ -127,6 +171,9 @@ export function PlaceField({
   const [open, setOpen] = useState(false);
   const area = useRef<Area | null>(null);
   const requestId = useRef(0);
+  const session = useRef(newSession());
+  const googleOff = useRef(false);
+  const [source, setSource] = useState<'google' | 'osm'>('osm');
 
   useEffect(() => {
     (async () => {
@@ -162,8 +209,15 @@ export function PlaceField({
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const found = await searchPlaces(text, area.current);
+        let found: Suggestion[] | null = null;
+        if (!googleOff.current) {
+          found = await searchGoogle(text, area.current, session.current).catch(() => null);
+          if (found === null) googleOff.current = true;
+        }
+        const from = found === null ? 'osm' : 'google';
+        if (found === null) found = await searchPlaces(text, area.current);
         if (id !== requestId.current) return;
+        setSource(from);
         setResults(found);
         setSearchFailed(false);
       } catch {
@@ -215,9 +269,23 @@ export function PlaceField({
             results.map((r) => (
               <Pressable
                 key={r.key}
-                onPress={() => {
+                onPress={async () => {
                   setOpen(false);
                   setResults([]);
+                  if (r.googleId) {
+                    const id = r.googleId;
+                    const token = session.current;
+                    session.current = newSession();
+                    // Shows the name at once; the address and map position fill in.
+                    onChange({ name: r.name, address: null, lat: null, lng: null });
+                    const place = await googleDetails(id, token).catch(() => null);
+                    onChange(
+                      place
+                        ? { ...place, name: r.name || place.name }
+                        : { name: r.name, address: r.address, lat: null, lng: null }
+                    );
+                    return;
+                  }
                   onChange({ name: r.name, address: r.address, lat: r.lat, lng: r.lng });
                 }}
                 className="gap-0.5 border-b border-stone-100 px-3 py-2 active:bg-stone-100 dark:border-stone-700/60 dark:active:bg-stone-700">
@@ -230,7 +298,9 @@ export function PlaceField({
               </Pressable>
             ))
           )}
-          <Text className="px-3 py-1 text-[10px] text-stone-400 dark:text-stone-500">Place data © OpenStreetMap</Text>
+          <Text className="px-3 py-1 text-[10px] text-stone-400 dark:text-stone-500">
+            {source === 'google' ? 'Powered by Google' : 'Place data © OpenStreetMap'}
+          </Text>
         </View>
       )}
     </View>

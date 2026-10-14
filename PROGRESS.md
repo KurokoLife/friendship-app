@@ -209,3 +209,4 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - QA: qa-plan updated (one screen, starters, note survives refresh), qa-remind checks a check-in message shows right away.
 - Place search: only places near the person's city (box around it, nearest first, distance shown). Founder searched in LA and got places in other states and countries. qa-oct9 covers it with a far-away fake result.
 - Plan ideas: faster model (Haiku 5.5), smaller answer limit, 9-second time limit with hand-written ideas as the fallback. Redeploy `plan-ideas`.
+- Google place search: new `place-search` function (Places API New, session tokens, nearby only), app asks it first and falls back to OpenStreetMap. Tested the real function locally with Google's answers faked, plus qa-place end to end. Founder: Google Cloud setup, secret `GOOGLE_PLACES_KEY`, deploy `place-search`.
