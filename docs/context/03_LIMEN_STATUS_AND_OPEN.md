@@ -16,7 +16,7 @@ Last updated 2026-10-14. The detailed decisions per area are in docs/DECISIONS.m
 | 8. Graduation | Decided (Oct 13): 6 meetups over 8+ weeks, each planned 2+, no pace needed; decision at 10 meetups or 6 months; supportive question wording |
 | 9. Remember | Decided and built (Oct 10): in the chat, no AI, no tab |
 | 9b. Guide | Draft only (claude/Guide_Draft_Plan.md) |
-| 10. Money and settings | Not reviewed |
+| 10. Money and settings | Settings reviewed Oct 14. Money: free during the pilot; decided after the Guide ("Limen: Money decision page" doc). Promo/invite codes hidden for now |
 
 Suggested next: Guide (9b, founder working on videos separately; includes the "reply within 48 hours" guide text and the Short guides switch), then Money and settings (10). Later: changing your phone number.
 
@@ -26,7 +26,7 @@ Suggested next: Guide (9b, founder working on videos separately; includes the "r
 2. Morning-of video "The First Meetup Does Not Need to Be Perfect" is also offered before later meetups. Update its title or content to fit any meetup (waiting; a reminder is set for Oct 17).
 3. Discover: watch in the pilot whether one a day feels right, and whether people run out of new people in smaller cities.
 5. Graduation thresholds were confirmed Oct 13 (twice a month is a good pace); revisit only if pilot data says otherwise.
-6. Journey pass details and when to build the store products.
+6. Journey pass details and when to build the store products (after the Guide; see the Money decision page).
 
 Decided recently (don't re-ask): a meetup added with "Met up already? Add it" counts after a week even without the other person's yes. Remember has no AI and no tab. No "share my plan" feature.
 
