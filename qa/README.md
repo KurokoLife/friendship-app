@@ -57,6 +57,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-remind | Reminder settings, phone layout, safety tips, after a good meetup |
 | qa-share | "Remind me later" after a good meetup |
 | qa-notes | Remember in the chat: bar, notes by meetup, free notes with topic chips, search and filters from 6 notes, Next time list, planning card (incl. "Ideas for us"), check-in, setting, ended chats, Settings download |
+| qa-pending | Interested always saved to Inbox, Pending; both interested + both selfies approved opens the chat; four tabs fit a phone |
 | qa-place | Place search: Google first (real `place-search` function on :8000 with Google's answers faked; start it with `bash qa/start-place-fn.sh`), nearest first, one billing session, OpenStreetMap backup |
 | qa-inbox-chat | Inbox and chat end to end: rows, scam note, sending shows right away, Reflect, Reminders, Report, Block, Back |
 | qa-discover | Discover one a day, up to 3 waiting, nobody while full; Interested and Saved for 30 days; Inbox tabs, hide a blocked chat |

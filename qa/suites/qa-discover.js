@@ -33,7 +33,7 @@ const { U, check, tap, text, go, q } = L;
   await a.page.getByText('Interested', { exact: true }).first().click();
   await a.page.waitForTimeout(2000);
   t = await text(a.page);
-  check('Interested: the founder\'s wording with 30 days', t.includes('Sent privately. If') && t.includes('is only told if that happens') && t.includes("If it doesn't become mutual within 30 days, it closes on its own."), t.slice(0, 700));
+  check('Interested: the founder\'s wording with 30 days', t.includes('Sent privately. If') && t.includes('is only told if that happens') && t.includes("If it doesn't become mutual within 30 days, it closes on its own.") && t.includes("You'll find them in Inbox, under Pending."), t.slice(0, 700));
   check('Interested: card leaves Discover', (await a.page.getByText('Not for me', { exact: true }).count()) === 1);
   await tap(a.page, 'Save', { wait: 2000 });
   t = await text(a.page);
@@ -41,15 +41,23 @@ const { U, check, tap, text, go, q } = L;
 
   await go(a.page, '/saved', 3000);
   t = await text(a.page);
-  check('Saved shows "You said Interested" waiting', t.toLowerCase().includes('you said interested') && t.includes('If it becomes mutual, the chat will open here.') && t.includes('Closes on its own on'), t.slice(0, 700));
+  check('Saved points to Pending, no Interested list here', t.includes('People you said Interested to are in Inbox, under Pending.') && !t.includes('Waiting for '), t.slice(0, 700));
   check('Saved shows the saved person, 1 of 5', t.toLowerCase().includes('saved · 1 of 5') && t.includes('Saved until'), t.slice(0, 700));
+
+  await go(a.page, '/inbox', 3000);
+  await a.page.getByText('Pending (1)', { exact: true }).waitFor({ timeout: 10000 }).catch(async () => console.log('INBOX NOW', (await text(a.page)).slice(0, 600)));
+  await tap(a.page, 'Pending (1)', { wait: 1500 });
+  t = await text(a.page);
+  check('Inbox Pending shows the person you said Interested to', [first, second].some((n) => t.includes(`Waiting for ${n}. If ${n} says Interested too, you can say hello.`)) && t.includes('Closes on its own on') && t.includes('Only you see this list.'), t.slice(0, 900));
 
   // After 30 days the interest closes, shown once
   await q(`update interests set created_at = now() - interval '31 days' where from_user_id=$1`, [U.aisha]);
-  await go(a.page, '/saved', 3000);
+  await go(a.page, '/inbox', 4500);
+  await tap(a.page, 'Pending', { wait: 1500 });
   t = await text(a.page);
-  check('Closed interest: calm note shown', t.includes('has come to a close') && t.includes('New people are on the way.') && !t.toLowerCase().includes('you said interested'), t.slice(0, 700));
-  await go(a.page, '/saved', 3000);
+  check('Closed interest: calm note shown in Pending', t.includes('has come to a close') && t.includes('New people are on the way.') && !t.includes('Waiting for '), t.slice(0, 700));
+  await go(a.page, '/inbox', 4500);
+  await tap(a.page, 'Pending', { wait: 1500 });
   check('Closed note shows only once', !(await text(a.page)).includes('has come to a close'));
 
   // A chat with someone: they never show in Discover; Inbox tabs

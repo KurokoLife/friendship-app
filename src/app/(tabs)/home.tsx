@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoachMark } from '@/components/coach-mark';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
-import { expressInterest, SAVED_FULL_COPY, saveForLater, SELFIE_PENDING_COPY, waitingForInterestCopy } from '@/lib/safety';
+import { expressInterest, interestSavedCopy, SAVED_FULL_COPY, saveForLater } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -237,7 +237,7 @@ export default function HomeScreen() {
 
   // Mutual Interested gate (docs/DECISIONS.md section 3). Saying Interested
   // is private: the other person is only told if they choose this member
-  // too. While waiting, the person moves to Saved ("You said Interested").
+  // too. While waiting, the person moves to Inbox, Pending (2026-10-14).
   const handleInterested = async (candidateId: string) => {
     setPendingAction(candidateId + 'interested');
     setCapacityNotice(null);
@@ -247,12 +247,8 @@ export default function HomeScreen() {
     if (result.status === 'mutual') {
       router.push({ pathname: '/thread/[id]', params: { id: result.connectionId } });
     } else if (result.status === 'waiting') {
-      setCapacityNotice(waitingForInterestCopy(name));
+      setCapacityNotice(interestSavedCopy(name, result));
       removeCard(candidateId);
-    } else if (result.status === 'not_verified') {
-      router.push('/selfie-check');
-    } else if (result.status === 'selfie_pending') {
-      setCapacityNotice(SELFIE_PENDING_COPY);
     } else if (result.status === 'ended') {
       router.push({ pathname: '/candidate/[id]', params: { id: candidateId } });
     } else {

@@ -28,15 +28,22 @@ async function rpcAs(user, sql, params = []) {
 
   // ---- Selfie once, approved only (2026-10-09 (3)) ----
   let r = await rpcAs(U.aisha, `select express_interest($1)`, [PRIYA]);
-  check('No selfie sent yet: asked for the selfie check', r.error && r.error.includes('not_verified'), r.error);
+  check('No selfie sent yet: Interested is still saved (selfie none)', !r.error && r.rows[0].express_interest.selfie === 'none' && r.rows[0].express_interest.mutual === false, r.error || JSON.stringify(r.rows));
+  await q(`delete from interests where from_user_id=$1`, [U.aisha]);
   await q(`insert into selfie_checks (user_id, pose, status, consent_at) values ($1,'thumbs up','pending', now())`, [U.aisha]);
   r = await rpcAs(U.aisha, `select express_interest($1)`, [PRIYA]);
-  check('Selfie waiting for review: cannot say Interested yet', r.error && r.error.includes('selfie_pending'), r.error);
+  check('Selfie waiting for review: Interested saved (selfie pending)', !r.error && r.rows[0].express_interest.selfie === 'pending', r.error || JSON.stringify(r.rows));
+  await q(`delete from interests where from_user_id=$1`, [U.aisha]);
   const a = await L.as(U.aisha);
   await go(a.page, `/candidate/${PRIYA}`, 3500);
   await tap(a.page, 'Interested', { wait: 2500 });
   let t = await text(a.page);
-  check('Profile explains the selfie is waiting for review', t.includes('waiting for our review'), t.slice(0, 400));
+  check('Profile explains the selfie is waiting and where the person went', t.includes('waiting for our review') && t.includes('Inbox, under Pending'), t.slice(0, 900));
+  await go(a.page, '/inbox', 3500);
+  await tap(a.page, 'Pending (1)', { wait: 1200 });
+  t = await text(a.page);
+  check('Inbox Pending lists Priya, waiting, with the selfie note', t.includes('Priya') && t.includes('Waiting for Priya') && t.includes('Your selfie is waiting for our review'), t.slice(0, 900));
+  await q(`delete from interests where from_user_id=$1`, [U.aisha]);
   // A chat that already exists (Priya said Interested, a match from before)
   await q(`insert into interests (from_user_id,to_user_id) values ($1,$2),($2,$1) on conflict do nothing`, [PRIYA, U.aisha]);
   const cid = (await q(`insert into connections (user_a_id,user_b_id,status,opened_at) values ($1,$2,'pending',now()) returning id`, [PRIYA, U.aisha]))[0].id;
@@ -55,7 +62,8 @@ async function rpcAs(user, sql, params = []) {
   check('Approved: can say Interested to someone else (account level)', !r.error, r.error);
   await q(`update selfie_checks set status='rejected' where user_id=$1`, [U.aisha]);
   r = await rpcAs(U.aisha, `select express_interest($1)`, [ELENA]);
-  check('Rejected selfie: asked for a new one', r.error && r.error.includes('not_verified'), r.error);
+  check('Rejected selfie: Interested saved, selfie rejected', !r.error && r.rows[0].express_interest.selfie === 'rejected', r.error || JSON.stringify(r.rows));
+  await q(`delete from interests where from_user_id=$1 and to_user_id=$2`, [U.aisha, ELENA]);
   r = await rpcAs(U.aisha, `select express_interest($1)`, [PRIYA]);
   check('Already talked: saying hello again needs no selfie', !r.error, r.error);
   const badge = await rpcAs(U.maria, `select selfie_verified from discovery_profiles where user_id=$1`, [U.aisha]);

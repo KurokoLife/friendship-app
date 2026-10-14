@@ -13,7 +13,7 @@ import {
   expressInterest,
   fetchMyInterestIds,
   SAVED_FULL_COPY,
-  SELFIE_PENDING_COPY,
+  interestSavedCopy,
   saveForLater,
   waitingForInterestCopy,
 } from '@/lib/safety';
@@ -185,11 +185,7 @@ export default function CandidateProfileScreen() {
       router.push({ pathname: '/thread/[id]', params: { id: result.connectionId } });
     } else if (result.status === 'waiting') {
       setInterested(true);
-      setNotice(waitingForInterestCopy((profile?.display_name ?? 'They').split(' ')[0]));
-    } else if (result.status === 'not_verified') {
-      router.push('/selfie-check');
-    } else if (result.status === 'selfie_pending') {
-      setNotice(SELFIE_PENDING_COPY);
+      setNotice(interestSavedCopy((profile?.display_name ?? 'They').split(' ')[0], result));
     } else if (result.status === 'ended') {
       // A deliberately ended connection needs the separate "Start over"
       // confirmation (20260817000000), not a silent reopen.

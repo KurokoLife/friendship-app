@@ -12,6 +12,14 @@ import { checkAndMarkGraduationContinuation } from '@/lib/graduation';
 import { PLAN_STAGE_LABELS, fetchMyPlanTurns, type PlanTurn } from '@/lib/plan-board';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { subscribeToMessages } from '@/lib/realtime-messages';
+import {
+  ackInterestClosures,
+  fetchMyPending,
+  fetchMySelfieStatus,
+  openReadyInterests,
+  type PendingPerson,
+  type SelfieStatus,
+} from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -101,7 +109,10 @@ export default function InboxScreen() {
   const [planTurns, setPlanTurns] = useState<Record<string, PlanTurn>>({});
   const [loadCount, setLoadCount] = useState(0);
   // Tabs (2026-10-10): Active (with paused), Friends (graduated), Past.
-  const [tab, setTab] = useState<'active' | 'friends' | 'past'>('active');
+  // Pending (2026-10-14): people you said Interested to, until the chat opens.
+  const [tab, setTab] = useState<'active' | 'pending' | 'friends' | 'past'>('active');
+  const [pending, setPending] = useState<PendingPerson[]>([]);
+  const [selfie, setSelfie] = useState<SelfieStatus>('approved');
   // Chats the person blocked and chose to hide. History is kept.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
@@ -118,6 +129,12 @@ export default function InboxScreen() {
       setLoaded(true);
       return;
     }
+    // A pair that became ready (a selfie approved, room freed) opens first,
+    // so it shows as a chat rather than in Pending.
+    await openReadyInterests().catch(() => 0);
+    const [pendingRows, selfieNow] = await Promise.all([fetchMyPending(), fetchMySelfieStatus()]);
+    setPending(pendingRows);
+    setSelfie(selfieNow);
     const [{ data }, { data: reminderRows }, { data: capacityRows }, { data: mutualRows }, { data: blockRows }, pauseRows] = await Promise.all([
       supabase.from('inbox_conversations').select('*').order('last_message_at', { ascending: false }),
       // 2026-10-08: "Your turn" now reads the reminders the app actually
@@ -188,6 +205,12 @@ export default function InboxScreen() {
   }, [load]);
 
   // Open chats only, for the "Coming up" strip.
+  // A closed Interested is shown once, the first time Pending is opened.
+  const closedCount = pending.filter((p) => p.state === 'closed').length;
+  useEffect(() => {
+    if (tab === 'pending' && closedCount > 0) ackInterestClosures();
+  }, [tab, closedCount]);
+
   const openChatNames = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of conversations) {
@@ -231,6 +254,8 @@ export default function InboxScreen() {
   const needsReply: Conversation[] = [];
   const paused: Conversation[] = [];
   const past: Conversation[] = [];
+  const openPending = pending.filter((p) => p.state !== 'closed');
+  const closedPending = pending.filter((p) => p.state === 'closed');
   const graduated: Conversation[] = [];
   const rest: Conversation[] = [];
   const blockedByThem = (c: Conversation) => c.connection_status === 'blocked' && !iBlocked.has(c.other_user_id);
@@ -379,9 +404,10 @@ export default function InboxScreen() {
 
           <CoachMark markKey="tab_inbox" text="This is where your conversations happen." />
 
-          <View className="flex-row gap-2">
+          <View className="flex-row flex-wrap gap-2">
             {([
               ['active', 'Active'],
+              ['pending', openPending.length > 0 ? `Pending (${openPending.length})` : 'Pending'],
               ['friends', 'Friends'],
               ['past', 'Past'],
             ] as const).map(([key, label]) => (
@@ -390,7 +416,7 @@ export default function InboxScreen() {
                 onPress={() => setTab(key)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: tab === key }}
-                className={`rounded-full border px-4 py-2 ${
+                className={`rounded-full border px-3 py-2 ${
                   tab === key ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50' : 'border-stone-300 dark:border-stone-600'
                 }`}>
                 <Text
@@ -473,6 +499,81 @@ export default function InboxScreen() {
                   )}
                   {rest.map(renderConversation)}
                   {paused.map(renderConversation)}
+                </View>
+              )}
+            </>
+          )}
+
+          {tab === 'pending' && (
+            <>
+              <Text className="text-caption text-stone-400 dark:text-stone-600">
+                People you said Interested to. If they say Interested too, a chat opens. Only you see this list.
+              </Text>
+              {selfie !== 'approved' && (openPending.length > 0 || closedPending.length > 0) && (
+                <View className="gap-2 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
+                  <Text className="text-body text-stone-700 dark:text-stone-300">
+                    {selfie === 'pending'
+                      ? 'Your selfie is waiting for our review, usually within a day. Chats open once it is approved.'
+                      : selfie === 'rejected'
+                        ? "Your selfie check didn't go through. Please take a new one so chats can open."
+                        : 'Chats open once your selfie check is approved. It takes a minute.'}
+                  </Text>
+                  {selfie !== 'pending' && (
+                    <Pressable onPress={() => router.push('/selfie-check')} className="self-start">
+                      <Text className="text-caption font-semibold text-accent-500">Do the selfie check</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+              {closedPending.map((c) => (
+                <View
+                  key={`closed-${c.other_user_id}`}
+                  className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+                  <Text className="text-body text-stone-700 dark:text-stone-300">
+                    Your interest in {(c.display_name ?? 'them').split(' ')[0]} has come to a close. It didn&apos;t turn
+                    into a chat this time, and that happens often. Timing, room in someone&apos;s life, and fit all play a
+                    part. New people are on the way.
+                  </Text>
+                </View>
+              ))}
+              {openPending.length === 0 && closedPending.length === 0 ? (
+                <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
+                  <Text className="text-body text-stone-600 dark:text-stone-300">
+                    When you say Interested in someone, they wait here until you can say hello.
+                  </Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  {openPending.map((p) => {
+                    const first = (p.display_name ?? 'They').split(' ')[0];
+                    const line =
+                      p.state === 'my_selfie'
+                        ? `You both said Interested. Your chat opens once your selfie is approved.`
+                        : p.state === 'their_selfie'
+                          ? `You both said Interested. Your chat opens once ${first}'s selfie check is done.`
+                          : p.state === 'room'
+                            ? `You both said Interested. Your chat opens as soon as there's room for a new chat.`
+                            : `Waiting for ${first}. If ${first} says Interested too, you can say hello.`;
+                    const both = p.state !== 'waiting';
+                    return (
+                      <Pressable
+                        key={p.other_user_id}
+                        onPress={() => router.push({ pathname: '/candidate/[id]', params: { id: p.other_user_id } })}
+                        className={`gap-1 rounded-2xl border p-4 active:opacity-80 ${
+                          both ? 'border-accent-500/50 bg-accent-500/5' : 'border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800'
+                        }`}>
+                        <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+                          {p.display_name ?? 'A member'}
+                          {p.age_band ? `, ${p.age_band}` : ''}
+                        </Text>
+                        <Text className="text-caption text-stone-600 dark:text-stone-300">{line}</Text>
+                        <Text className="text-caption text-stone-400 dark:text-stone-500">
+                          You said Interested on {shortDay(p.created_at)}. Closes on its own on {shortDay(p.closes_at)} if
+                          a chat hasn&apos;t opened.
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               )}
             </>

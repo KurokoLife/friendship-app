@@ -58,7 +58,8 @@ async function rpcAs(user, sql, params = []) {
 
   // Someone she never talked to still needs the selfie check
   const r1 = await rpcAs(U.aisha, `select express_interest($1)`, [PRIYA]);
-  check('New person still needs the selfie check', r1.error && r1.error.includes('not_verified'), r1.error);
+  check('New person: Interested saved, but no chat without the selfie', !r1.error && r1.rows[0].express_interest.mutual === false && r1.rows[0].express_interest.selfie !== 'approved', r1.error || JSON.stringify(r1.rows));
+  await q(`delete from interests where from_user_id=$1 and to_user_id=$2`, [U.aisha, PRIYA]);
 
   // ---- 2. Capacity wording ----
   const m = await L.as(U.maria);

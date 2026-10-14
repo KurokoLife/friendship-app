@@ -12,11 +12,13 @@ import { supabase } from '@/lib/supabase';
 // Mutual "Interested"
 // ---------------------------------------------------------------------
 
+export type SelfieStatus = 'approved' | 'pending' | 'none' | 'rejected';
+export type PendingWait = 'my_selfie' | 'their_selfie' | 'room';
 export type InterestResult =
-  | { status: 'waiting' }
+  // Saved in Inbox, Pending (2026-10-14). mutual: both said Interested but
+  // the chat can't open yet (wait says why).
+  | { status: 'waiting'; mutual: boolean; wait: PendingWait | null; selfie: SelfieStatus }
   | { status: 'mutual'; connectionId: string }
-  | { status: 'not_verified' }
-  | { status: 'selfie_pending' }
   | { status: 'ended' }
   | { status: 'error'; message: string };
 
@@ -28,8 +30,6 @@ export async function expressInterest(otherId: string): Promise<InterestResult> 
   const { data, error } = await supabase.rpc('express_interest', { p_other_user_id: otherId });
   if (error) {
     const message = error.message ?? '';
-    if (message.includes('selfie_pending')) return { status: 'selfie_pending' };
-    if (message.includes('not_verified')) return { status: 'not_verified' };
     // Word match, not includes(): 'suspended' also contains 'ended'.
     if (/\bended\b/.test(message)) return { status: 'ended' };
     if (message.includes('active_cap_reached')) return { status: 'error', message: CAPACITY_ERROR_MESSAGES.active_cap_reached };
@@ -49,9 +49,14 @@ export async function expressInterest(otherId: string): Promise<InterestResult> 
     }
     return { status: 'error', message: 'Something went wrong. Please try again.' };
   }
-  const result = data as { mutual?: boolean; connection_id?: string } | null;
+  const result = data as { mutual?: boolean; connection_id?: string; waiting?: PendingWait; selfie?: SelfieStatus } | null;
   if (result?.mutual && result.connection_id) return { status: 'mutual', connectionId: result.connection_id };
-  return { status: 'waiting' };
+  return {
+    status: 'waiting',
+    mutual: Boolean(result?.mutual),
+    wait: result?.waiting ?? null,
+    selfie: result?.selfie ?? 'approved',
+  };
 }
 
 // The ids of people the signed-in member already said Interested to. RLS
@@ -75,6 +80,20 @@ export async function connectionHasMutualInterest(connectionId: string): Promise
 export function waitingForInterestCopy(name: string): string {
   return `Sent privately. If ${name} says Interested too, a chat opens for you both. ${name} is only told if that happens. People decide at their own pace, and that's okay. If it doesn't become mutual within 30 days, it closes on its own.`;
 }
+// What shows right after tapping Interested (2026-10-14): the person is
+// always saved in Inbox, Pending, and the line says what happens next.
+export function interestSavedCopy(name: string, r: Extract<InterestResult, { status: 'waiting' }>): string {
+  const where = "You'll find them in Inbox, under Pending.";
+  if (r.mutual) {
+    if (r.wait === 'my_selfie') return `You and ${name} both said Interested. Your chat opens once your selfie is approved. ${where}`;
+    if (r.wait === 'their_selfie') return `You and ${name} both said Interested. Your chat opens once ${name}'s selfie check is done. ${where}`;
+    return `You and ${name} both said Interested. Your chat opens as soon as there's room. ${where}`;
+  }
+  const base = `${waitingForInterestCopy(name)} ${where}`;
+  if (r.selfie === 'pending') return `${base} Your selfie is waiting for our review, usually within a day. Chats open once it's approved.`;
+  if (r.selfie === 'none' || r.selfie === 'rejected') return `${base} Chats open once your selfie check is approved.`;
+  return base;
+}
 export const WAITING_FOR_INTEREST_COPY = waitingForInterestCopy('they').replace('If they says', 'If they say').replace('they is only', "They're only");
 
 // Saved (2026-10-10): at most 5, each for 30 days.
@@ -97,6 +116,26 @@ export type MyInterest = {
 export async function fetchMyInterests(): Promise<MyInterest[]> {
   const { data } = await supabase.rpc('my_interests');
   return (data ?? []) as MyInterest[];
+}
+export type PendingPerson = {
+  other_user_id: string;
+  display_name: string | null;
+  age_band: string | null;
+  created_at: string;
+  closes_at: string;
+  state: 'waiting' | 'my_selfie' | 'their_selfie' | 'room' | 'closed';
+};
+export async function fetchMyPending(): Promise<PendingPerson[]> {
+  const { data } = await supabase.rpc('my_pending');
+  return (data ?? []) as PendingPerson[];
+}
+export async function openReadyInterests(): Promise<number> {
+  const { data } = await supabase.rpc('open_ready_interests');
+  return typeof data === 'number' ? data : 0;
+}
+export async function fetchMySelfieStatus(): Promise<SelfieStatus> {
+  const { data } = await supabase.rpc('my_selfie_state');
+  return (data as SelfieStatus | null) ?? 'none';
 }
 export async function ackInterestClosures(): Promise<void> {
   await supabase.rpc('ack_interest_closures');

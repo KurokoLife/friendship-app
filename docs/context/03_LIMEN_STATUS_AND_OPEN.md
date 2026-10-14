@@ -1,6 +1,6 @@
 # Limen: status, open decisions and to-dos
 
-Last updated 2026-10-13. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
+Last updated 2026-10-14. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
 
 ## Review status by area
 
@@ -9,7 +9,7 @@ Last updated 2026-10-13. The detailed decisions per area are in docs/DECISIONS.m
 | 1. Onboarding | Decided and built (Oct 4) |
 | 2. Profile | Decided and built (Oct 4) |
 | 3. Safety | Decided and built (Oct 4, selfie rules updated Oct 9) |
-| 4. Discover and matching | Decided and built (Oct 10): one a day, Saved and Interested for 30 days, Inbox tabs |
+| 4. Discover and matching | Decided and built (Oct 10, Pending tab Oct 14): one a day, Saved and Interested for 30 days, Inbox tabs incl. Pending |
 | 5. Chat and reflection | Decided and built (Oct 13): Check and "Another way to see it" removed, Reflect first tips, care words in the header |
 | 6. Reminders | Decided and built (Oct 10) |
 | 7. Meetups and planning | Decided and built (Oct 8 to 13; Plan something on one screen Oct 13). Morning-of video waits (see below) |

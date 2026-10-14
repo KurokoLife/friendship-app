@@ -210,3 +210,7 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Place search: only places near the person's city (box around it, nearest first, distance shown). Founder searched in LA and got places in other states and countries. qa-oct9 covers it with a far-away fake result.
 - Plan ideas: faster model (Haiku 5.5), smaller answer limit, 9-second time limit with hand-written ideas as the fallback. Redeploy `plan-ideas`.
 - Google place search: new `place-search` function (Places API New, session tokens, nearby only), app asks it first and falls back to OpenStreetMap. Tested the real function locally with Google's answers faked, plus qa-place end to end. Founder: Google Cloud setup, secret `GOOGLE_PLACES_KEY`, deploy `place-search`.
+
+## 2026-10-14: Pending tab in Inbox
+
+- Founder: Interested didn't save the person anywhere (blocked entirely while the selfie waited), and one-sided interest seemed to vanish. Now Interested always saves, to a new Inbox tab Pending; the chat opens when both said Interested and both selfies are approved. Saved keeps only saved people. Migration `20261014000000_pending_interests.sql`, `qa-pending` (14), `pendingsql.sql`, updated qa-discover, qa-oct9b, qa-oct9c.

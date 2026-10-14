@@ -1,6 +1,6 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-13. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-14. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
@@ -43,11 +43,11 @@ Working rules that follow from these:
 
 - Tabs: Discover, Saved, Inbox, Profile (and Test for admins and test accounts). No Browse, no Remember tab, no Guide tab.
 - One new person a day (in your own time zone), up to 3 waiting; the oldest gives way. Nobody shows while you have 3 active chats, and people with 3 active chats never appear. Never anyone you've had a chat with, in any state. Someone whose card passed can come back after 21 days, at the bottom. Picked by scoring (`generate-match-suggestions`, which only adds today's one person; `get_discover` decides what shows). Matching weights: life situation 30, values 25, meeting rhythm 13, plus hangout style, friendship type, language, opening-up pace, activities. Personality answers are not used.
-- Saved: at most 5, each for 30 days. Saving moves the person out of Discover. Anyone you start a chat with leaves Saved.
-- "Interested" instead of "Say hello". The chat opens only when both say Interested. One-sided interest is never shown to the other person, but it quietly moves you to the front of their next suggestions. The person moves to Saved under "You said Interested". It closes on its own after 30 days if it doesn't become mutual, with one calm note ("Your interest in X has come to a close..."). At most 5 open.
-- Selfie check: once per account, approved only (reviewed by an admin in Settings). Needed before saying Interested or sending a first message. While it waits: "Your selfie is waiting for our review". Two people who already talked can reconnect without it.
+- Saved: at most 5, each for 30 days. Saving moves the person out of Discover. Anyone you start a chat with leaves Saved. People you said Interested to are in Inbox, Pending (not Saved).
+- "Interested" instead of "Say hello". The chat opens only when both say Interested. One-sided interest is never shown to the other person, but it quietly moves you to the front of their next suggestions. The person moves to Inbox, under Pending, even before your selfie is approved. The chat opens when both said Interested and both selfies are approved; Pending says what it's waiting for (the other person, your selfie, their selfie check, or room for a new chat). It closes on its own after 30 days if no chat opened, with one calm note in Pending ("Your interest in X has come to a close..."). At most 5 open.
+- Selfie check: once per account, approved only (reviewed by an admin in Settings). Needed before a chat opens or a first message is sent (since Oct 14 you can say Interested before it's approved; the person waits in Pending). While it waits: "Your selfie is waiting for our review". Two people who already talked can reconnect without it.
 - Limits for everyone: 3 active conversations (paused chats count) and 5 hellos waiting for a reply. Graduated chats don't count. Inbox shows "N of 3 active conversations · room for N more".
-- Inbox tabs: Active (opens first: active and paused chats, new hellos), Friends (graduated), Past (ended, closed, blocked, with history and notes). The person who blocked can "Hide this chat"; the blocked person only sees "Not available".
+- Inbox tabs: Active (opens first: active and paused chats, new hellos), Pending (people you said Interested to, until the chat opens; only you see it), Friends (graduated), Past (ended, closed, blocked, with history and notes). The person who blocked can "Hide this chat"; the blocked person only sees "Not available".
 - A match with no hello: a gentle suggestion from 2 days, closes quietly at 14 days.
 - Ghosting rule: someone who lets 2 or more chats close unanswered within 60 days is shown last in suggestions for 30 days. Never shown to anyone, resets on its own.
 - Suspend switch: `users.suspended_at` (set in Supabase after reviewing a report).
