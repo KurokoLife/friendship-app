@@ -73,7 +73,14 @@ function TakeABreak() {
         ) : (
           <>
             <Text className="text-body text-stone-700 dark:text-stone-300">
-              Need some room? Take a break from meeting new people. Your chats carry on as usual, and nobody is told.
+              Need some room? Take a break from meeting new people. While you&apos;re on a break, Discover won&apos;t
+              show you anyone new, and you won&apos;t be shown to anyone new. Your chats carry on as usual, and nobody is
+              told.
+            </Text>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              Good to know: when you have 3 active conversations, Discover already rests on its own until one of them
+              ends. That&apos;s on purpose, so you can give the people you&apos;re already getting to know real care and
+              attention, instead of always meeting someone new.
             </Text>
             <View className="flex-row flex-wrap gap-2">
               {BREAK_CHOICES.map((c) => (

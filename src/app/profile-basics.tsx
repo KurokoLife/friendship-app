@@ -19,6 +19,7 @@ import { publicName, saveProfileName } from '@/lib/names';
 import { FRIENDLY_SAVE_ERROR } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
+const SHOW_CODE_FIELD = false;
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
 // Three plain number boxes, Month / Day / Year (docs/DECISIONS.md,
@@ -245,6 +246,9 @@ export default function ProfileBasicsScreen() {
             </View>
           </View>
 
+          {/* Hidden during the pilot (2026-10-14, founder: promo codes come
+              later). Turn SHOW_CODE_FIELD back on to bring it back. */}
+          {SHOW_CODE_FIELD && (
           <View className="gap-1">
             <Text className="text-caption text-stone-500 dark:text-stone-400">Referral code (optional)</Text>
             <TextInput
@@ -260,6 +264,7 @@ export default function ProfileBasicsScreen() {
               If a friend invited you, add their code. It helps us see how people find Limen.
             </Text>
           </View>
+          )}
 
           <Pressable onPress={() => setTermsAccepted((v) => !v)} className="flex-row items-start gap-3">
             <View
