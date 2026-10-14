@@ -19,6 +19,81 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 import { buildRememberExport } from '@/lib/remember';
 
+const SHOW_INVITE = false;
+
+const BREAK_CHOICES: { days: number; label: string }[] = [
+  { days: 7, label: '1 week' },
+  { days: 14, label: '2 weeks' },
+  { days: 30, label: '1 month' },
+];
+
+// Take a break from Discover (2026-10-14). While on a break nobody new is
+// shown to you and you aren't shown to anyone new. Chats, Pending and
+// Saved carry on. It ends on its own, or anytime here.
+function TakeABreak() {
+  const [until, setUntil] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      supabase.rpc('my_break_until').then(({ data }) => {
+        setUntil((data as string | null) ?? null);
+        setLoaded(true);
+      });
+    }, [])
+  );
+
+  const set = async (days: number) => {
+    setBusy(true);
+    setError(null);
+    const { data, error: e } = await supabase.rpc('set_my_break', { p_days: days });
+    setBusy(false);
+    if (e) setError("That didn't save. Please try again.");
+    else setUntil((data as string | null) ?? null);
+  };
+
+  if (!loaded) return null;
+  const day = until ? new Date(until).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : null;
+  return (
+    <View className="gap-3">
+      <SectionHeader label="Take a break" />
+      <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+        {until ? (
+          <>
+            <Text className="text-body text-stone-700 dark:text-stone-300">
+              You&apos;re taking a break until {day}. Nobody new is shown to you, and you aren&apos;t shown to anyone
+              new. Your chats carry on as usual.
+            </Text>
+            <Pressable onPress={() => set(0)} disabled={busy} className="self-start">
+              <Text className="text-caption font-semibold text-accent-500">{busy ? 'Saving...' : 'End my break now'}</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Text className="text-body text-stone-700 dark:text-stone-300">
+              Need some room? Take a break from meeting new people. Your chats carry on as usual, and nobody is told.
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {BREAK_CHOICES.map((c) => (
+                <Pressable
+                  key={c.days}
+                  onPress={() => set(c.days)}
+                  disabled={busy}
+                  className="rounded-full border border-stone-300 px-4 py-2 dark:border-stone-600">
+                  <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">{c.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+        {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+      </View>
+    </View>
+  );
+}
+
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
 type BlockedUser = {
@@ -280,9 +355,9 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
             </Pressable>
             <Pressable
-              onPress={() => router.push('/profile-review')}
+              onPress={() => router.push('/account-recovery?from=settings')}
               className="flex-row items-center justify-between rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-body text-stone-900 dark:text-stone-50">Preview my public profile</Text>
+              <Text className="text-body text-stone-900 dark:text-stone-50">Sign-in and recovery</Text>
               <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
             </Pressable>
             <Pressable
@@ -315,8 +390,12 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* Referral, relocated from the Profile tab. */}
-          {account?.referral_code && (
+          <TakeABreak />
+
+          {/* Referral, relocated from the Profile tab. Hidden during the
+              pilot (2026-10-14): there's no reward and nothing tracks it
+              yet. Turn SHOW_INVITE back on when it means something. */}
+          {SHOW_INVITE && account?.referral_code && (
             <View className="gap-3">
               <SectionHeader label="Invite a friend" />
               <Pressable

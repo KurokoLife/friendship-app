@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { ProfileStories } from '@/components/profile-stories';
 import { activityCategoryLabel, activityDetailLines } from '@/lib/activity-categories';
@@ -13,7 +14,7 @@ const MUTED_COLOR = '#a8a29e'; // stone-400
 // Other User Profile (candidate/[id].tsx) and your own Public Profile
 // Review (profile-review.tsx) can never drift apart.
 //
-// 1. Curiosity first: photos, first name, age range, distance, "Right
+// 1. Curiosity first: a small photo (tap for larger), first name, age range, distance, "Right
 //    now, I'm...", stories, what brings you here (only if the person chose
 //    to show it, the views already blank hidden ones), values, activities
 //    with their details, what kind of friendship.
@@ -108,7 +109,10 @@ export function PublicProfileView({
   const hiddenTransitions = ownerHidden ? lifeTransitionSentences(ownerHidden.lifeTransitions) : [];
   const showHiddenTransitions =
     Boolean(ownerHidden) && (hiddenTransitions.length > 0 || Boolean(ownerHidden?.lifeTransitionsOther));
-  const extraPhotos = (profile.extra_photo_urls ?? []).filter(Boolean);
+  const photos = [profile.photo_url, ...(profile.extra_photo_urls ?? [])].filter(Boolean) as string[];
+  const [viewerAt, setViewerAt] = useState<number | null>(null);
+  const { width } = useWindowDimensions();
+  const photoSize = Math.min(width - 32, 520);
   const distance = formatDistance(profile.distance_miles ?? null, profile.location_city);
   const activityCategories = profile.activity_interests?.categories ?? [];
   const transitions = lifeTransitionSentences(profile.life_transitions);
@@ -120,40 +124,73 @@ export function PublicProfileView({
 
   return (
     <View className="gap-5">
-      {/* Photos */}
-      <View className="gap-3">
-        {profile.photo_url ? (
-          <Image source={{ uri: profile.photo_url }} className="aspect-square w-full max-w-xs self-center rounded-3xl bg-stone-200" />
-        ) : (
-          <View className="aspect-square w-full max-w-xs items-center justify-center self-center rounded-3xl bg-stone-200 dark:bg-stone-700">
-            <Text className="text-display text-stone-500 dark:text-stone-400">{initials(profile.display_name)}</Text>
-          </View>
-        )}
-        {extraPhotos.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
-            {extraPhotos.map((uri) => (
-              <Image key={uri} source={{ uri }} className="h-28 w-28 rounded-2xl bg-stone-200" />
-            ))}
-          </ScrollView>
-        )}
-      </View>
-
-      {/* Name, age range, distance */}
-      <View className="gap-1">
-        <View className="flex-row flex-wrap items-center gap-2">
+      {/* Photo small, next to the name (2026-10-14): the profile leads with
+          the person's words, not their face. Tap the photo to see it, and
+          any others, larger. */}
+      <View className="flex-row items-center gap-4">
+        <Pressable
+          onPress={() => photos.length > 0 && setViewerAt(0)}
+          disabled={photos.length === 0}
+          accessibilityRole={photos.length > 0 ? 'button' : undefined}
+          accessibilityLabel={photos.length > 0 ? 'See photos larger' : undefined}>
+          {profile.photo_url ? (
+            <Image source={{ uri: profile.photo_url }} className="h-20 w-20 rounded-2xl bg-stone-200" />
+          ) : (
+            <View className="h-20 w-20 items-center justify-center rounded-2xl bg-stone-200 dark:bg-stone-700">
+              <Text className="text-title text-stone-500 dark:text-stone-400">{initials(profile.display_name)}</Text>
+            </View>
+          )}
+        </Pressable>
+        <View className="flex-1 gap-1">
           <Text className="text-title text-stone-900 dark:text-stone-50">
             {profile.display_name ?? 'A member'}
             {profile.age_band ? `, ${profile.age_band}` : ''}
           </Text>
           {profile.selfie_verified && (
-            <View className="flex-row items-center gap-1 rounded-full border border-accent-500 px-2 py-0.5">
+            <View className="flex-row items-center gap-1 self-start rounded-full border border-accent-500 px-2 py-0.5">
               <Ionicons name="checkmark-circle" size={12} color={ACCENT_COLOR} />
               <Text className="text-caption text-accent-500">Photo verified</Text>
             </View>
           )}
+          {distance && <Text className="text-caption text-stone-500 dark:text-stone-400">{distance}</Text>}
+          {photos.length > 0 && (
+            <Pressable onPress={() => setViewerAt(0)} className="self-start">
+              <Text className="text-caption font-semibold text-accent-500">
+                {photos.length === 1 ? 'See photo' : `See ${photos.length} photos`}
+              </Text>
+            </Pressable>
+          )}
         </View>
-        {distance && <Text className="text-caption text-stone-500 dark:text-stone-400">{distance}</Text>}
       </View>
+
+      <Modal visible={viewerAt !== null} transparent animationType="fade" onRequestClose={() => setViewerAt(null)}>
+        <View className="flex-1 justify-center bg-black/90">
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0, height: photoSize }}
+            contentOffset={{ x: (viewerAt ?? 0) * width, y: 0 }}>
+            {photos.map((uri, i) => (
+              <View key={`${uri}-${i}`} style={{ width, height: photoSize }} className="items-center justify-center">
+                <Image
+                  source={{ uri }}
+                  style={{ width: photoSize, height: photoSize }}
+                  className="rounded-2xl bg-stone-800"
+                  resizeMode="cover"
+                  accessibilityLabel={`Photo ${i + 1} of ${photos.length}`}
+                />
+              </View>
+            ))}
+          </ScrollView>
+          {photos.length > 1 && (
+            <Text className="mt-3 text-center text-caption text-stone-300">Swipe to see more ({photos.length} photos)</Text>
+          )}
+          <Pressable onPress={() => setViewerAt(null)} className="mt-4 self-center rounded-full border border-stone-500 px-5 py-2">
+            <Text className="text-caption font-semibold text-stone-100">Close</Text>
+          </Pressable>
+        </View>
+      </Modal>
 
       {/* Right now, I'm... */}
       {profile.personal_statement && (

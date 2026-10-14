@@ -7,7 +7,7 @@ Last updated 2026-10-14. The detailed decisions per area are in docs/DECISIONS.m
 | Area | Status |
 |---|---|
 | 1. Onboarding | Decided and built (Oct 4) |
-| 2. Profile | Decided and built (Oct 4) |
+| 2. Profile | Decided and built (Oct 4, reviewed Oct 14: small photo, Edit profile list with matching labels, connection summary, take a break) |
 | 3. Safety | Decided and built (Oct 4, selfie rules updated Oct 9) |
 | 4. Discover and matching | Decided and built (Oct 10, Pending tab Oct 14): one a day, Saved and Interested for 30 days, Inbox tabs incl. Pending |
 | 5. Chat and reflection | Decided and built (Oct 13): Check and "Another way to see it" removed, Reflect first tips, care words in the header |
@@ -18,7 +18,7 @@ Last updated 2026-10-14. The detailed decisions per area are in docs/DECISIONS.m
 | 9b. Guide | Draft only (claude/Guide_Draft_Plan.md) |
 | 10. Money and settings | Not reviewed |
 
-Suggested next: Profile tab: Guide (9b), then Profile, then Money and settings (10).
+Suggested next: Guide (9b, founder working on videos separately; includes the "reply within 48 hours" guide text and the Short guides switch), then Money and settings (10). Later: changing your phone number.
 
 ## Open founder decisions
 

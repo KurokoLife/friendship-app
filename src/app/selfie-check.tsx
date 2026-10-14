@@ -101,7 +101,7 @@ export default function SelfieCheckScreen() {
           {state.verified ? (
             <View className="gap-3">
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                You&apos;re verified. You can say Interested to anyone in your suggestions.
+                You&apos;re verified. Chats can open with anyone who says Interested back.
               </Text>
             </View>
           ) : state.status === 'pending' ? (
@@ -111,7 +111,7 @@ export default function SelfieCheckScreen() {
                 soon as it&apos;s been checked.
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                You only do this once for your account. Until it&apos;s approved you can&apos;t say Interested or send a first message, but you can keep replying in chats you already have.
+                You only do this once for your account. You can still say Interested while you wait: those people stay in Inbox, under Pending, and chats open once it&apos;s approved. You can keep replying in chats you already have.
               </Text>
             </View>
           ) : (

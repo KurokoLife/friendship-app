@@ -76,6 +76,14 @@ Removed fields stay in the database for now (no data deleted) but are no longer 
 
 The 15 points that came from personality similarity move to life situation (+5, now 30), values (+5, now 25) and meeting rhythm (+5, now 13). Personality answers are used for the reflection only.
 
+### Profile review (2026-10-14)
+
+- Small photo next to the name, tap for larger: the profile leads with the person's words, not their face (founder).
+- "Personality reflection" renamed "connection summary": written from the How you connect answers, saved once, retake for a new one. Not editable as text (it's a summary of answers, so changing the answers is the honest way to change it).
+- Edit profile shows which parts are used for matching, so people (and the founder) know what decides who they meet.
+- Take a break from meeting new people (1 week, 2 weeks, 1 month), chats carry on, nobody is told.
+- Invite a friend hidden during the pilot (no reward, not tracked).
+
 ## 3. Safety (decided)
 
 1. **Friendship-only norm** on the readiness screen and the "How We Show Up" page.

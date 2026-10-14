@@ -215,3 +215,7 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 
 - Founder: Interested didn't save the person anywhere (blocked entirely while the selfie waited), and one-sided interest seemed to vanish. Now Interested always saves, to a new Inbox tab Pending; the chat opens when both said Interested and both selfies are approved. Saved keeps only saved people. Migration `20261014000000_pending_interests.sql`, `qa-pending` (14), `pendingsql.sql`, updated qa-discover, qa-oct9b, qa-oct9c.
 - Reset all test accounts now clears plan_prefs, prompt_settings, curiosity_notes, ghosting_events, remember_asks for seed accounts (`20261014000001`). Profile area evaluated, no changes yet.
+
+## 2026-10-14: Profile round
+
+- Small photo with a viewer, one completion %, connection summary (renamed and saved), Edit profile as a list with "used for matching" labels, Settings: sign-in and recovery, take a break, invite hidden, preview button removed from Settings; selfie and privacy wording. Migration `20261014000002_summary_and_break.sql`, suite `qa-profile` (23).

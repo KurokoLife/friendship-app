@@ -1,6 +1,6 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
@@ -47,6 +47,10 @@ async function markSocialLinked() {
 }
 
 export default function AccountRecoveryScreen() {
+  // Also reachable from Settings, "Sign-in and recovery" (2026-10-14).
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const fromSettings = from === 'settings';
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
   const [linked, setLinked] = useState<Record<Provider, boolean>>({ google: false, apple: false });
   const [linkingProvider, setLinkingProvider] = useState<Provider | null>(null);
   const [mode, setMode] = useState<'choose' | 'email' | 'email-sent'>('choose');
@@ -58,6 +62,10 @@ export default function AccountRecoveryScreen() {
     const { data } = await supabase.auth.getUserIdentities();
     const providers = new Set((data?.identities ?? []).map((identity) => identity.provider));
     const next = { google: providers.has('google'), apple: providers.has('apple') };
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    setCurrentEmail(user?.email || null);
     setLinked(next);
     if (next.google || next.apple) await markSocialLinked();
   };
@@ -72,7 +80,7 @@ export default function AccountRecoveryScreen() {
         supabase.auth.exchangeCodeForSession(window.location.href).then(({ error: exchangeError }) => {
           if (exchangeError) setError("That didn't finish linking. Try again, or skip for now.");
           else refreshIdentities();
-          window.history.replaceState({}, '', url.pathname);
+          window.history.replaceState({}, '', url.pathname + (fromSettings ? '?from=settings' : ''));
         });
         return;
       }
@@ -83,7 +91,7 @@ export default function AccountRecoveryScreen() {
   const handleLink = async (provider: Provider) => {
     setError(null);
     setLinkingProvider(provider);
-    const redirectTo = Linking.createURL('account-recovery');
+    const redirectTo = Linking.createURL('account-recovery', fromSettings ? { queryParams: { from: 'settings' } } : undefined);
     const { data, error: linkError } = await supabase.auth.linkIdentity({
       provider,
       options: { redirectTo, skipBrowserRedirect: true },
@@ -127,7 +135,7 @@ export default function AccountRecoveryScreen() {
     setMode('email-sent');
   };
 
-  const goNext = () => router.replace('/gender-identity');
+  const goNext = () => router.replace(fromSettings ? '/settings' : '/gender-identity');
   const hasLinked = linked.google || linked.apple;
 
   return (
@@ -135,13 +143,27 @@ export default function AccountRecoveryScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <SafeAreaView className="flex-1 px-6 py-10">
-        <Pressable onPress={() => (mode === 'choose' ? router.replace('/profile-basics') : setMode('choose'))}>
+        <Pressable onPress={() => (mode === 'choose' ? router.replace(fromSettings ? '/settings' : '/profile-basics') : setMode('choose'))}>
           <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
         </Pressable>
 
         <ScrollView className="flex-1" contentContainerClassName="gap-5 pt-6" showsVerticalScrollIndicator={false}>
           <View className="gap-3">
-            <Text className="text-display text-stone-900 dark:text-stone-50">Add a way to recover your account</Text>
+            <Text className="text-display text-stone-900 dark:text-stone-50">
+              {fromSettings ? 'Sign-in and recovery' : 'Add a way to recover your account'}
+            </Text>
+            {fromSettings && (
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                {[
+                  'You sign in with your phone number.',
+                  linked.google ? 'Google is linked.' : null,
+                  linked.apple ? 'Apple is linked.' : null,
+                  currentEmail ? `Recovery email: ${currentEmail}.` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              </Text>
+            )}
             <Text className="text-body text-stone-500 dark:text-stone-400">
               Optional. We&apos;ll only use this to recover your account or send important updates. Linking
               Google or Apple also shows a &quot;verified&quot; badge on your profile.
@@ -233,7 +255,7 @@ export default function AccountRecoveryScreen() {
             </Pressable>
           ) : (
             <Pressable onPress={goNext} className="items-center py-3">
-              <Text className="text-body text-stone-500 dark:text-stone-400">Skip for now</Text>
+              <Text className="text-body text-stone-500 dark:text-stone-400">{fromSettings ? 'Back to Settings' : 'Skip for now'}</Text>
             </Pressable>
           )}
         </View>

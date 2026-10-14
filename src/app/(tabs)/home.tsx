@@ -94,6 +94,7 @@ type DiscoverState = {
   full: boolean;
   can_add: boolean;
   next_at?: string;
+  on_break_until?: string | null;
   items: { candidate_id: string; reasoning: string; human_detail: string | null; created_at: string }[];
 };
 
@@ -110,6 +111,8 @@ export default function HomeScreen() {
   const [generating, setGenerating] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [full, setFull] = useState(false);
+  // Taking a break (2026-10-14, set in Settings).
+  const [breakUntil, setBreakUntil] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A calm note after Save, Interested or a limit. Not an error.
@@ -171,6 +174,7 @@ export default function HomeScreen() {
     try {
       let state = await read();
       setFull(state.full);
+      setBreakUntil(state.on_break_until ?? null);
       setSuggestions(await toSuggestions(state.items));
       setLoaded(true);
       if (state.can_add) {
@@ -300,9 +304,22 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {breakUntil && (
+            <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
+              <Text className="text-body text-stone-600 dark:text-stone-300">
+                You&apos;re taking a break until{' '}
+                {new Date(breakUntil).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}.
+                New people will show here again after that.
+              </Text>
+              <Pressable onPress={() => router.push('/settings')} className="self-start">
+                <Text className="text-caption font-semibold text-accent-500">End my break in Settings</Text>
+              </Pressable>
+            </View>
+          )}
+
           {generating && <SuggestionSkeletonCard />}
 
-          {!full && !generating && suggestions.length === 0 && !error && (
+          {!full && !breakUntil && !generating && suggestions.length === 0 && !error && (
             <View className="gap-2 rounded-3xl border border-stone-100 bg-white p-7 dark:border-stone-700/60 dark:bg-stone-800">
               <Text className="text-body text-stone-600 dark:text-stone-300">
                 {noneToday === 'nobody'

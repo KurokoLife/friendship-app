@@ -1,9 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { decode } from 'base64-arraybuffer';
 import { PHOTO_RULES_TEXT, pickProfilePhoto } from '@/lib/photo-picker';
 import { ProfileBasicsCard } from '@/components/profile-basics-card';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { CARE_STYLE_EXAMPLES, CARE_STYLE_MAX_LENGTH, CARE_STYLE_PROMPT } from '@/lib/care-style';
 import { StoriesEditor } from '@/components/stories-editor';
+import { completionPct } from '@/lib/profile-completion';
 import { normalizeStories, type Story } from '@/lib/stories';
 import { ACTIVITY_CATEGORIES } from '@/lib/activity-categories';
 import { UniversalTextBox } from '@/components/universal-text-box';
@@ -156,24 +158,24 @@ let hasFriendshipTypesColumn = false;
 const COMPLETION_THRESHOLD = 60;
 
 function computeCompletionPct(p: ProfileFormState) {
-  const checks = [
-    p.lifeTransitions.length > 0,
-    p.personalStatement.trim().length > 0,
-    p.values.length > 0,
-    p.activityCategories.length > 0,
-    p.hangoutTypePreference.length > 0,
-    p.stories.some((st) => st.text.trim().length > 0),
-    Boolean(p.meetingFreq),
-    Boolean(p.responseTime),
-    Boolean(p.barPreference),
-    p.dealbreakers.trim().length > 0,
-    Boolean(p.photoUrl),
-    Boolean(p.locationLat && p.locationLng),
-    p.friendshipTypes.length > 0,
-    Boolean(p.communicationStyleOpenness),
-    p.availability.length > 0,
-  ];
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  return completionPct({
+    life_transitions: p.lifeTransitions,
+    personal_statement: p.personalStatement,
+    values: p.values,
+    activity_categories: p.activityCategories,
+    hangout_type_preference: p.hangoutTypePreference,
+    stories: p.stories,
+    meeting_freq: p.meetingFreq,
+    response_time: p.responseTime,
+    bar_preference: p.barPreference,
+    dealbreakers: p.dealbreakers,
+    photo_url: p.photoUrl,
+    location_lat: p.locationLat,
+    location_lng: p.locationLng,
+    friendship_types: p.friendshipTypes,
+    communication_style_openness: p.communicationStyleOpenness,
+    availability: p.availability,
+  });
 }
 
 function completionMessage(pct: number) {
@@ -206,6 +208,24 @@ const STEP_COMMUNICATION_STYLE = 7;
 const STEP_LANGUAGES = 8;
 const STEP_PHOTO = 9;
 const TOTAL_STEPS = 10;
+const EDIT_BASICS = -1;
+
+// The Edit profile list. `use` says, in a word, whether the part is used to
+// suggest people (details on each field inside, see MATCH_USE).
+const EDIT_SECTIONS: { step: number; title: string; use: 'yes' | 'some' | 'no' }[] = [
+  { step: EDIT_BASICS, title: 'Name, age, who you would like to meet', use: 'yes' },
+  { step: STEP_LOCATION, title: "Where you're based", use: 'yes' },
+  { step: STEP_WHAT_BRINGS_YOU_HERE, title: 'What brings you here', use: 'yes' },
+  { step: STEP_ABOUT_YOU, title: 'Right now, stories and how you like care', use: 'no' },
+  { step: STEP_VALUES, title: 'What matters to you', use: 'yes' },
+  { step: STEP_INTERESTS, title: 'What you like doing', use: 'yes' },
+  { step: STEP_HANGOUT_STYLE, title: 'How you like to hang out', use: 'yes' },
+  { step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM, title: 'Friendship type, pace and free times', use: 'some' },
+  { step: STEP_COMMUNICATION_STYLE, title: 'Opening up, bars or drinks, hard nos', use: 'some' },
+  { step: STEP_LANGUAGES, title: 'Languages', use: 'yes' },
+  { step: STEP_PHOTO, title: 'Photos', use: 'no' },
+];
+const USE_LABEL = { yes: 'Used for matching', some: 'Partly used for matching', no: 'Not used for matching' } as const;
 
 type RequiredFieldCheck = { step: number; message: string; isMissing: (p: ProfileFormState) => boolean };
 
@@ -273,16 +293,58 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
   );
 }
 
+// Whether a field is used to suggest people (2026-10-14, founder: people
+// should know). Source of truth: compatible_candidates_for (who can be
+// shown) and weightedScore in generate-match-suggestions (how people are
+// ranked). Keep MATCH_USE in step with those two.
+const MATCH_USE = {
+  location: { used: true, text: 'Used for matching: only people within your distance are suggested.' },
+  transitions: { used: true, text: 'Used for matching. This counts the most.' },
+  rightNow: { used: false, text: 'Not used for matching. Shown on your profile.' },
+  stories: { used: false, text: 'Not used for matching. Shown on your profile.' },
+  care: { used: false, text: 'Not used for matching. Only people you connect with see it.' },
+  values: { used: true, text: 'Used for matching. This counts a lot.' },
+  activities: { used: true, text: 'Used for matching a little. Also helps with plan ideas.' },
+  hangout: { used: true, text: 'Used for matching.' },
+  friendshipType: { used: true, text: 'Used for matching.' },
+  meetingFreq: { used: true, text: 'Used for matching.' },
+  responseTime: { used: false, text: 'Not used for matching. Sets when the one gentle note comes after someone says hello.' },
+  availability: { used: false, text: 'Not used for matching. Helps when you plan a meetup.' },
+  openness: { used: true, text: 'Used for matching (a small part).' },
+  bars: { used: false, text: 'Not used for matching. Keeps plan ideas right for you.' },
+  hardNos: { used: false, text: 'Not used for matching. Shown on your profile, and it never hides anyone.' },
+  languages: { used: true, text: 'Used for matching (a small part).' },
+  photos: { used: false, text: 'Not used for matching, but a photo is needed to be suggested to anyone.' },
+} as const;
+
+function MatchLine({ use }: { use: { used: boolean; text: string } }) {
+  return (
+    <View className="flex-row items-start gap-1.5">
+      <Ionicons
+        name={use.used ? 'people-outline' : 'eye-off-outline'}
+        size={13}
+        color={use.used ? '#B5643B' : MUTED_ICON_COLOR}
+        style={{ marginTop: 2 }}
+      />
+      <Text className={`flex-1 text-caption ${use.used ? 'text-accent-500' : 'text-stone-400 dark:text-stone-500'}`}>
+        {use.text}
+      </Text>
+    </View>
+  );
+}
+
 function Section({
   title,
   subtitle,
   children,
   nested,
+  matching,
 }: {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   nested?: boolean;
+  matching?: { used: boolean; text: string };
 }) {
   return (
     <View
@@ -293,6 +355,7 @@ function Section({
       }`}>
       <Text className="text-title text-stone-900 dark:text-stone-50">{title}</Text>
       {subtitle && <Text className="text-caption text-stone-500 dark:text-stone-400">{subtitle}</Text>}
+      {matching && <MatchLine use={matching} />}
       {children}
     </View>
   );
@@ -323,6 +386,15 @@ export default function ProfileBuildScreen() {
   // matters when !isEditMode, every render/handler below checks
   // isEditMode first.
   const [step, setStep] = useState(0);
+  // Edit profile (2026-10-14): a short list of sections; tap one to open
+  // just that part. null = the list.
+  const [editSection, setEditSection] = useState<number | null>(null);
+  const shows = (st: number) => (isEditMode ? editSection === st : step === st);
+  const scrollRef = useRef<ScrollView>(null);
+  const openSection = (st: number | null) => {
+    setEditSection(st);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
   const [openActivityDetails, setOpenActivityDetails] = useState<string[]>([]);
 
   useEffect(() => {
@@ -797,18 +869,17 @@ export default function ProfileBuildScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <SafeAreaView className="flex-1">
         <ScrollView
+          ref={scrollRef}
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="gap-5 px-6 pb-6 pt-10">
           {isEditMode ? (
             <View className="flex-row items-center justify-between">
-              <Pressable onPress={handleCancelEdit} disabled={cancelling}>
+              <Pressable onPress={() => (editSection === null ? router.replace('/profile') : openSection(null))}>
                 <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  {cancelling ? 'Cancelling...' : 'Cancel'}
+                  {editSection === null ? 'Back' : 'All sections'}
                 </Text>
               </Pressable>
-              <Pressable onPress={() => router.replace('/profile')}>
-                <Text className="text-caption font-semibold text-accent-500">Save</Text>
-              </Pressable>
+              <Text className="text-caption text-stone-400 dark:text-stone-600">Changes save as you go</Text>
             </View>
           ) : (
             // Onboarding pagination (2026-07-29): same top-row pattern
@@ -827,20 +898,50 @@ export default function ProfileBuildScreen() {
 
           <View className="gap-3">
             <Text className="text-display text-stone-900 dark:text-stone-50">
-              Build your profile
+              {isEditMode ? 'Edit profile' : 'Build your profile'}
             </Text>
             <View className="h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700">
               <View className="h-2 rounded-full bg-accent-500" style={{ width: `${completionPct}%` }} />
             </View>
             <Text className="text-caption text-stone-500 dark:text-stone-400">
-              {completionPct}% complete. {completionMessage(completionPct)}
+              {isEditMode ? `${completionPct}% complete.` : `${completionPct}% complete. ${completionMessage(completionPct)}`}
             </Text>
           </View>
 
-          {isEditMode && <ProfileBasicsCard />}
+          {isEditMode && editSection === null && (
+            <View className="gap-2">
+              {EDIT_SECTIONS.map((sec) => {
+                const missing = REQUIRED_FIELD_CHECKS.some((c) => c.step === sec.step && c.isMissing(profile));
+                return (
+                  <Pressable
+                    key={sec.step}
+                    onPress={() => openSection(sec.step)}
+                    className="flex-row items-center gap-3 rounded-2xl border border-stone-200 bg-white p-4 active:opacity-80 dark:border-stone-700 dark:bg-stone-800">
+                    <View className="flex-1 gap-0.5">
+                      <Text className="text-body text-stone-900 dark:text-stone-50">{sec.title}</Text>
+                      <Text
+                        className={`text-caption ${
+                          sec.use === 'no' ? 'text-stone-400 dark:text-stone-500' : 'text-accent-500'
+                        }`}>
+                        {USE_LABEL[sec.use]}
+                        {missing ? ' · Needs an answer' : ''}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
+                  </Pressable>
+                );
+              })}
+              <Text className="text-caption text-stone-400 dark:text-stone-500">
+                Matching uses only the parts marked above. Your stories, care words, reply pace and free times are
+                never used to pick who you meet.
+              </Text>
+            </View>
+          )}
 
-          {(isEditMode || step === STEP_LOCATION) && (
-          <Section title="Where you're based" subtitle="Required. Used to find people near you">
+          {isEditMode && editSection === EDIT_BASICS && <ProfileBasicsCard />}
+
+          {shows(STEP_LOCATION) && (
+          <Section title="Where you're based" subtitle="Required" matching={MATCH_USE.location}>
             <View className="gap-3">
               <View className="gap-1">
                 <Text className="text-caption text-stone-500 dark:text-stone-400">Your ZIP code (US)</Text>
@@ -903,10 +1004,11 @@ export default function ProfileBuildScreen() {
           </Section>
           )}
 
-          {(isEditMode || step === STEP_WHAT_BRINGS_YOU_HERE) && (
+          {shows(STEP_WHAT_BRINGS_YOU_HERE) && (
           <Section
             title="What brings you here?"
-            subtitle={`Required for matching. Choose up to ${MAX_LIFE_TRANSITIONS}. ${profile.lifeTransitions.length} of ${MAX_LIFE_TRANSITIONS} selected`}>
+            matching={MATCH_USE.transitions}
+            subtitle={`Required. Choose up to ${MAX_LIFE_TRANSITIONS}. ${profile.lifeTransitions.length} of ${MAX_LIFE_TRANSITIONS} selected`}>
             <View className="flex-row flex-wrap gap-2">
               {LIFE_TRANSITIONS.map((option) => (
                 <Chip
@@ -959,9 +1061,10 @@ export default function ProfileBuildScreen() {
           </Section>
           )}
 
-          {(isEditMode || step === STEP_ABOUT_YOU) && (
+          {shows(STEP_ABOUT_YOU) && (
           <Section
             title="Right now, I'm..."
+            matching={MATCH_USE.rightNow}
             subtitle={`One short, specific line about your life right now. ${profile.personalStatement.length} of ${RIGHT_NOW_MAX_LENGTH}`}>
             <VoiceTextInput
               value={profile.personalStatement}
@@ -979,9 +1082,10 @@ export default function ProfileBuildScreen() {
           </Section>
           )}
 
-          {(isEditMode || step === STEP_ABOUT_YOU) && (
+          {shows(STEP_ABOUT_YOU) && (
           <Section
             title="Stories"
+            matching={MATCH_USE.stories}
             subtitle="At least one short story that shows what you're like, up to three. Not a biography, just a moment.">
             <StoriesEditor
               value={profile.stories}
@@ -991,8 +1095,8 @@ export default function ProfileBuildScreen() {
           </Section>
           )}
 
-          {(isEditMode || step === STEP_ABOUT_YOU) && (
-          <Section title="How I like care" subtitle={`${CARE_STYLE_PROMPT} Optional, only people you connect with see this.`}>
+          {shows(STEP_ABOUT_YOU) && (
+          <Section title="How I like care" subtitle={`${CARE_STYLE_PROMPT} Optional.`} matching={MATCH_USE.care}>
             <VoiceTextInput
               value={profile.careStyle}
               onChangeText={(text) => setProfile((p) => ({ ...p, careStyle: text }))}
@@ -1004,9 +1108,10 @@ export default function ProfileBuildScreen() {
           </Section>
           )}
 
-          {(isEditMode || step === STEP_VALUES) && (
+          {shows(STEP_VALUES) && (
           <Section
             title="What matters to you"
+            matching={MATCH_USE.values}
             subtitle={`Choose up to ${MAX_VALUES}. ${profile.values.length} of ${MAX_VALUES} selected`}>
             <View className="flex-row flex-wrap gap-2">
               {VALUES_OPTIONS.map((option) => (
@@ -1032,9 +1137,9 @@ export default function ProfileBuildScreen() {
           </Section>
           )}
 
-          {(isEditMode || step === STEP_INTERESTS) && (
+          {shows(STEP_INTERESTS) && (
           <>
-          <Section title="What do you like doing" subtitle="Pick any that fit. Details are optional, but they give people something real to ask you about.">
+          <Section title="What do you like doing" matching={MATCH_USE.activities} subtitle="Pick any that fit. Details are optional, but they give people something real to ask you about.">
             <View className="flex-row flex-wrap gap-2">
               {ACTIVITY_CATEGORIES.map((category) => (
                 <Chip
@@ -1125,9 +1230,9 @@ export default function ProfileBuildScreen() {
           </>
           )}
 
-          {(isEditMode || step === STEP_HANGOUT_STYLE) && (
+          {shows(STEP_HANGOUT_STYLE) && (
           <>
-          <Section title="How you like to hang out" subtitle="Required for matching. Choose all that apply">
+          <Section title="How you like to hang out" subtitle="Required. Choose all that apply." matching={MATCH_USE.hangout}>
             <View className="flex-row flex-wrap gap-2">
               {HANGOUT_TYPES.map((option) => (
                 <Chip
@@ -1142,11 +1247,12 @@ export default function ProfileBuildScreen() {
           </>
           )}
 
-          {(isEditMode || step === STEP_FRIENDSHIP_TYPE_AND_RHYTHM) && (
+          {shows(STEP_FRIENDSHIP_TYPE_AND_RHYTHM) && (
           <>
           <Section
             title="What kind of friendship are you hoping to build?"
-            subtitle={`Required for matching. Choose up to ${MAX_FRIENDSHIP_TYPES}. ${profile.friendshipTypes.length} of ${MAX_FRIENDSHIP_TYPES} selected`}>
+            matching={MATCH_USE.friendshipType}
+            subtitle={`Required. Choose up to ${MAX_FRIENDSHIP_TYPES}. ${profile.friendshipTypes.length} of ${MAX_FRIENDSHIP_TYPES} selected`}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">
               Limen introduces you to one person at a time, and first meetups are one on one.
             </Text>
@@ -1183,7 +1289,7 @@ export default function ProfileBuildScreen() {
             )}
           </Section>
 
-          <Section title="How often you like to meet up" subtitle="Required for matching">
+          <Section title="How often you like to meet up" subtitle="Required" matching={MATCH_USE.meetingFreq}>
             <View className="flex-row flex-wrap gap-2">
               {MEETING_FREQ.map((option) => (
                 <Chip
@@ -1196,7 +1302,7 @@ export default function ProfileBuildScreen() {
             </View>
           </Section>
 
-          <Section title="How quickly you tend to reply" subtitle="Required for matching">
+          <Section title="How quickly you tend to reply" subtitle="Required" matching={MATCH_USE.responseTime}>
             <View className="flex-row flex-wrap gap-2">
               {RESPONSE_TIME.map((option) => (
                 <Chip
@@ -1209,7 +1315,7 @@ export default function ProfileBuildScreen() {
             </View>
           </Section>
 
-          <Section title="When you're generally free to meet" subtitle="Choose all that apply">
+          <Section title="When you're generally free to meet" subtitle="Choose all that apply" matching={MATCH_USE.availability}>
             <View className="flex-row flex-wrap gap-2">
               {AVAILABILITY.map((option) => (
                 <Chip
@@ -1224,11 +1330,12 @@ export default function ProfileBuildScreen() {
           </>
           )}
 
-          {(isEditMode || step === STEP_COMMUNICATION_STYLE) && (
+          {shows(STEP_COMMUNICATION_STYLE) && (
           <>
           <Section
             title="You are getting to know someone new. When do you tend to share personal things?"
-            subtitle="Required for matching">
+            subtitle="Required"
+            matching={MATCH_USE.openness}>
             <View className="gap-2">
               {COMMUNICATION_STYLE_OPENNESS_OPTIONS.map((option) => (
                 <Pressable
@@ -1260,7 +1367,7 @@ export default function ProfileBuildScreen() {
             </View>
           </Section>
 
-          <Section title="Are bars or drinks okay for meetups?" subtitle="Helps us suggest the right kind of activity later">
+          <Section title="Are bars or drinks okay for meetups?" matching={MATCH_USE.bars}>
             <View className="flex-row flex-wrap gap-2">
               {BAR_PREFERENCE.map((option) => (
                 <Chip
@@ -1273,7 +1380,7 @@ export default function ProfileBuildScreen() {
             </View>
           </Section>
 
-          <Section title="Hard nos" subtitle="Optional. Shown on your profile so people know up front. It never hides anyone automatically.">
+          <Section title="Hard nos" subtitle="Optional. Shown on your profile so people know up front." matching={MATCH_USE.hardNos}>
             <VoiceTextInput
               value={profile.dealbreakers}
               onChangeText={(text) => setProfile((p) => ({ ...p, dealbreakers: text }))}
@@ -1295,11 +1402,12 @@ export default function ProfileBuildScreen() {
           </>
           )}
 
-          {(isEditMode || step === STEP_LANGUAGES) && (
+          {shows(STEP_LANGUAGES) && (
           <>
           <Section
             title="Languages I am comfortable connecting in"
-            subtitle="Shown on your profile, and a small factor in match suggestions">
+            subtitle="Shown on your profile."
+            matching={MATCH_USE.languages}>
             <View className="flex-row flex-wrap gap-2">
               {LANGUAGE_OPTIONS.map((option) => (
                 <Chip
@@ -1328,9 +1436,10 @@ export default function ProfileBuildScreen() {
           </>
           )}
 
-          {(isEditMode || step === STEP_PHOTO) && (
+          {shows(STEP_PHOTO) && (
           <Section
             title="Photos"
+            matching={MATCH_USE.photos}
             subtitle="Required: one clear photo of your face. Up to 2 more are optional. Your selfie check is compared with the first one.">
             <View className="flex-row items-center gap-4">
               {profile.photoUrl ? (
@@ -1402,11 +1511,7 @@ export default function ProfileBuildScreen() {
               Supabase isn&apos;t configured yet. See .env.example.
             </Text>
           )}
-          {isEditMode && missingRequiredFields.length > 0 && (
-            <Text className="text-caption text-amber-600 dark:text-amber-400">
-              Still need (required for matching): {missingRequiredFields.join(', ')}
-            </Text>
-          )}
+          {/* Edit profile: each part in the list says "Needs an answer" instead of one long line here. */}
           {/* Onboarding pagination: on every step but the last, only THIS
               step's own missing required fields are shown, per instruction
               ("blocks progression at the right step, not just at the
@@ -1415,22 +1520,29 @@ export default function ProfileBuildScreen() {
               whole-profile check, unchanged from before pagination. */}
           {!isEditMode && !isLastStep && attemptedContinue && stepMissingFields.length > 0 && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">
-              Still need (required for matching): {stepMissingFields.join(', ')}
+              Still needed: {stepMissingFields.join(', ')}
             </Text>
           )}
           {!isEditMode && isLastStep && missingRequiredFields.length > 0 && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">
-              Still need (required for matching): {missingRequiredFields.join(', ')}
+              Still needed: {missingRequiredFields.join(', ')}
             </Text>
           )}
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
-          {isEditMode && (
-            <Pressable onPress={() => router.push('/big-five-assessment?from=profile')} className="items-center py-1">
-              <Text className="text-caption font-semibold text-accent-500">
-                Retake "How you connect"
+          {isEditMode && editSection === null && (
+            <Pressable onPress={handleCancelEdit} disabled={cancelling} className="items-center py-1">
+              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+                {cancelling ? 'Undoing...' : 'Undo my changes since I opened this'}
               </Text>
             </Pressable>
           )}
+          {isEditMode && editSection !== null ? (
+            <Pressable
+              onPress={() => openSection(null)}
+              className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
+              <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Done with this part</Text>
+            </Pressable>
+          ) : (
           <Pressable
             onPress={() => {
               if (isEditMode) {
@@ -1450,7 +1562,7 @@ export default function ProfileBuildScreen() {
             <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
               {isEditMode
                 ? missingRequiredFields.length > 0
-                  ? 'Complete required fields to continue'
+                  ? 'Answer the parts marked "Needs an answer"'
                   : completionPct < COMPLETION_THRESHOLD
                     ? `Complete ${COMPLETION_THRESHOLD}% to continue`
                     : 'Done'
@@ -1465,6 +1577,7 @@ export default function ProfileBuildScreen() {
                     : 'Next'}
             </Text>
           </Pressable>
+          )}
         </View>
       </SafeAreaView>
 

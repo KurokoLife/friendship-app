@@ -11,6 +11,7 @@ import {
   type ExperienceSingleKey,
   type FriendshipExperience,
 } from '@/lib/friendship-experience';
+import { saveConnectionSummary } from '@/lib/connection-summary';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -348,14 +349,20 @@ export default function BigFiveAssessmentScreen() {
         return;
       }
       if (fnError || !data?.connectionStyle || !data?.whatHelped || !data?.whenUncertain) {
-        throw fnError ?? new Error('No reflection returned');
+        throw fnError ?? new Error('No summary returned');
       }
       setConnectionStyle(data.connectionStyle as string);
       setWhatHelped(data.whatHelped as string);
       setWhenUncertain(data.whenUncertain as string);
+      // Saved, so Profile shows this same summary every time.
+      await saveConnectionSummary({
+        connectionStyle: data.connectionStyle as string,
+        whatHelped: data.whatHelped as string,
+        whenUncertain: data.whenUncertain as string,
+      });
     } catch {
       setNarrativeError(
-        "We couldn't put your reflection into words just yet, but your answers are saved and already helping us tune things for you."
+        "We couldn't write your summary just yet, but your answers are saved. You can see it later in Profile."
       );
     } finally {
       setNarrativeLoading(false);
@@ -416,7 +423,7 @@ export default function BigFiveAssessmentScreen() {
                 A little about how you connect
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                This is a reflection, not a label.
+                A short summary of your answers, not a label. Only you see it, and it&apos;s never used to pick who you meet.
               </Text>
             </View>
             <View className="gap-5 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
@@ -486,8 +493,8 @@ export default function BigFiveAssessmentScreen() {
             <Text className="text-display text-stone-900 dark:text-stone-50">How you connect</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
               Ten quick questions, no right answers. Go with your gut. Afterward you&apos;ll get a short
-              reflection on how you tend to connect. Your answers are private, never shown to anyone,
-              and never used to pick who you meet.
+              summary of how you tend to connect, written from your answers. Your answers and summary are
+              private, never shown to anyone, and never used to pick who you meet.
             </Text>
             <Text className="text-caption text-stone-400 dark:text-stone-600">
               {answeredCount} of {totalQuestions} answered

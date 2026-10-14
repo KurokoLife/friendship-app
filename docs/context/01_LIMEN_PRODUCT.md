@@ -29,15 +29,17 @@ Working rules that follow from these:
 
 ## 3. Joining (onboarding)
 
-11 screens: Intro → Phone number and code → Basics (first and last name, shown as "Maria S.", birthdate as Month/Day/Year, optional referral code with no reward promised) → Account recovery (Google, Apple, email, or skip; phone stays the sign-in) → Identity (your gender: Woman / Man / Non-binary; who you'd like to meet, mutual; age range) → Profile build (10 steps) → How you connect (10 questions, then one AI reflection about yourself, not used for matching) → Two required videos ("Begin With Curiosity", "How We Show Up") → Readiness (friendship-only rule, scam check, ghosting rule) → All set ("You'll meet one new person each day") with an offer to do the selfie check now or later.
+11 screens: Intro → Phone number and code → Basics (first and last name, shown as "Maria S.", birthdate as Month/Day/Year, optional referral code with no reward promised) → Account recovery (Google, Apple, email, or skip; phone stays the sign-in) → Identity (your gender: Woman / Man / Non-binary; who you'd like to meet, mutual; age range) → Profile build (10 steps) → How you connect (10 questions, then a short "connection summary" written from the answers, private, saved, not used for matching) → Two required videos ("Begin With Curiosity", "How We Show Up") → Readiness (friendship-only rule, scam check, ghosting rule) → All set ("You'll meet one new person each day") with an offer to do the selfie check now or later.
 
 ## 4. Profile
 
 - Fill in: location; what brings you here (up to 3, can be hidden from the profile but still used for matching); "Right now, I'm..." (150 characters); 1 to 3 stories in your own words to character prompts (no "Ask me about"); "How I like care" (own words, 400 characters, shown only to people you're connected with, at the top of your chat under how often you reply); up to 5 of 20 values; activities (32 categories, optional details); hangout style; friendship type, meeting pace, reply pace, usual free times; opening-up pace; whether bars or drinks are okay; hard nos (shown, don't hide anyone); languages; 1 face photo required, 2 more optional.
-- Others see: a curiosity section first (photos, first name, age range, distance, "Right now", stories, what brings you here, values, activities, friendship type), then a compact "How they like to connect" box.
+- Others see: a curiosity section first (a small photo next to the name, "See N photos" opens them large; first name, age range, distance, "Right now", stories, what brings you here, values, activities, friendship type), then a compact "How they like to connect" box.
 - Private: phone, recovery login, selfie, exact location, birthdate, gender and who you want to meet, hidden life transitions, reflection answers.
 - Curiosity notes: while reading a profile you can privately write "I wonder...". Only you see it.
-- One shared view (`public-profile-view.tsx`) for other people's profiles and "Preview my public profile".
+- One shared view (`public-profile-view.tsx`) for other people's profiles and "See exactly what others see".
+- Edit profile: a short list of parts, each opens alone; every part and field says whether it's used for matching. Used: who you'd like to meet, ages, distance, what brings you here, values, meeting pace, hangout style, friendship type, languages, opening up, activities. Not used: right now, stories, care words, reply pace, free times, bars or drinks, hard nos, photos (a photo is needed to be suggested).
+- Connection summary (Profile): written once from the How you connect answers, saved, private; retake the questions for a new one.
 
 ## 5. Discover and connecting
 
@@ -112,4 +114,4 @@ Reached from Profile only. Today: 2 onboarding videos, "The First Meetup Does No
 ## 13. Money and settings
 
 - No Premium, no AI credits, no paid capacity, no ads, no venue, employer or health-plan deals. Free pilot first; later a pick-your-price Journey pass (Free / $18 / $30 suggested / $60). Settings shows "Membership: Free during the pilot." The "How Limen is paid for" page no longer describes what comes after the pilot. Old purchase code is in the repo but unreachable.
-- Settings: edit profile, preview profile, reminders and nudges, export notes, blocked accounts, reports you filed, selfie review (admins), Terms/Privacy (placeholder text), delete account, show tips again.
+- Settings: edit profile, sign-in and recovery, selfie check, take a break (1 week, 2 weeks or 1 month: nobody new shown to you or you to them, chats carry on), reminders and nudges, export notes, blocked accounts, reports you filed, selfie review (admins), Terms/Privacy (placeholder text), delete account, show tips again. Invite a friend is hidden during the pilot.

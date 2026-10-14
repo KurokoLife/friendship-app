@@ -13,7 +13,9 @@ import {
   WHEN_UNCERTAIN_PENDING_COPY,
   type FriendshipExperience,
 } from '@/lib/friendship-experience';
+import { readConnectionSummary, saveConnectionSummary } from '@/lib/connection-summary';
 import { loadProfileName } from '@/lib/names';
+import { completionPct, type CompletionInput } from '@/lib/profile-completion';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -35,6 +37,7 @@ type OwnProfile = {
   completion_pct: number;
   big_five_scores: { responses?: Record<string, string> } | null;
   friendship_experience: FriendshipExperience | null;
+  connection_summary: unknown;
 };
 
 const GENDER_LABELS: Record<string, string> = { woman: 'Woman', man: 'Man', non_binary: 'Non-binary' };
@@ -88,7 +91,7 @@ export default function ProfileScreen() {
       supabase
         .from('profiles')
         .select(
-          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, min_friend_age, max_friend_age, search_radius_miles, completion_pct, big_five_scores, friendship_experience'
+          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, min_friend_age, max_friend_age, search_radius_miles, big_five_scores, friendship_experience, connection_summary, personal_statement, values, activity_interests, hangout_type_preference, stories, meeting_freq, response_time, bar_preference, dealbreakers, photo_url, location_lat, location_lng, friendship_types, communication_style_openness, availability'
         )
         .eq('user_id', user.id)
         .maybeSingle(),
@@ -107,8 +110,10 @@ export default function ProfileScreen() {
       const age = data.birthdate
         ? Math.floor((Date.now() - new Date(data.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
         : null;
+      const row = data as Record<string, unknown> & CompletionInput & { activity_interests?: { categories?: string[] } | null };
       setProfile({
         ...data,
+        completion_pct: completionPct({ ...row, activity_categories: row.activity_interests?.categories ?? [] }),
         age,
         gender_identity: userRow?.gender_identity ?? null,
         meet_genders: (userRow?.meet_genders as string[] | null) ?? null,
@@ -133,15 +138,25 @@ export default function ProfileScreen() {
   // user. Also now sends the caller's own friendship_experience (if
   // they've answered it) so a retake reflects real, grounded content
   // instead of always showing pending copy once that data exists.
+  // "Your connection summary" (2026-10-14, was "personality reflection").
+  // Shows the saved one. Only someone who answered before summaries were
+  // saved gets one written now, once, and then it's saved too.
   const openReflection = async () => {
     setReflectionOpen(true);
+    setNarrativeError(null);
+    const saved = readConnectionSummary(profile?.connection_summary);
+    if (saved) {
+      setConnectionStyle(saved.connectionStyle);
+      setWhatHelped(saved.whatHelped);
+      setWhenUncertain(saved.whenUncertain);
+      return;
+    }
     setConnectionStyle(null);
     setWhatHelped(null);
     setWhenUncertain(null);
-    setNarrativeError(null);
     const responses = profile?.big_five_scores?.responses;
     if (!responses) {
-      setNarrativeError("You haven't taken the personality reflection yet.");
+      setNarrativeError("You haven't answered the How you connect questions yet.");
       return;
     }
     setNarrativeLoading(true);
@@ -150,9 +165,7 @@ export default function ProfileScreen() {
         body: {
           answers: QUESTIONS.map((q) => ({ question: q.prompt, answer: responses[String(q.id)] })),
           ...(profile?.friendship_experience ? { friendshipExperience: profile.friendship_experience } : {}),
-          // 2026-07-29: this is always a retake (viewing an already-taken
-          // reflection from the Profile tab), the 1/day cap applies.
-          context: 'retake',
+          context: 'onboarding',
         },
       });
       if (data?.blocked) {
@@ -160,15 +173,20 @@ export default function ProfileScreen() {
         return;
       }
       if (error || !data?.connectionStyle || !data?.whatHelped || !data?.whenUncertain) {
-        throw error ?? new Error('No reflection returned');
+        throw error ?? new Error('No summary returned');
       }
-      setConnectionStyle(data.connectionStyle as string);
-      setWhatHelped(data.whatHelped as string);
-      setWhenUncertain(data.whenUncertain as string);
+      const next = {
+        connectionStyle: data.connectionStyle as string,
+        whatHelped: data.whatHelped as string,
+        whenUncertain: data.whenUncertain as string,
+      };
+      setConnectionStyle(next.connectionStyle);
+      setWhatHelped(next.whatHelped);
+      setWhenUncertain(next.whenUncertain);
+      await saveConnectionSummary(next);
+      setProfile((p) => (p ? { ...p, connection_summary: { ...next, created_at: new Date().toISOString() } } : p));
     } catch {
-      setNarrativeError(
-        "We couldn't put your reflection into words just now, but your answers are saved."
-      );
+      setNarrativeError("We couldn't write your summary just now, but your answers are saved. Please try again later.");
     } finally {
       setNarrativeLoading(false);
     }
@@ -250,7 +268,7 @@ export default function ProfileScreen() {
               <PrivateRow
                 label="Your full name"
                 value={fullName}
-                note={`Others see your first name and last initial${publicProfile?.display_name ? `: ${publicProfile.display_name}` : ''}.`}
+                note={`Others see your first name and last initial${publicProfile?.display_name ? `: ${publicProfile.display_name}` : ''}`.replace(/\.?$/, '.')}
               />
             )}
             {profile.age !== null && (
@@ -295,12 +313,13 @@ export default function ProfileScreen() {
               note="Shown only to people you're already connected with."
             />
             <View className="gap-1">
-              <Text className="text-caption text-stone-400 dark:text-stone-400">Your personality reflection</Text>
+              <Text className="text-caption text-stone-400 dark:text-stone-400">Your connection summary</Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                Private, and used only to help you.
+                A short summary written from your How you connect answers. Private, and never used to pick who you
+                meet.
               </Text>
               <Pressable onPress={openReflection} className="pt-1">
-                <Text className="text-body font-semibold text-accent-500">View my personality reflection</Text>
+                <Text className="text-body font-semibold text-accent-500">See my connection summary</Text>
               </Pressable>
             </View>
           </View>
@@ -326,12 +345,12 @@ export default function ProfileScreen() {
       <Modal visible={reflectionOpen} transparent animationType="slide" onRequestClose={() => setReflectionOpen(false)}>
         <View className="flex-1 justify-end bg-black/40">
           <View className="gap-4 rounded-t-3xl bg-stone-50 p-6 pb-10 dark:bg-stone-900">
-            <Text className="text-title text-stone-900 dark:text-stone-50">Your personality reflection</Text>
+            <Text className="text-title text-stone-900 dark:text-stone-50">Your connection summary</Text>
             {narrativeLoading && (
               <View className="flex-row items-center gap-3">
                 <ActivityIndicator color={MUTED_ICON_COLOR} />
                 <Text className="text-body text-stone-500 dark:text-stone-400">
-                  Getting to know your answers...
+                  Writing your summary...
                 </Text>
               </View>
             )}
@@ -364,6 +383,16 @@ export default function ProfileScreen() {
             {!narrativeLoading && narrativeError && (
               <Text className="text-body text-stone-500 dark:text-stone-400">{narrativeError}</Text>
             )}
+            <Pressable
+              onPress={() => {
+                setReflectionOpen(false);
+                router.push('/big-five-assessment?from=profile');
+              }}
+              className="items-center py-1">
+              <Text className="text-caption font-semibold text-accent-500">
+                Answers changed? Retake the questions for a new summary
+              </Text>
+            </Pressable>
             <Pressable onPress={() => setReflectionOpen(false)} className="items-center py-2">
               <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Close</Text>
             </Pressable>

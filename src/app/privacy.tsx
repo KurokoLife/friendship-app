@@ -19,10 +19,18 @@ export default function PrivacyScreen() {
             page before launch.
           </Text>
           <Text className="text-body text-stone-600 dark:text-stone-400">
-            Limen collects the profile information you choose to share, your messages with other
-            members, and behavioral signals disclosed elsewhere in the app (see the readiness
-            confirmation shown during onboarding). Real, complete details on what is collected, how
-            it is used, and your rights over it will appear here.
+            In short, for now: Limen keeps the profile you choose to share, your messages so they can be
+            delivered to the other person, your private notes, and when things happen (for example when a
+            message was sent or a meetup was planned) so reminders can be timed.
+          </Text>
+          <Text className="text-body text-stone-600 dark:text-stone-400">
+            No one at Limen, and no automated system, reads your chats. The only exception is a check for
+            words linked to scams (like money or moving to another app), which runs on your own phone and
+            keeps nothing. Your selfie is seen only by the Limen team for the selfie check and deleted once
+            it&apos;s reviewed. Limen never sells your data or shows ads.
+          </Text>
+          <Text className="text-body text-stone-600 dark:text-stone-400">
+            Full details on what is kept, for how long, and your rights over it will appear here.
           </Text>
         </ScrollView>
       </SafeAreaView>

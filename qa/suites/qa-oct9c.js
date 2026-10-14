@@ -54,7 +54,7 @@ async function rpcAs(user, sql, params = []) {
   check('First message blocked while the selfie waits for review', Boolean(r.error), r.error);
   await go(a.page, '/selfie-check', 3000);
   t = await text(a.page);
-  check('Selfie page says it is once per account and approval is needed', t.includes('You only do this once for your account') && t.includes("Until it's approved"), t.slice(0, 400));
+  check('Selfie page says it is once per account and approval is needed', t.includes('You only do this once for your account') && t.includes("chats open once it's approved"), t.slice(0, 400));
   await q(`update selfie_checks set status='approved' where user_id=$1`, [U.aisha]);
   r = await rpcAs(U.aisha, `insert into messages (connection_id, sender_id, content, type) values ($1,$2,'Hi Priya!','text')`, [cid, U.aisha]);
   check('Approved: first message allowed', !r.error, r.error);
@@ -104,7 +104,8 @@ async function rpcAs(user, sql, params = []) {
   const later = await text(mo.page);
   const mariaNames = ['David C.', 'Robert K.'];
   // Only the Inbox part of the page (Discover can stay in the page behind it).
-  const earlyInbox = early.includes('Active Friends Past') ? early.slice(early.indexOf('Active Friends Past')) : early;
+  const tabsAt = early.search(/Active Pending/);
+  const earlyInbox = tabsAt >= 0 ? early.slice(tabsAt) : early;
   check('Right after switching, Inbox does not show the previous account\'s chats', !mariaNames.some((n) => earlyInbox.includes(n)), earlyInbox.slice(0, 300));
   check('Then shows the new account\'s own chats', later.includes('Priya N.') && !later.includes('3 of 3'), later.slice(0, 300));
 
