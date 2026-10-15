@@ -26,7 +26,7 @@ Suggested next: Guide (9b, founder working on videos separately; includes the "r
 2. Morning-of video "The First Meetup Does Not Need to Be Perfect" is also offered before later meetups. Update its title or content to fit any meetup (waiting; a reminder is set for Oct 17).
 3. Discover: watch in the pilot whether one a day feels right, and whether people run out of new people in smaller cities.
 5. Graduation thresholds were confirmed Oct 13 (twice a month is a good pace); revisit only if pilot data says otherwise.
-6. Journey pass details and when to build the store products (after the Guide; see the Money decision page).
+6. Pricing decided Oct 14: free pilot, then 21-day free trial, then $39 for 90 days. Still open (Money decision page): auto-renew or reminder, when the trial starts, what stops after it, hardship pass, graduated friends free. Build after the Guide.
 
 Decided recently (don't re-ask): a meetup added with "Met up already? Add it" counts after a week even without the other person's yes. Remember has no AI and no tab. No "share my plan" feature.
 

@@ -220,3 +220,4 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 
 - Small photo with a viewer, one completion %, connection summary (renamed and saved), Edit profile as a list with "used for matching" labels, Settings: sign-in and recovery, take a break, invite hidden, preview button removed from Settings; selfie and privacy wording. Migration `20261014000002_summary_and_break.sql`, suite `qa-profile` (23).
 - Take a break text expanded; sign-up referral code field hidden for the pilot. Money left free until after the Guide; decision page written.
+- Pricing decided: free pilot, then 21-day free trial, then $39 / 90 days. Money decision page updated with the open details.

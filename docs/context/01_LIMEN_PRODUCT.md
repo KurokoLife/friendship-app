@@ -113,5 +113,5 @@ Reached from Profile only. Today: 2 onboarding videos, "The First Meetup Does No
 
 ## 13. Money and settings
 
-- No Premium, no AI credits, no paid capacity, no ads, no venue, employer or health-plan deals. Free pilot first; later a pick-your-price Journey pass (Free / $18 / $30 suggested / $60). Settings shows "Membership: Free during the pilot." The "How Limen is paid for" page no longer describes what comes after the pilot. Old purchase code is in the repo but unreachable.
+- No Premium, no AI credits, no paid capacity, no ads, no venue, employer or health-plan deals. Free pilot first; after the pilot a 21-day free trial, then $39 for 90 days (decided Oct 14, not built). Settings shows "Membership: Free during the pilot." The "How Limen is paid for" page no longer describes what comes after the pilot. Old purchase code is in the repo but unreachable.
 - Settings: edit profile, sign-in and recovery, selfie check, take a break (1 week, 2 weeks or 1 month: nobody new shown to you or you to them, chats carry on), reminders and nudges, export notes, blocked accounts, reports you filed, selfie review (admins), Terms/Privacy (placeholder text), delete account, show tips again. Invite a friend is hidden during the pilot.
