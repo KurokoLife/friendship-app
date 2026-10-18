@@ -11,7 +11,7 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { calculateAge } from '@/lib/age';
 import { track } from '@/lib/analytics';
@@ -157,7 +157,7 @@ export default function ProfileBasicsScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <SafeAreaView className="flex-1 justify-between px-6 py-10">
+      <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         <Pressable onPress={() => router.replace('/phone-verification')}>
           <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
         </Pressable>
@@ -304,7 +304,7 @@ export default function ProfileBasicsScreen() {
             {saving ? 'Saving...' : 'Continue'}
           </Text>
         </Pressable>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </KeyboardAvoidingView>
   );
 }

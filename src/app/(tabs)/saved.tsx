@@ -93,7 +93,11 @@ export default function SavedScreen() {
         <ScrollView contentContainerClassName="gap-4 px-6 pb-10 pt-10">
           <Text className="text-display text-stone-900 dark:text-stone-50">Saved</Text>
 
-          <CoachMark markKey="tab_saved" text="People you save stay here for 30 days." />
+          <CoachMark
+            markKey="tab_saved"
+            title="Saved"
+            text="People you save stay here for 30 days, up to 5 at a time. Open a profile to read it again, and tap Interested whenever you're ready. Removing someone here is private."
+          />
 
           {!isSupabaseConfigured && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">

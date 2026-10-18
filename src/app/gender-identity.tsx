@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { FRIENDLY_SAVE_ERROR } from '@/lib/auth-errors';
 import { MAX_AGE, MIN_AGE } from '@/lib/filter-options';
@@ -189,7 +189,7 @@ export default function GenderIdentityScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <SafeAreaView className="flex-1 px-6 py-10">
+      <PaddedSafeArea className="flex-1 px-6 py-10">
         <View className="flex-row items-center justify-between">
           <Pressable onPress={handleBack}>
             <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
@@ -287,7 +287,7 @@ export default function GenderIdentityScreen() {
             </Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </KeyboardAvoidingView>
   );
 }

@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoachMark } from '@/components/coach-mark';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
-import { expressInterest, interestSavedCopy, SAVED_FULL_COPY, saveForLater } from '@/lib/safety';
+import { useTestTools } from '@/lib/test-mode';
+import { expressInterest, lastActionErrorDetail, interestSavedCopy, SAVED_FULL_COPY, saveForLater } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -115,6 +116,8 @@ export default function HomeScreen() {
   const [breakUntil, setBreakUntil] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const { allowed: testTools } = useTestTools();
   // A calm note after Save, Interested or a limit. Not an error.
   const [capacityNotice, setCapacityNotice] = useState<string | null>(null);
   const [usingDevFallback, setUsingDevFallback] = useState(false);
@@ -211,6 +214,7 @@ export default function HomeScreen() {
   const handleSave = async (candidateId: string) => {
     setPendingAction(candidateId + 'save');
     setCapacityNotice(null);
+    setErrorDetail(null);
     const result = await saveForLater(candidateId);
     setPendingAction(null);
     if (result === 'full') {
@@ -219,8 +223,10 @@ export default function HomeScreen() {
     }
     if (result === 'error') {
       setError('Something went wrong. Please try again.');
+      setErrorDetail(lastActionErrorDetail());
       return;
     }
+    setError(null);
     setCapacityNotice(`Saved. ${firstName(candidateId)} is in Saved for the next 30 days.`);
     removeCard(candidateId);
   };
@@ -245,6 +251,7 @@ export default function HomeScreen() {
   const handleInterested = async (candidateId: string) => {
     setPendingAction(candidateId + 'interested');
     setCapacityNotice(null);
+    setErrorDetail(null);
     const name = firstName(candidateId);
     const result = await expressInterest(candidateId);
     setPendingAction(null);
@@ -257,6 +264,7 @@ export default function HomeScreen() {
       router.push({ pathname: '/candidate/[id]', params: { id: candidateId } });
     } else {
       setCapacityNotice(result.message);
+      setErrorDetail(lastActionErrorDetail());
     }
   };
 
@@ -279,7 +287,11 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <CoachMark markKey="tab_discover" text="Discover shows one new person each day." />
+          <CoachMark
+            markKey="tab_discover"
+            title="One new person a day"
+            text="Each day you meet one new person here. Read their profile, then choose. Interested is private: they only find out if they say Interested too. Save keeps them in Saved for 30 days while you think. Not for me takes them away, and nobody is told."
+          />
 
           {!isSupabaseConfigured && (
             <Text className="text-caption text-amber-600 dark:text-amber-400">
@@ -292,6 +304,9 @@ export default function HomeScreen() {
             </Text>
           )}
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+          {testTools && errorDetail && (
+            <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details (only admins and test accounts see this): {errorDetail}</Text>
+          )}
           {capacityNotice && (
             <Text className="text-caption text-stone-500 dark:text-stone-400">{capacityNotice}</Text>
           )}

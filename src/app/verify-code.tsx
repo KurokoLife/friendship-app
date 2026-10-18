@@ -9,9 +9,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
-import { friendlySendCodeError, friendlyVerifyCodeError } from '@/lib/auth-errors';
+import { authErrorDetail, friendlySendCodeError, friendlyVerifyCodeError } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -21,6 +21,7 @@ export default function VerifyCodeScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
@@ -33,6 +34,7 @@ export default function VerifyCodeScreen() {
 
   const handleVerify = async () => {
     setError(null);
+    setErrorDetail(null);
     if (code.length !== 6) {
       setError('Enter the 6-digit code we texted you.');
       return;
@@ -48,6 +50,7 @@ export default function VerifyCodeScreen() {
 
     if (verifyError) {
       setError(friendlyVerifyCodeError(verifyError));
+      setErrorDetail(authErrorDetail(verifyError));
       return;
     }
 
@@ -64,12 +67,14 @@ export default function VerifyCodeScreen() {
 
   const handleResend = async () => {
     setError(null);
+    setErrorDetail(null);
     setResending(true);
     const { error: resendError } = await supabase.auth.signInWithOtp({ phone });
     setResending(false);
 
     if (resendError) {
       setError(friendlySendCodeError(resendError));
+      setErrorDetail(authErrorDetail(resendError));
       return;
     }
 
@@ -80,7 +85,7 @@ export default function VerifyCodeScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <SafeAreaView className="flex-1 justify-between px-6 py-10">
+      <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         <View />
 
         <View className="gap-5">
@@ -106,6 +111,9 @@ export default function VerifyCodeScreen() {
 
           {error && (
             <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>
+          )}
+          {error && errorDetail && (
+            <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details: {errorDetail}</Text>
           )}
 
           <Pressable onPress={handleResend} disabled={resending || cooldown > 0}>
@@ -139,7 +147,7 @@ export default function VerifyCodeScreen() {
             {verifying ? 'Verifying...' : 'Verify'}
           </Text>
         </Pressable>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </KeyboardAvoidingView>
   );
 }

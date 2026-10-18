@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CoachMark } from '@/components/coach-mark';
 import { GuideVideoThumbnail } from '@/components/guide-video-player';
 import { GUIDE_ONLY_ENTRIES } from '@/lib/guide-only-entries';
 import { getGuideOnlyEntryVideoUrl, getModuleVideoUrl } from '@/lib/module-videos';
@@ -147,6 +148,11 @@ export default function GuidesScreen() {
         </View>
 
         <ScrollView contentContainerClassName="gap-5 px-6 pb-6 pt-5">
+          <CoachMark
+            markKey="guide_intro"
+            title="Guide"
+            text="Short videos and reads about making friends as an adult: starting a conversation, a first meetup, keeping in touch, and ending honestly. Nothing here is required. Come back whenever something feels hard."
+          />
           <View className="gap-2">
             <Text className="text-title text-stone-900 dark:text-stone-50">Guides</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">

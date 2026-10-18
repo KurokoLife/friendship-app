@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Text, useColorScheme, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { WebCamera } from '@/components/web-camera';
 import { fetchSelfieState, randomSelfiePose, submitSelfieCheck, type SelfieState } from '@/lib/safety';
@@ -90,7 +90,7 @@ export default function SelfieCheckScreen() {
 
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
-      <SafeAreaView className="flex-1 px-6 py-10">
+      <PaddedSafeArea className="flex-1 px-6 py-10">
         <Pressable onPress={leave}>
           <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
         </Pressable>
@@ -198,7 +198,7 @@ export default function SelfieCheckScreen() {
             </Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </View>
   );
 }

@@ -1,6 +1,6 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-14. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-17. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
@@ -21,6 +21,7 @@ Working rules that follow from these:
 - Equal choices, no pushing, no guilt, never act on someone's behalf.
 - The word "AI" never appears in the app. Limen helps with gentle nudges, reminders and questions.
 - A card that was answered halfway comes back after a page refresh until it's closed.
+- First-time tips are a calm card inside the page (never a box over buttons), once per account, on each tab, Inbox Pending, Settings, Guide, a person's profile and in chats. "Show tips again" in Settings brings them back.
 - Reduce anxiety: calm, honest copy. Never "your turn". No therapy language. No em dashes.
 - Private stays private. Nobody ever sees another person's private answers.
 - Only one prompt card shows in a chat at a time, and every card can be put away or turned off.

@@ -402,7 +402,11 @@ export default function InboxScreen() {
         <ScrollView contentContainerClassName="gap-4 px-6 pb-10 pt-10">
           <Text className="text-display text-stone-900 dark:text-stone-50">Inbox</Text>
 
-          <CoachMark markKey="tab_inbox" text="This is where your conversations happen." />
+          <CoachMark
+            markKey="tab_inbox"
+            title="Your Inbox"
+            text="Active is your chats, up to 3 at a time. Pending is people you said Interested to, waiting to hear back. Friends is friendships that graduated from Limen. Past is chats that ended, with your notes still there."
+          />
 
           <View className="flex-row flex-wrap gap-2">
             {([
@@ -506,6 +510,11 @@ export default function InboxScreen() {
 
           {tab === 'pending' && (
             <>
+              <CoachMark
+                markKey="inbox_pending"
+                title="Pending"
+                text="Only you see this list. A chat opens when you both say Interested and both selfie checks are approved. Each one closes on its own after 30 days, and the other person is never told you were waiting."
+              />
               <Text className="text-caption text-stone-400 dark:text-stone-600">
                 People you said Interested to. If they say Interested too, a chat opens. Only you see this list.
               </Text>

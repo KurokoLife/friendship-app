@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { track } from '@/lib/analytics';
 import { getDeviceId } from '@/lib/device-id';
@@ -127,7 +127,7 @@ export default function ReadinessCommitmentScreen() {
 
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
-      <SafeAreaView className="flex-1 justify-between px-6 py-10">
+      <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         {step === 'pause-options' ? (
           <View className="gap-5 pt-16">
             <Pressable onPress={() => setStep('question')}>
@@ -270,7 +270,7 @@ export default function ReadinessCommitmentScreen() {
             </>
           )}
         </View>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </View>
   );
 }

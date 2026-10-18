@@ -122,6 +122,12 @@ Remember moves into the chat. It helps in the moment and keeps a light record of
 11. **Topic chips, fixed list only:** Family, Work, Things they love, Going through, Ideas for us. Optional, any number per note. No custom tags (they get messy and add clutter). "Ideas for us" notes also come back in the planning card.
 12. **Search and topic filters only from 6 notes** for that person (meetup notes count). Below that, a plain list is easier to read.
 
+## First-time tips (decided and built 2026-10-17)
+
+- A tip is a calm card inside the page, with a short heading ("Tip · Pending") and a plain explanation, shown once per account until "Got it". Never a floating box: the old spotlight covered real buttons (Settings and Guide on the Profile tab did nothing until the tip was closed).
+- Where: Discover, Saved, Inbox (what each tab is), Inbox Pending, Profile, Settings, Guide, a person's profile ("Note it privately", Report and Block), and in each chat two tips one after the other (Pause / End / Report / Block, then Let's plan something, What I want to remember and Reminders).
+- "Show tips again" in Settings brings every tip back. Migration `20261017000000_more_tips.sql`.
+
 ## 9b. Guide (draft for the founder to come back to, not decided)
 
 Founder's thinking so far (2026-10-10): no Guide tab. Each piece should show up at the moment it helps; the full list stays in Profile for anyone who wants to browse. The founder isn't sure how many videos are needed. Suggested rule: video only where feelings run high, everything else a 30-second read.

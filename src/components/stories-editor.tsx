@@ -76,8 +76,9 @@ export function StoriesEditor({ value, onChange, onCommit }: Props) {
                   setPicking(false);
                   onCommit([...value, { prompt_key: p.key, text: '' }]);
                 }}
-                className="rounded-full border border-stone-300 px-3 py-2 dark:border-stone-700">
-                <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">{p.label}</Text>
+                className="max-w-full rounded-full border border-stone-300 px-3 py-2 dark:border-stone-700">
+                {/* max-w-full + shrink: a long prompt wraps instead of running past the card (2026-10-17). */}
+                <Text className="shrink text-caption font-semibold text-stone-600 dark:text-stone-300">{p.label}</Text>
               </Pressable>
             ))}
           </View>

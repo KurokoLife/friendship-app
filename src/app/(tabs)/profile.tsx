@@ -236,7 +236,8 @@ export default function ProfileScreen() {
 
           <CoachMark
             markKey="tab_profile"
-            text="This is your profile as others see it. Anything marked with a lock is only visible to you."
+            title="Your profile"
+            text="This is how other people see you. Anything with a lock is only for you. Tap Edit to change any part: each part says whether it's used to suggest people. Settings and the Guide are at the bottom."
           />
 
           {publicProfile ? (

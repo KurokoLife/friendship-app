@@ -26,8 +26,20 @@ export type InterestResult =
 export const SELFIE_PENDING_COPY =
   "Your selfie is waiting for our review, usually less than a day. Once it's approved you can say Interested and send first messages.";
 
+// 2026-10-17: the technical reason behind the last failed Save or
+// Interested, shown small to admins and test accounts so a problem on the
+// live site can be traced. Everyone else sees only the calm message.
+let lastDetail: string | null = null;
+export function lastActionErrorDetail(): string | null {
+  return lastDetail;
+}
+function rememberDetail(error: { message?: string; code?: string } | null): void {
+  lastDetail = error ? [error.code, error.message].filter(Boolean).join(': ').slice(0, 200) || 'unknown' : null;
+}
+
 export async function expressInterest(otherId: string): Promise<InterestResult> {
   const { data, error } = await supabase.rpc('express_interest', { p_other_user_id: otherId });
+  rememberDetail(error);
   if (error) {
     const message = error.message ?? '';
     // Word match, not includes(): 'suspended' also contains 'ended'.
@@ -99,6 +111,7 @@ export const WAITING_FOR_INTEREST_COPY = waitingForInterestCopy('they').replace(
 // Saved (2026-10-10): at most 5, each for 30 days.
 export async function saveForLater(otherId: string): Promise<'saved' | 'full' | 'error'> {
   const { data, error } = await supabase.rpc('save_for_later', { p_other_user_id: otherId });
+  rememberDetail(error);
   if (error) return 'error';
   return data === 'full' ? 'full' : 'saved';
 }

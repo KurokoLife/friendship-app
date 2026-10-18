@@ -24,3 +24,14 @@ export function friendlyVerifyCodeError(error: AuthLikeError): string {
 }
 
 export const FRIENDLY_SAVE_ERROR = 'Something went wrong saving that. Try again.';
+
+// 2026-10-17: a short reason code (like "sms_send_failed" or
+// "over_sms_send_rate_limit") shown small under the friendly message, so a
+// sign-in problem can be traced in Supabase's Auth logs. Only Supabase's
+// short code or the status number, never the raw provider text.
+export function authErrorDetail(error: AuthLikeError): string | null {
+  if (!error) return null;
+  const code = (error.code ?? '').replace(/[^a-z0-9_]/gi, '').slice(0, 60);
+  if (code) return code;
+  return error.status ? `status ${error.status}` : null;
+}

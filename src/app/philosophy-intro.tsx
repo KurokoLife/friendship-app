@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 export default function PhilosophyIntroScreen() {
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
-      <SafeAreaView className="flex-1 justify-between px-6 py-10">
+      <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         <View />
 
         <View className="gap-6">
@@ -51,7 +51,7 @@ export default function PhilosophyIntroScreen() {
             </Pressable>
           )}
         </View>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </View>
   );
 }

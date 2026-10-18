@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CoachMark } from '@/components/coach-mark';
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
 import { ReportModal } from '@/components/report-modal';
@@ -11,12 +12,14 @@ import { CAPACITY_ERROR_MESSAGES, reinitiateEndedConnection } from '@/lib/connec
 import {
   connectionHasMutualInterest,
   expressInterest,
+  lastActionErrorDetail,
   fetchMyInterestIds,
   SAVED_FULL_COPY,
   interestSavedCopy,
   saveForLater,
   waitingForInterestCopy,
 } from '@/lib/safety';
+import { useTestTools } from '@/lib/test-mode';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 
@@ -55,6 +58,8 @@ export default function CandidateProfileScreen() {
   const [loaded, setLoaded] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const { allowed: testTools } = useTestTools();
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
   // 20260817000000: the higher-friction reopening path for a genuinely
@@ -155,8 +160,10 @@ export default function CandidateProfileScreen() {
     }
     if (result === 'error') {
       setError('Something went wrong. Please try again.');
+      setErrorDetail(lastActionErrorDetail());
       return;
     }
+    setErrorDetail(null);
     setState((prev) => ({ ...prev, saved: true }));
   };
 
@@ -192,6 +199,7 @@ export default function CandidateProfileScreen() {
       setReinitiateConfirmVisible(true);
     } else {
       setError(result.message);
+      setErrorDetail(lastActionErrorDetail());
     }
   };
 
@@ -249,7 +257,12 @@ export default function CandidateProfileScreen() {
           </View>
         </View>
 
-        <ScrollView contentContainerClassName="px-6 pb-6 pt-5">
+        <ScrollView contentContainerClassName="gap-4 px-6 pb-6 pt-5">
+          <CoachMark
+            markKey="profile_view"
+            title="Getting to know someone"
+            text="Take your time with their stories. If something makes you curious, tap Note it privately to keep an “I wonder...” just for you, so you have something real to ask later. Report and Block at the top are always here if something feels wrong."
+          />
           <PublicProfileView profile={profile} />
         </ScrollView>
 
@@ -338,6 +351,9 @@ export default function CandidateProfileScreen() {
               conversation is a real, separate choice, not the same as picking up where you left off.
             </Text>
             {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+            {error && testTools && errorDetail && (
+              <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details (only admins and test accounts see this): {errorDetail}</Text>
+            )}
             <View className="flex-row justify-end gap-4">
               <Pressable
                 onPress={() => setReinitiateConfirmVisible(false)}

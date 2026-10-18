@@ -9,9 +9,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
-import { friendlySendCodeError } from '@/lib/auth-errors';
+import { authErrorDetail, friendlySendCodeError } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -26,10 +26,12 @@ export default function PhoneVerificationScreen() {
   const [countryCode, setCountryCode] = useState('+1');
   const [number, setNumber] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
   const handleSendCode = async () => {
     setError(null);
+    setErrorDetail(null);
     const numberDigits = number.replace(/\D/g, '');
     if (numberDigits.length < 7 || numberDigits.length > 14) {
       setError("That doesn't look like a complete phone number.");
@@ -43,6 +45,7 @@ export default function PhoneVerificationScreen() {
 
     if (sendError) {
       setError(friendlySendCodeError(sendError));
+      setErrorDetail(authErrorDetail(sendError));
       return;
     }
 
@@ -53,7 +56,7 @@ export default function PhoneVerificationScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <SafeAreaView className="flex-1 justify-between px-6 py-10">
+      <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         <View />
 
         <View className="gap-5">
@@ -106,6 +109,9 @@ export default function PhoneVerificationScreen() {
           {error && (
             <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>
           )}
+          {error && errorDetail && (
+            <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details: {errorDetail}</Text>
+          )}
         </View>
 
         <Pressable
@@ -119,7 +125,7 @@ export default function PhoneVerificationScreen() {
             {sending ? 'Sending...' : 'Send code'}
           </Text>
         </Pressable>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </KeyboardAvoidingView>
   );
 }

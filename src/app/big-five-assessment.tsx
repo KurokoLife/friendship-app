@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import {
   allExperienceAnswered,
@@ -416,7 +417,7 @@ export default function BigFiveAssessmentScreen() {
   if (phase === 'results') {
     return (
       <View className="flex-1 bg-stone-50 dark:bg-stone-900">
-        <SafeAreaView className="flex-1 justify-between px-6 py-10">
+        <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
           <ScrollView contentContainerClassName="gap-5" showsVerticalScrollIndicator={false}>
             <View className="gap-2">
               <Text className="text-display text-stone-900 dark:text-stone-50">
@@ -476,7 +477,7 @@ export default function BigFiveAssessmentScreen() {
               {isEditMode ? 'Done' : 'Continue'}
             </Text>
           </Pressable>
-        </SafeAreaView>
+        </PaddedSafeArea>
       </View>
     );
   }

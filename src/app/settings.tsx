@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CoachMark } from '@/components/coach-mark';
 import { track } from '@/lib/analytics';
 import { resetCoachMarks } from '@/lib/coach-marks';
 import {
@@ -352,6 +353,11 @@ export default function SettingsScreen() {
         </View>
 
         <ScrollView contentContainerClassName="gap-8 px-6 pb-14 pt-6">
+          <CoachMark
+            markKey="settings_intro"
+            title="Settings"
+            text="Here you can edit your profile, add a way to recover your account, take a break from meeting new people, turn reminders and nudges on or off for all your chats, and save a copy of your notes. Nobody is told about changes you make here."
+          />
           {/* Account */}
           <View className="gap-3">
             <SectionHeader label="Account" />

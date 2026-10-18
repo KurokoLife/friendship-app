@@ -22,7 +22,14 @@ export type CoachMarkKey =
   | 'video_friendship_grows'
   | 'video_restart'
   | 'video_something_off'
-  | 'video_ending';
+  | 'video_ending'
+  // More first-time tips (2026-10-17, migration 20261017000000).
+  | 'inbox_pending'
+  | 'settings_intro'
+  | 'guide_intro'
+  | 'chat_actions'
+  | 'chat_bars'
+  | 'profile_view';
 
 // Shared, module-level cache: every CoachMark instance across the whole
 // app reads the same in-memory set, so marking one seen (e.g. the

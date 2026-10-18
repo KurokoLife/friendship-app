@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
+import { CoachMark } from '@/components/coach-mark';
 import { ChatRemindersSheet } from '@/components/chat-reminders-sheet';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
@@ -1041,6 +1042,23 @@ export default function ThreadScreen() {
           <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
             Limen is for meeting in person. Chatting is how you get there.
           </Text>
+          {/* First-time tips for the chat (2026-10-17), one at a time. Inside the
+              scrolling area so they never shrink the chat or cover a card. */}
+          {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && !conversationEnded && (
+            <View className="gap-3">
+              <CoachMark
+                markKey="chat_actions"
+                title="This chat"
+                text="The words at the top are always here for you. Pause takes a short break, with a note so they aren't left guessing. End closes the chat honestly. Report tells the Limen team privately if something felt wrong. Block stops all contact right away."
+              />
+              <CoachMark
+                markKey="chat_bars"
+                after="chat_actions"
+                title="Plan and remember"
+                text="When you're ready to meet, tap Let's plan something to send an invite with ideas and times. What I want to remember is your private notebook about this person, and only you see it. Reminders lets you turn nudges off for this chat."
+              />
+            </View>
+          )}
           {messages.map((m) => {
             const label = dateLabel(m.created_at);
             const showDivider = label !== lastDateLabel;

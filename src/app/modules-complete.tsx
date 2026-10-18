@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 // Last onboarding screen (docs/DECISIONS.md onboarding screen 10). Sets the
 // "up to 3 a week" expectation so a short list doesn't look broken, and
@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ModulesCompleteScreen() {
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
-      <SafeAreaView className="flex-1 justify-between px-6 py-10">
+      <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         <View className="gap-4 pt-16">
           <Text className="text-display text-stone-900 dark:text-stone-50">You&apos;re all set</Text>
           <Text className="text-body text-stone-600 dark:text-stone-300">
@@ -35,7 +35,7 @@ export default function ModulesCompleteScreen() {
             <Text className="text-body text-stone-500 dark:text-stone-400">I&apos;ll do it later</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </PaddedSafeArea>
     </View>
   );
 }
