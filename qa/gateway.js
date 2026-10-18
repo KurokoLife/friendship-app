@@ -165,7 +165,23 @@ http
         );
         return send(res, 200, { added: added[0].ok === true });
       }
+      // 2026-10-17: ZIP lookup stand-in for the joining walk (qa-onboard).
+      if (p === '/functions/v1/geocode-city') return send(res, 200, { city: 'Los Angeles', state: 'CA', lat: 34.0522, lng: -118.2437 });
       if (p.startsWith('/functions/v1/')) return send(res, 200, { error: 'Not available in the local test copy' });
+      // 2026-10-17: tiny storage stand-in (photo and selfie uploads) for the joining walk.
+      if (p.startsWith('/storage/v1/object/')) {
+        const fs = require('fs'); const path = require('path');
+        const dir = path.join(__dirname, '.local', 'storage');
+        let rel = p.slice('/storage/v1/object/'.length).replace(/^(public|sign|authenticated)\//, '');
+        const file = path.join(dir, decodeURIComponent(rel).replace(/\.\./g, ''));
+        if (req.method === 'POST' || req.method === 'PUT') {
+          const chunks = []; for await (const c of req) chunks.push(c);
+          fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, Buffer.concat(chunks));
+          return send(res, 200, { Key: rel, Id: rel });
+        }
+        if (fs.existsSync(file)) { res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Access-Control-Allow-Origin': '*' }); return res.end(fs.readFileSync(file)); }
+        return send(res, 404, { error: 'not found' });
+      }
       if (p.startsWith('/storage/v1/')) return send(res, 404, { error: 'not found' });
       return send(res, 404, { error: 'not found' });
     } catch (e) {
