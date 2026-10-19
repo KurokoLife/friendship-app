@@ -11,6 +11,8 @@ import {
 } from '@/lib/no-ghost';
 import { nameThenPeriod } from '@/lib/names';
 
+const END_STARTERS = ["I've enjoyed talking with you, ", "I don't think we're the right fit as friends, ", "Things are busy for me right now, "];
+
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
 type Props = {
@@ -109,6 +111,9 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                 This is a real, deliberate choice. Once ended, messaging stops for both of you, and
                 starting over later takes a separate, explicit step.
               </Text>
+              <Text className="text-body text-stone-600 dark:text-stone-300">
+                A short, honest note is kinder than going quiet.
+              </Text>
 
               {/* Step 2: send a message, or end without one. Distinct from
                   S1's own "Close and make room for another", which stays
@@ -191,8 +196,22 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                     Message
                   </Text>
                   <Text className="text-caption text-stone-400 dark:text-stone-600">
-                    In your own words. A short, honest message is enough.
+                    In your own words. Start with one of these if it helps, and finish it your way.
                   </Text>
+                  {/* 2026-10-18: starters the person finishes themselves. */}
+                  <View className="flex-row flex-wrap gap-2">
+                    {END_STARTERS.map((st) => (
+                      <Pressable
+                        key={st}
+                        onPress={() => {
+                          handleDraftChange(st);
+                          setDraftEdited(true);
+                        }}
+                        className="rounded-full border border-stone-300 px-3 py-2 dark:border-stone-700">
+                        <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">{st.trim()}...</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                   <View className="relative">
                     <TextInput
                       value={draft}

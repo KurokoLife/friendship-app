@@ -118,12 +118,8 @@ async function tool(page, label) {
   check('Plan card says Meeting today + Running late', t.includes('Meeting today') && t.includes('Running late?'));
   await tap(d.page, 'A little nervous', { wait: 1800 });
   t = await text(d.page);
-  check('Nervous: real support + guide', t.includes('Most people enjoy meeting more than they expect') && t.includes('Watch a 2-minute guide'));
-  await tap(d.page, 'Watch a 2-minute guide', { wait: 2500 });
-  t = await text(d.page);
-  check('Guide page opens', t.includes('The First Meetup Does Not Need to Be Perfect') || d.page.url().includes('/guide/'), d.page.url());
-  const vw = await d.page.evaluate(() => { const v = document.querySelector('video'); return v ? v.getBoundingClientRect().width : null; });
-  check('Video is small (<= 260px wide)', vw !== null && vw <= 261, vw);
+  // 2026-10-18: no guess about the other person, no guide link in the chat.
+  check('Nervous: calm support, one question ready', t.includes('Most people feel a bit nervous before meeting someone new. Having one question ready can help.') && !t.includes('probably a bit nervous too') && !t.includes('Watch a 2-minute guide'));
   await go(d.page, `/thread/${C}`, 3500);
   check('Morning-of card answered, stays gone', !(await text(d.page)).includes('How are you feeling about meeting'));
 
@@ -159,8 +155,8 @@ async function tool(page, label) {
   check('Second yes: "How did it go?" right away', t.includes('How did it go with Maria S.?'));
   check('Met 1 time shown', t.includes('Met 1 time'));
   await tap(d.page, "I'm not sure yet", { wait: 1500 });
-  check('Not sure: calm note', (await text(d.page)).includes("That's normal. There's no rush"));
-  await tap(d.page, 'Close');
+  check('Not sure: the liking-gap line and equal choices', (await text(d.page)).includes('most people think it went less well than the other person does') && (await text(d.page)).includes('Tell them one thing you enjoyed'));
+  await tap(d.page, 'Not now');
   await go(m.page, `/thread/${C}`, 3500);
   t = await text(m.page);
   check('Maria also gets "How did it go?"', t.includes('How did it go with David C.?'));
@@ -188,7 +184,7 @@ async function tool(page, label) {
   check('No: three choices', (await text(d.page)).includes("Maria S. didn't show up"));
   await tap(d.page, "Maria S. didn't show up", { wait: 2000 });
   t = await text(d.page);
-  check("Didn't show up: kind note", t.includes("it isn't on you") && t.includes('Suggest another day') && t.includes('End kindly'));
+  check("Didn't show up: kind note", t.includes('Plans fall through for all kinds of reasons. If you') && !t.includes("isn't on you") && t.includes('Suggest another day') && t.includes('End kindly'));
   check('No-show recorded privately', (await q(`select count(*)::int n from meetup_cancellation_reasons where reason='no_show'`))[0].n === 1);
   await tap(d.page, 'Suggest another day', { wait: 1500 });
   check('Suggest another day opens the editor', (await text(d.page)).includes('Plan your 2nd meetup'));

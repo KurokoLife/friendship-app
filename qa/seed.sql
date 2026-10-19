@@ -32,3 +32,8 @@ end $$;
 alter table public.users disable trigger users_protect_safety_columns;
 update public.users set is_admin = true where id = '10000000-0000-0000-0000-0000000000aa';
 alter table public.users enable trigger users_protect_safety_columns;
+
+-- 2026-10-18: a shared language is required to be suggested, and "what
+-- brings you here" is free text (life_transitions_other).
+update public.profiles set languages = array['English'] where coalesce(array_length(languages, 1), 0) = 0;
+update public.profiles set life_transitions_other = coalesce(life_transitions_other, personal_statement) where personal_statement is not null;

@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabase';
 
-// "Your experience with new friendship": five private questions. Asked
+// "How you connect" (2026-10-18): six private questions about friendship
+// habits, shown only on the person's own Profile ("You as a friend"). No
+// summary is written from them, and they are never used for matching.
+// History: "Your experience with new friendship": five private questions. Asked
 // during onboarding originally, moved 2026-07-28 to a post-first-message
 // trigger, moved back to onboarding 2026-08-08 (src/app/friendship-
 // experience.tsx, reached right after big-five-assessment.tsx completes).
@@ -13,7 +16,11 @@ import { supabase } from '@/lib/supabase';
 // throughout every version of this feature's own trigger.
 
 export type ExperienceMultiKey = 'growthFactors' | 'lostMomentumReasons';
-export type ExperienceSingleKey = 'awkwardnessInterpretation' | 'afterPositiveMeetupBehavior' | 'hardestCurrentStep';
+export type ExperienceSingleKey =
+  | 'awkwardnessInterpretation'
+  | 'slowReplyThought'
+  | 'afterPositiveMeetupBehavior'
+  | 'hardestCurrentStep';
 
 export type ExperienceQuestion =
   | { key: ExperienceMultiKey; type: 'multi'; prompt: string; options: string[] }
@@ -66,6 +73,19 @@ export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
       'It depends',
     ],
   },
+  // 2026-10-18: replaces the old "When a friend cancels last minute" question.
+  {
+    key: 'slowReplyThought',
+    type: 'single',
+    prompt: 'When someone takes a while to reply, I usually think...',
+    options: [
+      "They're probably just busy",
+      'I wonder if I said something wrong',
+      'They may have lost interest',
+      "I don't think much of it",
+      'It depends',
+    ],
+  },
   {
     key: 'afterPositiveMeetupBehavior',
     type: 'single',
@@ -99,6 +119,7 @@ export type FriendshipExperience = {
   growthFactors: string[];
   lostMomentumReasons: string[];
   awkwardnessInterpretation: string | null;
+  slowReplyThought: string | null;
   afterPositiveMeetupBehavior: string | null;
   hardestCurrentStep: string | null;
 };
@@ -107,6 +128,7 @@ export const EMPTY_EXPERIENCE: FriendshipExperience = {
   growthFactors: [],
   lostMomentumReasons: [],
   awkwardnessInterpretation: null,
+  slowReplyThought: null,
   afterPositiveMeetupBehavior: null,
   hardestCurrentStep: null,
 };

@@ -100,7 +100,7 @@ Limen's rule: **ease these hard parts, don't remove them.** The hard parts are w
 - **Short pieces at the moment they help, not a library people must study** because advice sticks when it's needed (judgment, Guide still being decided).
 
 ### Money
-- **Free pilot, later pick-your-price, no ads or deals** because Limen should never earn more by keeping people in the app or selling them more matches. That would work against the goal (judgment, with research on pick-your-price).
+- **Free pilot, then a 21-day free trial and $39 for 90 days, no ads or deals** because Limen should never earn more by keeping people in the app or selling them more matches. That would work against the goal (judgment, with research on pick-your-price).
 
 ## Using this file
 

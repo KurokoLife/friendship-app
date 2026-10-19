@@ -5,15 +5,9 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { QUESTIONS } from '@/app/big-five-assessment';
 import { CoachMark } from '@/components/coach-mark';
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
-import {
-  WHAT_HELPED_PENDING_COPY,
-  WHEN_UNCERTAIN_PENDING_COPY,
-  type FriendshipExperience,
-} from '@/lib/friendship-experience';
-import { readConnectionSummary, saveConnectionSummary } from '@/lib/connection-summary';
+import { EXPERIENCE_QUESTIONS, type FriendshipExperience } from '@/lib/friendship-experience';
 import { loadProfileName } from '@/lib/names';
 import { completionPct, type CompletionInput } from '@/lib/profile-completion';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -35,9 +29,7 @@ type OwnProfile = {
   gender_identity: string | null;
   meet_genders: string[] | null;
   completion_pct: number;
-  big_five_scores: { responses?: Record<string, string> } | null;
   friendship_experience: FriendshipExperience | null;
-  connection_summary: unknown;
 };
 
 const GENDER_LABELS: Record<string, string> = { woman: 'Woman', man: 'Man', non_binary: 'Non-binary' };
@@ -67,12 +59,6 @@ export default function ProfileScreen() {
   const [loaded, setLoaded] = useState(false);
   const [profile, setProfile] = useState<OwnProfile | null>(null);
   const [publicProfile, setPublicProfile] = useState<PublicProfile | null>(null);
-  const [reflectionOpen, setReflectionOpen] = useState(false);
-  const [connectionStyle, setConnectionStyle] = useState<string | null>(null);
-  const [whatHelped, setWhatHelped] = useState<string | null>(null);
-  const [whenUncertain, setWhenUncertain] = useState<string | null>(null);
-  const [narrativeLoading, setNarrativeLoading] = useState(false);
-  const [narrativeError, setNarrativeError] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -91,7 +77,7 @@ export default function ProfileScreen() {
       supabase
         .from('profiles')
         .select(
-          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, min_friend_age, max_friend_age, search_radius_miles, big_five_scores, friendship_experience, connection_summary, personal_statement, values, activity_interests, hangout_type_preference, stories, meeting_freq, response_time, bar_preference, dealbreakers, photo_url, location_lat, location_lng, friendship_types, communication_style_openness, availability'
+          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, min_friend_age, max_friend_age, search_radius_miles, friendship_experience, personal_statement, values, activity_interests, hangout_type_preference, stories, meeting_freq, response_time, bar_preference, dealbreakers, photo_url, location_lat, location_lng, friendship_types, communication_style_openness, availability, languages'
         )
         .eq('user_id', user.id)
         .maybeSingle(),
@@ -128,69 +114,6 @@ export default function ProfileScreen() {
       load();
     }, [load])
   );
-
-  // Bug found and fixed 2026-07-28, unrelated to that day's friendship-
-  // experience timing change but discovered while touching this same
-  // display logic: this button read `data.narrative`, a field the server
-  // hasn't returned since the July 26 rebuild to the three-section
-  // {connectionStyle, whatHelped, whenUncertain} shape, so it silently
-  // fell back to the generic error text every single time, for every
-  // user. Also now sends the caller's own friendship_experience (if
-  // they've answered it) so a retake reflects real, grounded content
-  // instead of always showing pending copy once that data exists.
-  // "Your connection summary" (2026-10-14, was "personality reflection").
-  // Shows the saved one. Only someone who answered before summaries were
-  // saved gets one written now, once, and then it's saved too.
-  const openReflection = async () => {
-    setReflectionOpen(true);
-    setNarrativeError(null);
-    const saved = readConnectionSummary(profile?.connection_summary);
-    if (saved) {
-      setConnectionStyle(saved.connectionStyle);
-      setWhatHelped(saved.whatHelped);
-      setWhenUncertain(saved.whenUncertain);
-      return;
-    }
-    setConnectionStyle(null);
-    setWhatHelped(null);
-    setWhenUncertain(null);
-    const responses = profile?.big_five_scores?.responses;
-    if (!responses) {
-      setNarrativeError("You haven't answered the How you connect questions yet.");
-      return;
-    }
-    setNarrativeLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-personality-narrative', {
-        body: {
-          answers: QUESTIONS.map((q) => ({ question: q.prompt, answer: responses[String(q.id)] })),
-          ...(profile?.friendship_experience ? { friendshipExperience: profile.friendship_experience } : {}),
-          context: 'onboarding',
-        },
-      });
-      if (data?.blocked) {
-        setNarrativeError(data.message as string);
-        return;
-      }
-      if (error || !data?.connectionStyle || !data?.whatHelped || !data?.whenUncertain) {
-        throw error ?? new Error('No summary returned');
-      }
-      const next = {
-        connectionStyle: data.connectionStyle as string,
-        whatHelped: data.whatHelped as string,
-        whenUncertain: data.whenUncertain as string,
-      };
-      setConnectionStyle(next.connectionStyle);
-      setWhatHelped(next.whatHelped);
-      setWhenUncertain(next.whenUncertain);
-      await saveConnectionSummary(next);
-      setProfile((p) => (p ? { ...p, connection_summary: { ...next, created_at: new Date().toISOString() } } : p));
-    } catch {
-      setNarrativeError("We couldn't write your summary just now, but your answers are saved. Please try again later.");
-    } finally {
-      setNarrativeLoading(false);
-    }
-  };
 
   if (!loaded) {
     return (
@@ -313,15 +236,33 @@ export default function ProfileScreen() {
               value={profile.care_style?.trim() ? profile.care_style : 'Not filled in yet'}
               note="Shown only to people you're already connected with."
             />
-            <View className="gap-1">
-              <Text className="text-caption text-stone-400 dark:text-stone-400">Your connection summary</Text>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">
-                A short summary written from your How you connect answers. Private, and never used to pick who you
-                meet.
-              </Text>
-              <Pressable onPress={openReflection} className="pt-1">
-                <Text className="text-body font-semibold text-accent-500">See my connection summary</Text>
-              </Pressable>
+            {/* 2026-10-18: your own How you connect answers, word for word.
+                The written summary is gone. Never shown to anyone else. */}
+            <View className="gap-3 pt-1">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">You as a friend</Text>
+                <Pressable onPress={() => router.push('/big-five-assessment?from=profile')} hitSlop={8}>
+                  <Text className="text-caption font-semibold text-accent-500">
+                    {profile.friendship_experience ? 'Edit' : 'Answer'}
+                  </Text>
+                </Pressable>
+              </View>
+              {profile.friendship_experience ? (
+                EXPERIENCE_QUESTIONS.map((q) => {
+                  const a = profile.friendship_experience?.[q.key];
+                  const answer = Array.isArray(a) ? a.join(', ') : a;
+                  return (
+                    <View key={q.key} className="gap-0.5">
+                      <Text className="text-caption text-stone-400 dark:text-stone-400">{q.prompt}</Text>
+                      <Text className="text-body text-stone-700 dark:text-stone-300">{answer || 'Not answered yet'}</Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  A few questions about how friendships tend to go for you. Only you see your answers.
+                </Text>
+              )}
             </View>
           </View>
 
@@ -343,63 +284,6 @@ export default function ProfileScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <Modal visible={reflectionOpen} transparent animationType="slide" onRequestClose={() => setReflectionOpen(false)}>
-        <View className="flex-1 justify-end bg-black/40">
-          <View className="gap-4 rounded-t-3xl bg-stone-50 p-6 pb-10 dark:bg-stone-900">
-            <Text className="text-title text-stone-900 dark:text-stone-50">Your connection summary</Text>
-            {narrativeLoading && (
-              <View className="flex-row items-center gap-3">
-                <ActivityIndicator color={MUTED_ICON_COLOR} />
-                <Text className="text-body text-stone-500 dark:text-stone-400">
-                  Writing your summary...
-                </Text>
-              </View>
-            )}
-            {!narrativeLoading && connectionStyle && whatHelped && whenUncertain && (
-              <ScrollView contentContainerClassName="gap-4">
-                <View className="gap-1">
-                  <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-                    How you tend to connect
-                  </Text>
-                  <Text className="text-body text-stone-900 dark:text-stone-50">{connectionStyle}</Text>
-                </View>
-                <View className="gap-1">
-                  <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-                    What has helped before
-                  </Text>
-                  <Text className="text-body text-stone-900 dark:text-stone-50">
-                    {profile?.friendship_experience ? whatHelped : WHAT_HELPED_PENDING_COPY}
-                  </Text>
-                </View>
-                <View className="gap-1">
-                  <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-                    When things feel uncertain
-                  </Text>
-                  <Text className="text-body text-stone-900 dark:text-stone-50">
-                    {profile?.friendship_experience ? whenUncertain : WHEN_UNCERTAIN_PENDING_COPY}
-                  </Text>
-                </View>
-              </ScrollView>
-            )}
-            {!narrativeLoading && narrativeError && (
-              <Text className="text-body text-stone-500 dark:text-stone-400">{narrativeError}</Text>
-            )}
-            <Pressable
-              onPress={() => {
-                setReflectionOpen(false);
-                router.push('/big-five-assessment?from=profile');
-              }}
-              className="items-center py-1">
-              <Text className="text-caption font-semibold text-accent-500">
-                Answers changed? Retake the questions for a new summary
-              </Text>
-            </Pressable>
-            <Pressable onPress={() => setReflectionOpen(false)} className="items-center py-2">
-              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

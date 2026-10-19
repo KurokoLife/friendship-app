@@ -71,6 +71,15 @@ function initials(name: string | null): string {
     .toUpperCase();
 }
 
+// Stored values stay the same; the words people see were reworded (2026-10-18).
+function barLabel(value: string | null): string | null {
+  if (!value) return null;
+  if (value === 'No preference') return 'Fine with me';
+  if (value === 'Rather not') return "I'd rather not";
+  if (value === 'I drink') return 'Fine with me';
+  return value;
+}
+
 function ConnectRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
@@ -192,73 +201,25 @@ export function PublicProfileView({
         </View>
       </Modal>
 
-      {/* Right now, I'm... */}
-      {profile.personal_statement && (
+      {/* What brings them here, in their own words (2026-10-18). */}
+      {profile.life_transitions_other?.trim() && (
         <View className="gap-1 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">Right now, I&apos;m...</Text>
-          <Text className="text-body text-stone-700 dark:text-stone-300">{profile.personal_statement}</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">What brings them here</Text>
+          <Text className="text-body text-stone-700 dark:text-stone-300">{profile.life_transitions_other}</Text>
         </View>
       )}
 
       {/* Stories */}
       <ProfileStories subjectUserId={profile.user_id} subjectName={profile.display_name} readOnly={readOnly} />
 
-      {/* What brings them here, only when they chose to show it */}
-      {(transitions.length > 0 || profile.life_transitions_other) && (
-        <View className="gap-1">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">What brings them here</Text>
-          {transitions.map((sentence) => (
-            <Text key={sentence} className="text-body text-accent-500">
-              {sentence}
-            </Text>
-          ))}
-          {profile.life_transitions_other && (
-            <Text className="text-body text-accent-500">{profile.life_transitions_other}</Text>
-          )}
-        </View>
-      )}
-
-      {/* Hidden from others: shown only on your own Profile tab */}
-      {showHiddenTransitions && (
-        <View className="gap-1 rounded-2xl border border-dashed border-stone-300 p-4 opacity-70 dark:border-stone-600">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">What brings them here</Text>
-          {hiddenTransitions.map((sentence) => (
-            <Text key={sentence} className="text-body text-stone-500 dark:text-stone-400">
-              {sentence}
-            </Text>
-          ))}
-          {ownerHidden?.lifeTransitionsOther && (
-            <Text className="text-body text-stone-500 dark:text-stone-400">{ownerHidden.lifeTransitionsOther}</Text>
-          )}
-          <OnlyYouLabel />
-        </View>
-      )}
-
-      {/* Values */}
-      {((profile.values?.length ?? 0) > 0 || profile.values_other) && (
-        <View className="gap-2">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">What matters to them</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {profile.values?.map((v) => (
-              <View
-                key={v}
-                className="rounded-full border border-stone-200 bg-white px-3 py-1 dark:border-stone-700 dark:bg-stone-800">
-                <Text className="text-caption text-stone-700 dark:text-stone-300">{v}</Text>
-              </View>
-            ))}
-          </View>
-          {profile.values_other && (
-            <Text className="text-caption text-stone-600 dark:text-stone-300">Also: {profile.values_other}</Text>
-          )}
-        </View>
-      )}
-
-      {/* Activities, with whatever details they filled in */}
+      {/* What they enjoy: their own line first, then any details */}
       {(activityCategories.length > 0 || profile.activity_interests?.other) && (
         <View className="gap-2">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">Into these lately</Text>
+          <Text className="text-caption text-stone-400 dark:text-stone-400">What they enjoy</Text>
           {activityCategories.map((key) => {
-            const lines = activityDetailLines(key, profile.activity_interests?.details?.[key]);
+            const detail = profile.activity_interests?.details?.[key];
+            const note = typeof detail?.note === 'string' ? detail.note.trim() : '';
+            const lines = activityDetailLines(key, detail);
             return (
               <View
                 key={key}
@@ -266,6 +227,7 @@ export function PublicProfileView({
                 <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
                   {activityCategoryLabel(key)}
                 </Text>
+                {note ? <Text className="text-body text-stone-700 dark:text-stone-300">{note}</Text> : null}
                 {lines.map((line) => (
                   <Text key={line} className="text-caption text-stone-600 dark:text-stone-300">
                     {line}
@@ -299,11 +261,9 @@ export function PublicProfileView({
           label="Generally free"
           value={(profile.availability?.length ?? 0) > 0 ? profile.availability!.join(', ') : null}
         />
-        <ConnectRow label="Opening up" value={profile.communication_style_openness} />
-        <ConnectRow label="Hangout style" value={hangout || null} />
-        <ConnectRow label="Bars or drinks for meetups" value={profile.bar_preference} />
+        <ConnectRow label="Bars or drinks" value={barLabel(profile.bar_preference)} />
         <ConnectRow label="Languages" value={languages || null} />
-        <ConnectRow label="Hard nos" value={profile.dealbreakers} />
+        <ConnectRow label="Good to know" value={profile.dealbreakers} />
       </View>
     </View>
   );

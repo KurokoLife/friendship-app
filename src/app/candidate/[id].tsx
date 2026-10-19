@@ -260,8 +260,8 @@ export default function CandidateProfileScreen() {
         <ScrollView contentContainerClassName="gap-4 px-6 pb-6 pt-5">
           <CoachMark
             markKey="profile_view"
-            title="Getting to know someone"
-            text="Take your time with their stories. If something makes you curious, tap Note it privately to keep an “I wonder...” just for you, so you have something real to ask later. Report and Block at the top are always here if something feels wrong."
+            title="Notice something?"
+            text="See something you'd like to ask about? Tap Note it privately and write it down. Only you see it, and it'll be there when you start chatting."
           />
           <PublicProfileView profile={profile} />
         </ScrollView>

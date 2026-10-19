@@ -80,7 +80,7 @@ export default function ReadinessCommitmentScreen() {
     }
 
     track('onboarding_completed');
-    router.replace('/modules-complete');
+    router.replace('/profile-review?from=onboarding');
   };
 
   const handlePause = async (days: number) => {
@@ -158,39 +158,29 @@ export default function ReadinessCommitmentScreen() {
             </View>
           </View>
         ) : (
-          <ScrollView contentContainerClassName="gap-5 pt-16" showsVerticalScrollIndicator={false}>
-            <Text className="text-display text-stone-900 dark:text-stone-50">
-              Building real friendship takes consistent effort, showing up even when life gets
-              busy, following through when you say you will, being honest when you can&apos;t.
-            </Text>
-            <Text className="text-body text-stone-600 dark:text-stone-300">
-              Are you in a place right now where you can do that, even imperfectly?
-            </Text>
-
-            {/* Friendship-only norm (docs/DECISIONS.md section 3, item 1).
-                "Removal" is real: users.suspended_at hides the account and
-                blocks messaging (migration 20261004000000). */}
-            <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-title text-stone-900 dark:text-stone-50">Limen is for friendship only</Text>
-              <Text className="text-body text-stone-600 dark:text-stone-300">
-                Romantic or sexual advances, or asking for money, lead to removal.
-              </Text>
-            </View>
-
+          <ScrollView contentContainerClassName="gap-5" showsVerticalScrollIndicator={false}>
+            <Pressable onPress={() => router.replace('/profile-build?from=photo')} className="self-start">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            </Pressable>
+            {/* 2026-10-18: replaces the two onboarding videos and their quiz.
+                Their messages now show as single lines at the moment they
+                matter. "Removal" is real: users.suspended_at. The quiet-chat
+                rule is real too (ghosting_events, is_ghosting_penalized). */}
+            <Text className="text-display text-stone-900 dark:text-stone-50">Before you start</Text>
             <View className="gap-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-title text-stone-900 dark:text-stone-50">
-                Keeping this community safe
+              <Text className="text-body text-stone-700 dark:text-stone-300">
+                Limen is for friendship only. Romantic advances or asking for money lead to removal.
               </Text>
-              {/* This rule is real now (ghosting_events,
-                  is_ghosting_penalized, migration 20261004000000). */}
-              <Text className="text-body text-stone-600 dark:text-stone-300">
-                To keep this community safe for people who genuinely show up, we track
-                follow-through privately. If you let 2 or more conversations go silent until they
-                close on their own (7 days with no reply and no honest exit) within 60 days,
-                you&apos;re shown last in other people&apos;s suggestions for the next 30 days. This is
-                never shown to anyone, never used to label you, and it resets on its own.
+              <Text className="text-body text-stone-700 dark:text-stone-300">
+                If a chat isn&apos;t right for you, say so. A short honest note is kinder than going quiet.
               </Text>
-
+              <Text className="text-body text-stone-700 dark:text-stone-300">
+                Meet in public places at first, and trust how you feel.
+              </Text>
+              <Text className="text-body text-stone-700 dark:text-stone-300">
+                If several chats go quiet until they close, you&apos;re shown a little later in suggestions for a
+                while. Nobody is told, and it resets on its own.
+              </Text>
               <Pressable onPress={() => setExpanded((v) => !v)}>
                 <Text className="text-body font-semibold text-accent-500">
                   {expanded ? 'Show less' : 'Tell me more'}

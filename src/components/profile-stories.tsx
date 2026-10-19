@@ -7,7 +7,6 @@ import {
   fetchCuriosityNotes,
   fetchProfileStories,
   orderStoriesForViewer,
-  storyPromptLabel,
   type CuriosityNote,
   type Story,
 } from '@/lib/stories';
@@ -102,15 +101,12 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
         <View
           key={`${index}-${item.prompt_key}`}
           className="gap-2 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-          <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-500">
-            {storyPromptLabel(item.prompt_key)}
-          </Text>
           <Text className="text-body text-stone-700 dark:text-stone-300">{item.text}</Text>
           {readOnly ? null : openIndex === index ? (
             noteInput
           ) : (
             <Pressable onPress={() => setOpenIndex(index)} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">I wonder...</Text>
+              <Text className="text-caption font-semibold text-accent-500">Note it privately</Text>
             </Pressable>
           )}
         </View>
@@ -118,7 +114,7 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
 
       {!readOnly && stories.length === 0 && openIndex !== 'general' && (
         <Pressable onPress={() => setOpenIndex('general')} className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">Something you&apos;re curious about? Note it privately</Text>
+          <Text className="text-caption font-semibold text-accent-500">Something you&apos;d like to ask about? Note it privately</Text>
         </Pressable>
       )}
       {openIndex === 'general' && noteInput}
@@ -126,7 +122,7 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
       {!readOnly && notes.length > 0 && (
         <View className="gap-2 rounded-2xl border border-dashed border-stone-300 p-4 dark:border-stone-700">
           <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-            Your private wonderings, only you see these
+            Your private notes, only you see these
           </Text>
           {notes.map((n) => (
             <View key={n.id} className="flex-row items-start justify-between gap-3">

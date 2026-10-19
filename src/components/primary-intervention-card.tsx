@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -67,6 +68,9 @@ type Props = {
   onPlanChanged?: () => void;
   // Your own "next time, ask..." notes in the check-in (2026-10-10).
   notesOn?: boolean;
+  // Who sent the last chat message (timing only, never the words). Used by
+  // the check-in for "If you're wondering about your last message..."
+  iSentLast?: boolean;
   // A card turned itself off for this chat ("Turn these off"): the thread
   // reloads its reminder settings.
   onPromptsChanged?: () => void;
@@ -92,6 +96,7 @@ export function PrimaryInterventionCard({
   onPlanChanged,
   onPromptsChanged,
   notesOn,
+  iSentLast,
   initialStep,
   initialExtra,
   onHold,
@@ -188,6 +193,7 @@ export function PrimaryInterventionCard({
           intervention={intervention}
           otherName={otherName}
           notesOn={notesOn}
+          iSentLast={iSentLast}
           onResolved={onResolved}
           onPromptsChanged={onPromptsChanged}
         />
@@ -330,8 +336,8 @@ function NoGhostS1({
         It&apos;s been quiet since your hello to {nameThenPeriod(otherName)} What would feel right for you?
       </Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">
-        Silence usually isn&apos;t about you. If {otherName} doesn&apos;t write back, this chat closes quietly after 7
-        days, with no penalty for you.
+        You can send one more short note, or let it be. If {otherName} doesn&apos;t write back, this chat closes
+        quietly after 7 days, with no penalty for you.
       </Text>
       {errorText}
       {writing ? (
@@ -577,18 +583,11 @@ function PreMeetupSupport({
 
   const support = (
     <View className="gap-2">
+      {/* 2026-10-18: no guess about how the other person feels. */}
       <Text className="text-body text-stone-700 dark:text-stone-300">
-        Totally normal. Most people enjoy meeting more than they expect to, and {otherName} is probably a bit nervous
-        too.
+        Most people feel a bit nervous before meeting someone new. Having one question ready can help.
       </Text>
-      <Text className="text-caption text-stone-500 dark:text-stone-400">
-        One thing that helps: have one question ready that you&apos;re genuinely curious to ask.
-      </Text>
-      <Pressable
-        onPress={() => router.push({ pathname: '/guide/[id]', params: { id: 'guide_meetup_anxiety' } })}
-        className="self-start">
-        <Text className="text-caption font-semibold text-accent-500">Watch a 2-minute guide</Text>
-      </Pressable>
+      <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn />
     </View>
   );
 
@@ -1024,8 +1023,8 @@ function MeetupOccurrenceCheck({
       <Card>
         {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          That&apos;s disappointing, and it isn&apos;t on you. Sometimes people get overwhelmed or something comes
-          up. You can suggest another day, or end things kindly.
+          That&apos;s disappointing. Plans fall through for all kinds of reasons. If you&apos;d like to know what
+          happened, you can ask. You can also suggest another day, or end things kindly.
         </Text>
         <Text className="text-caption italic text-stone-400 dark:text-stone-500">Only you see this.</Text>
         <View className="flex-row flex-wrap gap-2">
@@ -1375,6 +1374,20 @@ function PostMeetupReflectionPrompt({
     if (h) onHold?.(h);
   };
   const [remindAt, setRemindAt] = useState<string | null>(null);
+  const [shareFromUnsure, setShareFromUnsure] = useState(false);
+  const [showTurnsLine, setShowTurnsLine] = useState(false);
+  useEffect(() => {
+    if (after !== 'went_well') return;
+    const key = `limen.turns_line.${connectionId}`;
+    AsyncStorage.getItem(key)
+      .then((seen) => {
+        if (!seen) {
+          setShowTurnsLine(true);
+          AsyncStorage.setItem(key, '1').catch(() => undefined);
+        }
+      })
+      .catch(() => undefined);
+  }, [after, connectionId]);
   const [busy, setBusy] = useState(false);
   const options: { key: PostMeetupReflectionResponse; label: string }[] = [
     { key: 'know_better', label: `Really good, I'd like to see ${otherName} again` },
@@ -1403,8 +1416,15 @@ function PostMeetupReflectionPrompt({
         <Text className="text-body text-stone-700 dark:text-stone-300">
           {after === 'shared'
             ? 'Sent.'
-            : `Glad it went well. Would you like to tell ${otherName} how it was for you? Only if you want to.`}
+            : `Glad it went well. Would you like to tell ${otherName} how it was for you? Only if you want to. It usually means more to them than people expect.`}
         </Text>
+        {/* 2026-10-18: once per friendship, the same for both people. No
+            counts, never who suggested more. */}
+        {after === 'went_well' && showTurnsLine && (
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            Friendships tend to grow when both people suggest plans now and then.
+          </Text>
+        )}
         <View className="flex-row flex-wrap gap-2">
           {after === 'went_well' && <OptionPill label={`Tell ${otherName}`} onPress={() => setAfter('sharing')} />}
           {after === 'went_well' && <OptionPill label="Remind me later" onPress={() => setAfter('remind')} />}
@@ -1445,7 +1465,7 @@ function PostMeetupReflectionPrompt({
         <Text className="text-body text-stone-700 dark:text-stone-300">In your own words, a line or two is plenty.</Text>
         <StemMessageBox
           stems={SHARE_STEMS}
-          onCancel={() => setAfter('went_well')}
+          onCancel={() => setAfter(shareFromUnsure ? 'thanks' : 'went_well')}
           onSend={async (text) => {
             const ok = await sendChatMessage(connectionId, text);
             if (ok) setAfter('shared');
@@ -1471,13 +1491,32 @@ function PostMeetupReflectionPrompt({
     );
   }
 
+  // "I'm not sure yet" (2026-10-18): the liking gap, then equal choices.
   if (after === 'thanks') {
     return (
       <Card>
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          That&apos;s normal. There&apos;s no rush. You can plan another whenever it feels right.
+          After meeting someone new, most people think it went less well than the other person does.
         </Text>
-        <OptionPill label="Close" onPress={onResolved} />
+        <View className="flex-row flex-wrap gap-2">
+          <OptionPill
+            label="Tell them one thing you enjoyed"
+            onPress={() => {
+              setShareFromUnsure(true);
+              setAfter('sharing');
+            }}
+          />
+          {onPlanNext && (
+            <OptionPill
+              label="Plan another meetup"
+              onPress={() => {
+                onPlanNext();
+                onResolved();
+              }}
+            />
+          )}
+          <OptionPill label="Not now" onPress={onResolved} />
+        </View>
       </Card>
     );
   }
@@ -1533,12 +1572,14 @@ function SecondLookPrompt({
 // days, once per quiet stretch. It never says "your turn": a conversation
 // that ended is fine. It only offers a chance to say hi. Can be turned off.
 const CHECK_IN_STEMS = ['Hi! Just checking in, ', 'Hope your week is going okay, ', 'Thinking of you, '];
+const ASK_HOW_STEMS = ['How have you been? ', 'How did ', "What's been keeping you busy lately? "];
 
 function CheckInPrompt({
   connectionId,
   intervention,
   otherName,
   notesOn = true,
+  iSentLast = false,
   onResolved,
   onPromptsChanged,
 }: {
@@ -1546,10 +1587,11 @@ function CheckInPrompt({
   intervention: ActiveIntervention;
   otherName: string;
   notesOn?: boolean;
+  iSentLast?: boolean;
   onResolved: () => void;
   onPromptsChanged?: () => void;
 }) {
-  const [writing, setWriting] = useState(false);
+  const [writing, setWriting] = useState<null | 'hi' | 'ask'>(null);
   const { busy, run, errorText } = useCardAction();
 
   return (
@@ -1558,13 +1600,18 @@ function CheckInPrompt({
         It&apos;s been quiet with {otherName} for a bit. That&apos;s normal. If you&apos;d like, say hi or see how
         they&apos;re doing.
       </Text>
+      {/* 2026-10-18: people underestimate how welcome a surprise message is. */}
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
+        A message out of the blue is usually more welcome than the person sending it expects.
+        {iSentLast ? " If you're wondering about your last message, you can ask." : ''}
+      </Text>
       <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this.</Text>
       <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} />
       {errorText}
       {writing ? (
         <StemMessageBox
-          stems={CHECK_IN_STEMS}
-          onCancel={() => setWriting(false)}
+          stems={writing === 'ask' ? ASK_HOW_STEMS : CHECK_IN_STEMS}
+          onCancel={() => setWriting(null)}
           onSend={async (text) => {
             const ok = await sendChatMessage(connectionId, text);
             if (ok) onResolved();
@@ -1573,7 +1620,8 @@ function CheckInPrompt({
         />
       ) : (
         <View className="flex-row flex-wrap gap-2">
-          <OptionPill label="Say hi" onPress={() => setWriting(true)} />
+          <OptionPill label="Say hi" onPress={() => setWriting('hi')} />
+          <OptionPill label="Ask how they're doing" onPress={() => setWriting('ask')} />
           <OptionPill
             label="Not now"
             onPress={() =>

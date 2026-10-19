@@ -42,7 +42,7 @@ const { U, check, tap, text, go, q } = L;
   check('Chat: notes bar and plan bar', t.includes('What I want to remember about Mochi') && (t.includes('No meetup planned yet') || t.includes('Plan a meetup')));
   check('Chat: meeting in person line', t.includes('Limen is for meeting in person. Chatting is how you get there.'));
   check('Chat: scam note shown once', (t.match(/Limen will never ask you for money/g) || []).length === 1, t.slice(0, 900));
-  check('Chat: Reflect first, "ask them" line, Reminders; no "Another way to see it"', t.includes('Reflect first') && t.includes('Not sure what they meant? Ask them. Only they know.') && t.includes('Reminders') && !t.includes('Another way to see it'));
+  check('Chat: Reflect first, "ask them" line, Reminders; no "Another way to see it"', t.includes('Reflect first') && /Not sure what they meant\? Ask them\. Only they know\.|Asking one question back keeps things going\.|A follow-up question, like 'how did that go\?', helps people feel heard\./.test(t) && t.includes('Reminders') && !t.includes('Another way to see it'));
   check('Chat: no read receipts', !/\b(seen|read at|delivered)\b/i.test(t));
   check('Chat: no guide offer inside the chat', !t.includes('A short guide on showing up'));
   check('Chat: care words under the reply pace', t.includes('How Mochi likes care: “people showing up for me”') && t.indexOf('How Mochi likes care') < t.indexOf('What I want to remember'), t.slice(0, 400));

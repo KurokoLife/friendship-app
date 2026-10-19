@@ -123,7 +123,7 @@ export default function GenderIdentityScreen() {
     setError(null);
     if (step === 0) {
       if (isEditMode) router.back();
-      else router.replace('/account-recovery');
+      else router.replace('/profile-build?resume=last');
       return;
     }
     setStep(0);
@@ -181,8 +181,9 @@ export default function GenderIdentityScreen() {
       return;
     }
 
+    // 2026-10-18 order: interests and practical bits, then this, then How you connect.
     if (isEditMode) router.back();
-    else router.replace('/profile-build');
+    else router.replace('/big-five-assessment');
   };
 
   return (

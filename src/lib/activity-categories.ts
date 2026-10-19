@@ -256,6 +256,8 @@ export function activityDetailLines(
   const category = ACTIVITY_CATEGORIES.find((c) => c.key === key);
   const lines: string[] = [];
   for (const [field, raw] of Object.entries(detail)) {
+    // The person's own line (2026-10-18) is shown on its own, first.
+    if (field === 'note') continue;
     const value = Array.isArray(raw) ? raw.filter(Boolean).join(', ') : (raw ?? '').trim();
     if (!value) continue;
     const question = category?.questions.find((q) => q.field === field);

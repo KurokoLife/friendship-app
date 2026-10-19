@@ -36,7 +36,7 @@ const { U, check, tap, text, go, q } = L;
   await tap(d.page, '1.5 days', { wait: 1500 });
   await go(d.page, `/thread/${C}`, 3500);
   t = await text(d.page);
-  check('1.5 days: David sees the calm "few days" note', t.includes('Sometimes it takes a few days'), t.slice(0, 250));
+  check('1.5 days: David sees the calm "few days" note', t.includes('Replies take time for all kinds of reasons.') && t.includes('typically replies within'), t.slice(0, 250));
 
   // 2 days: Maria's one gentle note
   await go(d.page, '/dev', 3000);
@@ -82,7 +82,7 @@ const { U, check, tap, text, go, q } = L;
   check('Both wrote, 3 days: tool says no reply reminders', t.includes('You have both written, so there are no reply reminders'), t.match(/The last message[^]*?days\./)?.[0]);
   await go(d.page, `/thread/${C}`, 3500);
   t = await text(d.page);
-  check('No reminder card, no "waiting" line', !t.includes("hasn't heard back yet") && !t.includes('Sometimes it takes a few days'), t.slice(0, 400));
+  check('No reminder card, no "waiting" line', !t.includes("hasn't heard back yet") && !t.includes('Replies take time for all kinds of reasons.'), t.slice(0, 400));
 
   await go(d.page, '/dev', 3000);
   await tap(d.page, 'Maria S.');

@@ -14,7 +14,8 @@ export const HONEST_EXIT_RECEIVER_TEXT =
 // 125-hour "It's been quiet" card takes over. Shown by the app only.
 export function senderReassuranceLine(hoursSinceSent: number): string | null {
   if (hoursSinceSent >= 36 && hoursSinceSent < 125) {
-    return 'Sometimes it takes a few days to reply. This does not necessarily mean anything.';
+    // 2026-10-18: shown together with their own stated reply pace.
+    return 'Replies take time for all kinds of reasons.';
   }
   return null;
 }

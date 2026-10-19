@@ -4,6 +4,8 @@
 
 export type CompletionInput = {
   life_transitions?: string[] | null;
+  life_transitions_other?: string | null;
+  languages?: string[] | null;
   personal_statement?: string | null;
   values?: string[] | null;
   activity_categories?: string[] | null;
@@ -24,12 +26,11 @@ export type CompletionInput = {
 export function completionPct(p: CompletionInput): number {
   const has = (a?: unknown[] | null) => (a?.length ?? 0) > 0;
   const text = (t?: string | null) => (t ?? '').trim().length > 0;
+  // 2026-10-18: "what brings you here" is free text (life_transitions_other);
+  // values, hangout style, opening up and "Right now" are no longer asked.
   const checks = [
-    has(p.life_transitions),
-    text(p.personal_statement),
-    has(p.values),
+    text(p.life_transitions_other),
     has(p.activity_categories),
-    has(p.hangout_type_preference),
     (p.stories ?? []).some((s) => text(s?.text)),
     Boolean(p.meeting_freq),
     Boolean(p.response_time),
@@ -38,8 +39,8 @@ export function completionPct(p: CompletionInput): number {
     Boolean(p.photo_url),
     Boolean(p.location_lat && p.location_lng),
     has(p.friendship_types),
-    Boolean(p.communication_style_openness),
     has(p.availability),
+    has(p.languages),
   ];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }

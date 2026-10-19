@@ -17,11 +17,9 @@ export default function ModulesCompleteScreen() {
             You&apos;ll meet one new person each day in Discover, so take your time with each one.
           </Text>
           <Text className="text-body text-stone-600 dark:text-stone-300">
-            Before you can say hello to anyone, we check that you&apos;re you, with a quick selfie matched to
-            your profile photo. It usually takes less than a day.
-          </Text>
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            Short guides live in your Profile whenever you want them.
+            One more thing: a quick selfie, matched to your profile photo, so everyone knows people are who they
+            say they are. You can say Interested while it&apos;s checked, and chats open once it&apos;s approved.
+            It usually takes less than a day.
           </Text>
         </View>
 

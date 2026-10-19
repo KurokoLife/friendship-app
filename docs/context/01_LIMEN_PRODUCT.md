@@ -1,10 +1,10 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-17. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-18. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
-A friendship app for adults going through change (divorce, a move, loss, a career change, an empty nest), open to all ages and genders, especially 40+. It helps two people go from a first hello to meeting in person regularly, and then to keep going outside the app ("graduation"). Limen is for friendship only: romantic or sexual advances, or asking for money, lead to removal.
+Limen helps adults make real friends. Open to all ages and genders, especially 40+. (Since Oct 18 it no longer leads with big life changes.) It helps two people go from a first hello to meeting in person regularly, and then to keep going outside the app ("graduation"). Limen is for friendship only: romantic or sexual advances, or asking for money, lead to removal.
 
 ## 2. Principles (every feature must pass these)
 
@@ -24,28 +24,37 @@ Working rules that follow from these:
 - First-time tips are a calm card inside the page (never a box over buttons), once per account, on each tab, Inbox Pending, Settings, Guide, a person's profile and in chats. "Show tips again" in Settings brings them back.
 - Reduce anxiety: calm, honest copy. Never "your turn". No therapy language. No em dashes.
 - Private stays private. Nobody ever sees another person's private answers.
-- Only one prompt card shows in a chat at a time, and every card can be put away or turned off.
+- Only one prompt card shows in a chat at a time, and every card can be put away or turned off. At moments where people guess or hesitate, a card carries one short, true line (for example "After meeting someone new, most people think it went less well than the other person does."), never a guess about the other person.
 - Read receipts are never shown to the sender. No swipe, no likes, no romance features.
 - Limen is for meeting in person. Every chat shows: "Limen is for meeting in person. Chatting is how you get there."
 
 ## 3. Joining (onboarding)
 
-11 screens: Intro → Phone number and code → Basics (first and last name, shown as "Maria S.", birthdate as Month/Day/Year, optional referral code with no reward promised) → Account recovery (Google, Apple, email, or skip; phone stays the sign-in) → Identity (your gender: Woman / Man / Non-binary; who you'd like to meet, mutual; age range) → Profile build (10 steps) → How you connect (10 questions, then a short "connection summary" written from the answers, private, saved, not used for matching) → Two required videos ("Begin With Curiosity", "How We Show Up") → Readiness (friendship-only rule, scam check, ghosting rule) → All set ("You'll meet one new person each day") with an offer to do the selfie check now or later.
+Since Oct 18, joining starts with the person (proposal doc "Limen: Joining and profile proposal"):
+1. Intro, two screens: "Making friends as an adult is hard. It's not just you." then "Meeting people is only the beginning." (the liking-gap line, one person at a time, no swiping, no perfect profile). "Already a member? Sign in" on the first screen.
+2. Start with you, before any phone number: "What brings you to Limen?" (open box) and "Share a story so people can get to know you" (up to 3 stories; 5 optional guides to start from, never shown to readers). Kept on the phone until Basics, then saved.
+3. Phone number and code. 4. Basics (name, birthdate), account recovery (optional).
+5. What you enjoy: interests, each with an optional line in your own words.
+6. Practical bits: where you're based; friendship type, meeting pace, reply pace, free times; bars or drinks (Fine with me / I'd rather not / I don't drink); Good to know about me; how I like care; languages (at least one). Then who you'd like to meet and ages.
+7. How you connect: 6 private questions about friendship habits (answers show only on your own Profile, "You as a friend"; no summary, never used for matching).
+8. Photo. 9. Before you start (friendship only, honest endings, public places at first, the quiet-chat rule). 10. "Here's what people will see" preview. 11. All set, with the selfie check offer.
+
+No "Step N of 10", no "Required" labels. The two onboarding videos and quiz were removed from joining (they stay in the Guide).
 
 ## 4. Profile
 
-- Fill in: location; what brings you here (up to 3, can be hidden from the profile but still used for matching); "Right now, I'm..." (150 characters); 1 to 3 stories in your own words to character prompts (no "Ask me about"); "How I like care" (own words, 400 characters, shown only to people you're connected with, at the top of your chat under how often you reply); up to 5 of 20 values; activities (32 categories, optional details); hangout style; friendship type, meeting pace, reply pace, usual free times; opening-up pace; whether bars or drinks are okay; hard nos (shown, don't hide anyone); languages; 1 face photo required, 2 more optional.
-- Others see: a curiosity section first (a small photo next to the name, "See N photos" opens them large; first name, age range, distance, "Right now", stories, what brings you here, values, activities, friendship type), then a compact "How they like to connect" box.
+- Fill in: what brings you here (own words); 1 to 3 stories (own words, optional guides); interests (32 categories, own line and optional details); location; friendship type, meeting pace, reply pace, usual free times; bars or drinks; Good to know about me; "How I like care" (shown only to people you're connected with, at the top of your chat); languages; 1 face photo required, 2 more optional. Values, opening up, hangout style and "Right now" are no longer asked (Oct 18).
+- Others see: a small photo next to the name ("See N photos" opens them large), first name, age range, distance, then what brings them here, their stories, what they enjoy (own line first), looking for, and a compact "How they like to connect" box (meeting up, replies, free times, bars or drinks, languages, good to know). Discover cards show only their own words: what brings them here and the opening of a story.
 - Private: phone, recovery login, selfie, exact location, birthdate, gender and who you want to meet, hidden life transitions, reflection answers.
 - Curiosity notes: while reading a profile you can privately write "I wonder...". Only you see it.
 - One shared view (`public-profile-view.tsx`) for other people's profiles and "See exactly what others see".
-- Edit profile: a short list of parts, each opens alone; every part and field says whether it's used for matching. Used: who you'd like to meet, ages, distance, what brings you here, values, meeting pace, hangout style, friendship type, languages, opening up, activities. Not used: right now, stories, care words, reply pace, free times, bars or drinks, hard nos, photos (a photo is needed to be suggested).
-- Connection summary (Profile): written once from the How you connect answers, saved, private; retake the questions for a new one.
+- Edit profile: a short list of parts, each opens alone; each says in plain words how it's used. Matching uses who you'd like to meet, ages, distance and a shared language (requirements), and meeting pace 40, interests 40, friendship type 20 (score). People's own words are never used for matching.
+- You as a friend (Profile, only you): your How you connect answers, with Edit. The written summary was removed Oct 18.
 
 ## 5. Discover and connecting
 
 - Tabs: Discover, Saved, Inbox, Profile (and Test for admins and test accounts). No Browse, no Remember tab, no Guide tab.
-- One new person a day (in your own time zone), up to 3 waiting; the oldest gives way. Nobody shows while you have 3 active chats, and people with 3 active chats never appear. Never anyone you've had a chat with, in any state. Someone whose card passed can come back after 21 days, at the bottom. Picked by scoring (`generate-match-suggestions`, which only adds today's one person; `get_discover` decides what shows). Matching weights: life situation 30, values 25, meeting rhythm 13, plus hangout style, friendship type, language, opening-up pace, activities. Personality answers are not used.
+- One new person a day (in your own time zone), up to 3 waiting; the oldest gives way. Nobody shows while you have 3 active chats, and people with 3 active chats never appear. Never anyone you've had a chat with, in any state. Someone whose card passed can come back after 21 days, at the bottom. Picked by scoring (`generate-match-suggestions`, which only adds today's one person; `get_discover` decides what shows). Since Oct 18: a shared language is required; scores are meeting pace 40, interests 40, friendship type 20. People's own words and How you connect answers are never used.
 - Saved: at most 5, each for 30 days. Saving moves the person out of Discover. Anyone you start a chat with leaves Saved. People you said Interested to are in Inbox, Pending (not Saved).
 - "Interested" instead of "Say hello". The chat opens only when both say Interested. One-sided interest is never shown to the other person, but it quietly moves you to the front of their next suggestions. The person moves to Inbox, under Pending, even before your selfie is approved. The chat opens when both said Interested and both selfies are approved; Pending says what it's waiting for (the other person, your selfie, their selfie check, or room for a new chat). It closes on its own after 30 days if no chat opened, with one calm note in Pending ("Your interest in X has come to a close..."). At most 5 open.
 - Selfie check: once per account, approved only (reviewed by an admin in Settings). Needed before a chat opens or a first message is sent (since Oct 14 you can say Interested before it's approved; the person waits in Pending). While it waits: "Your selfie is waiting for our review". Two people who already talked can reconnect without it.
@@ -60,6 +69,7 @@ Working rules that follow from these:
 - Layout (phone first): a slim plan bar and a "What I want to remember about X" bar at the top (tap to open, Hide to close); prompt cards sit under the newest message. No guide offers inside chats (removed Oct 10; where guides belong is part of the Guide plan).
 - Header actions: Pause · End · Report · Block.
 - Header: name, how often they usually reply, and their "How I like care" words when they wrote any.
+- One line under the message box: a stage tip for your first few messages ("Asking one question back keeps things going.", then a follow-up question tip), then "Not sure what they meant? Ask them. Only they know." for good.
 - Reflect first: questions and tips shown under the message box, in three groups (Notice, Respond, Keep it going), including "Not sure what they meant? Ask them." Static text, nothing is sent anywhere. Under it: "Not sure what they meant? Ask them. Only they know." The app never interprets the other person ("Another way to see it" removed Oct 13) and never checks a message ("Check" removed Oct 10).
 - Scam note: until you've met in person, if a message from the other person mentions money (money, cash, amounts, Apple Card, gift cards, crypto, bank details) or moving off the app (WhatsApp, Telegram, a phone number or email), the receiver sees a calm warning under the newest such message. Checked on the phone, nothing stored.
 - Pause: 3 days, 1 week or 2 weeks (still counts as one of your 3 active chats); always with a short note in your own words; both people see who paused and until when; no messages while paused; only the pauser can resume early; the other person can end; at most 2 pauses per person per chat in 30 days.
@@ -86,7 +96,7 @@ Working rules that follow from these:
 ## 9. Meetups
 
 - Plan card: date, time, place (Google place search near your own city, nearest first with distance, OpenStreetMap as the backup; Google/Apple Maps links), activity. Moving the plan needs the other person to confirm again; changing only the activity doesn't.
-- Day before: "Still on?". Morning of: a private "How are you feeling?" (Nervous offers the video "The First Meetup Does Not Need to Be Perfect").
+- Day before: "Still on?". Morning of: a private "How are you feeling?" (A little nervous: "Most people feel a bit nervous before meeting someone new. Having one question ready can help." plus your own Next time notes).
 - After: "Did you meet?" asks both, 3 hours after the start (or 9am next day). One yes plus a week with no answer from the other counts. A no from either doesn't. Nobody answering for 2 weeks lets it go.
 - "Met up already? Add it" adds a meetup made outside the app; it counts on the other person's yes, or after a week.
 - After a good meetup: "Would you like to tell X how it was for you? Only if you want to." (Tell X with starters / Plan another meetup / Remind me later: tomorrow, 3 days, a week / Not now).

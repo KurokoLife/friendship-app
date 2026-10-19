@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { draftHasWriting, loadStartDraft } from '@/lib/start-draft';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -26,7 +27,7 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 // further along than profile-basics lands on /home rather than exactly
 // where they left off, a deliberate, smaller scope than modeling every
 // later onboarding stage would require.
-type ResumeTarget = '/philosophy-intro' | '/home' | '/inbox' | '/profile-basics';
+type ResumeTarget = '/philosophy-intro' | '/home' | '/inbox' | '/profile-basics' | '/start-with-you';
 
 export default function Index() {
   const [target, setTarget] = useState<ResumeTarget | null>(null);
@@ -71,7 +72,9 @@ export default function Index() {
         .maybeSingle();
 
       if (!profile?.display_name) {
-        setTarget('/profile-basics');
+        // 2026-10-18: joining starts with "Start with you". Someone who
+        // signed in before writing anything goes there first.
+        setTarget(draftHasWriting(await loadStartDraft()) ? '/profile-basics' : '/start-with-you');
         return;
       }
 

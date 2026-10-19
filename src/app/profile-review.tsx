@@ -1,3 +1,4 @@
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,9 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 // and Edit are absent by construction; Edit lives one tap away in
 // Settings.
 export default function ProfileReviewScreen() {
+  // 2026-10-18: also the last step of joining ("Here's what people will see").
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const onboarding = from === 'onboarding';
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -63,19 +67,41 @@ export default function ProfileReviewScreen() {
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
-        <View className="gap-1 px-6 pt-10">
-          <Pressable onPress={() => goBack('/settings')}>
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
-          </Pressable>
-          <Text className="text-caption font-semibold uppercase tracking-wide text-accent-500">Preview</Text>
-          <Text className="text-caption text-stone-400 dark:text-stone-600">
-            This is what another member sees when they open your profile.
-          </Text>
-        </View>
+        {onboarding ? (
+          <View className="gap-2 px-6 pt-10">
+            <Text className="text-display text-stone-900 dark:text-stone-50">Here&apos;s what people will see</Text>
+            <Text className="text-body text-stone-500 dark:text-stone-400">
+              Your words, the way you wrote them. You can change anything now or later.
+            </Text>
+          </View>
+        ) : (
+          <View className="gap-1 px-6 pt-10">
+            <Pressable onPress={() => goBack('/settings')}>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            </Pressable>
+            <Text className="text-caption font-semibold uppercase tracking-wide text-accent-500">Preview</Text>
+            <Text className="text-caption text-stone-400 dark:text-stone-600">
+              This is what another member sees when they open your profile.
+            </Text>
+          </View>
+        )}
 
         <ScrollView contentContainerClassName="px-6 pb-10 pt-5">
           <PublicProfileView profile={profile} readOnly />
         </ScrollView>
+
+        {onboarding && (
+          <View className="gap-3 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-4 dark:border-stone-800 dark:bg-stone-900">
+            <Pressable
+              onPress={() => router.replace('/modules-complete')}
+              className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
+              <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Looks good</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/profile-build?from=profile')} className="items-center py-1">
+              <Text className="text-body text-stone-500 dark:text-stone-400">Edit something</Text>
+            </Pressable>
+          </View>
+        )}
       </SafeAreaView>
     </View>
   );

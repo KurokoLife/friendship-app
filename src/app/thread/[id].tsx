@@ -30,6 +30,7 @@ import { ReportModal } from '@/components/report-modal';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { EndedConnectionVideoLink } from '@/components/video-guidance-card';
 import { fetchConnectionCareStyle } from '@/lib/care-style';
+import { fetchCuriosityNotes } from '@/lib/stories';
 import {
   FriendlyError,
   getActiveIntervention,
@@ -186,6 +187,13 @@ export default function ThreadScreen() {
   const [pauseError, setPauseError] = useState<string | null>(null);
   // Set while this is a match where nobody has written yet.
   const [hello, setHello] = useState<{ opened_at: string; closes_at: string } | null>(null);
+  // Your own newest private note about this person ("Note it privately" on
+  // their profile), shown on the empty chat as a reminder of what to ask.
+  const [myNoteAboutThem, setMyNoteAboutThem] = useState<string | null>(null);
+  useEffect(() => {
+    if (!otherId) return;
+    fetchCuriosityNotes(otherId).then((notes) => setMyNoteAboutThem(notes[0]?.note ?? null)).catch(() => undefined);
+  }, [otherId]);
   // Ambiguous-state fix: whether the CURRENT VIEWER is the one who
   // blocked the other participant, as opposed to the one who was
   // blocked. Only meaningful when connectionStatus === 'blocked'.
@@ -843,7 +851,10 @@ export default function ThreadScreen() {
               </Text>
             )}
             {statusLine && (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">{statusLine}</Text>
+              <Text className="text-caption text-stone-400 dark:text-stone-600">
+                {responsePhrase ? `${other?.display_name ?? 'They'} ${responsePhrase}. ` : ''}
+                {statusLine}
+              </Text>
             )}
             {/* 2026-10-12: their own "How I like care" words sit here, under
                 how often they reply, instead of inside Reflect first.
@@ -984,8 +995,7 @@ export default function ThreadScreen() {
               Date.now() - new Date(hello.opened_at).getTime() >= HELLO_NUDGE_AFTER_DAYS * 24 * 60 * 60 * 1000 && (
                 <View className="mx-6 mt-4 gap-1 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
                   <Text className="text-body text-stone-700 dark:text-stone-300">
-                    You and {other?.display_name ?? 'they'} both said Interested. A short hello is plenty, like
-                    something on their profile you&apos;re curious about.
+                    You and {other?.display_name ?? 'they'} both said Interested.
                   </Text>
                   <Text className="text-caption text-stone-500 dark:text-stone-400">
                     If neither of you says hello by {shortDate(hello.closes_at)}, this match closes quietly so nobody
@@ -1034,17 +1044,26 @@ export default function ThreadScreen() {
           onLayout={() => {
             if (nearBottomRef.current) scrollRef.current?.scrollToEnd({ animated: false });
           }}>
-          {messages.length === 0 && (
-            <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
-              This is the start of your conversation.
-            </Text>
+          {/* 2026-10-18: help from day 0, plus their own private note about
+              this person if they wrote one while reading the profile. */}
+          {messages.length === 0 && !conversationEnded && (
+            <View className="gap-1">
+              <Text className="text-center text-caption text-stone-500 dark:text-stone-400">
+                A short hello is plenty. Something from their profile is an easy place to start.
+              </Text>
+              {myNoteAboutThem && (
+                <Text className="text-center text-caption italic text-stone-500 dark:text-stone-400">
+                  You wanted to ask: &quot;{myNoteAboutThem}&quot;
+                </Text>
+              )}
+            </View>
           )}
           <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
             Limen is for meeting in person. Chatting is how you get there.
           </Text>
           {/* First-time tips for the chat (2026-10-17), one at a time. Inside the
               scrolling area so they never shrink the chat or cover a card. */}
-          {connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && !conversationEnded && (
+          {messages.length > 0 && connectionStatus !== 'blocked' && connectionStatus !== 'inactive' && !conversationEnded && (
             <View className="gap-3">
               <CoachMark
                 markKey="chat_actions"
@@ -1194,6 +1213,7 @@ export default function ThreadScreen() {
                   }}
                   onPlanSomething={handlePlanSomething}
                   notesOn={isOn(prompts, 'notes')}
+                  iSentLast={messages.length > 0 && messages[messages.length - 1].sender_id === myId}
                   onVideoOfferChange={setVideo6OfferActive}
                   onEndConnection={() => setEndConnectionVisible(true)}
                   onRequestPlanEditor={(mode) => setPlanEditorRequest((r) => ({ mode, n: (r?.n ?? 0) + 1 }))}
@@ -1376,11 +1396,20 @@ export default function ThreadScreen() {
             context="reply"
             otherName={other?.display_name ?? null}
           />
-          {/* 2026-10-13: "Another way to see it" is removed. The app doesn't
-              interpret the other person; the person asks them. */}
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            Not sure what they meant? Ask them. Only they know.
-          </Text>
+          {/* One line under the box (2026-10-18). For your first few
+              messages it's a short tip for that stage, then it settles on
+              "Not sure what they meant?" for good. Never two lines. The app
+              doesn't interpret the other person; the person asks them. */}
+          {messages.length > 0 && (
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              {(() => {
+                const mine = messages.filter((m) => m.sender_id === myId).length;
+                if (mine < 2) return 'Asking one question back keeps things going.';
+                if (mine < 5) return "A follow-up question, like 'how did that go?', helps people feel heard.";
+                return 'Not sure what they meant? Ask them. Only they know.';
+              })()}
+            </Text>
+          )}
         </>
         )}
         </View>

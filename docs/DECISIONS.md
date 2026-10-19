@@ -128,6 +128,16 @@ Remember moves into the chat. It helps in the moment and keeps a light record of
 - Where: Discover, Saved, Inbox (what each tab is), Inbox Pending, Profile, Settings, Guide, a person's profile ("Note it privately", Report and Block), and in each chat two tips one after the other (Pause / End / Report / Block, then Let's plan something, What I want to remember and Reminders).
 - "Show tips again" in Settings brings every tip back. Migration `20261017000000_more_tips.sql`.
 
+## Joining and profile, rebuilt (decided and built 2026-10-18)
+
+- Positioning: "Limen helps adults make real friends", not built around big life changes.
+- Order: intro (2 screens) → Start with you (what brings you here, a story; before the phone number) → phone → basics → recovery → what you enjoy → practical bits → who you'd like to meet → How you connect (6) → photo → Before you start → preview → All set. Full wording in the "Limen: Joining and profile proposal" doc.
+- Stories: up to 3, optional guides (never shown to readers), no word count. People connect with stories that show who someone is, not self-descriptions (2026 story vs list study; asking for one moment brings back a real scene).
+- Dropped: values, what-brings chips, opening up, hangout style, "Right now" in joining, the AI connection summary, onboarding videos and quiz. Hard nos → Good to know about me. Bars reworded.
+- Discover cards and profiles show only people's own words. How you connect answers show only on your own profile.
+- Matching: shared language required; meeting pace 40, interests 40, friendship type 20.
+- Moment lines (14): one true line inside existing cards at moments people guess or hesitate; no new cards; never a guess about the other person; no Guide links.
+
 ## 9b. Guide (draft for the founder to come back to, not decided)
 
 Founder's thinking so far (2026-10-10): no Guide tab. Each piece should show up at the moment it helps; the full list stays in Profile for anyone who wants to browse. The founder isn't sure how many videos are needed. Suggested rule: video only where feelings run high, everything else a 30-second read.

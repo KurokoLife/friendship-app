@@ -1,45 +1,44 @@
 import { supabase } from '@/lib/supabase';
 
-// Limen v2 (2026-10-03): Stories and curiosity notes.
-// See docs/LIMEN_V2_DECISIONS.md, "Stories and curiosity".
-//
-// Stories are the user's own words, never AI-written or polished. The
-// prompts show character rather than achievements, and several leave an
-// open thread on purpose ("still trying to figure out"), because curiosity
-// starts when a reader notices a gap of their own (Loewenstein's
-// information-gap theory). There is deliberately no "Ask me about..." hook:
-// it fills the gap for the reader, so everyone asks the same question.
+// Stories and curiosity notes. Stories are the person's own words, never
+// AI-written or polished, and there is no "Ask me about..." hook.
 
-export const STORY_MAX_LENGTH = 1200; // about 200 words
+export const STORY_MAX_LENGTH = 2000;
 export const MAX_STORIES = 3;
 
-export const STORY_PROMPTS: { key: string; label: string }[] = [
-  { key: 'changed_mind', label: 'A time I changed my mind about someone' },
-  { key: 'showed_up', label: 'A time I showed up for someone' },
-  { key: 'got_wrong', label: 'Something I got wrong, and what I learned' },
-  { key: 'small_moment', label: 'A small moment that changed how I see something' },
-  { key: 'figuring_out', label: "Something I'm still trying to figure out" },
-  { key: 'unreasonably_proud', label: "Something small I'm unreasonably proud of" },
+// 2026-10-18 (founder): stories show who someone is through something that
+// happened, not a description of themselves. These are optional guides the
+// writer can pick while writing; readers never see which one was picked.
+// Asking for one moment ("something that happened") is what brings back a
+// real scene instead of a summary. No "best" or "proudest" (that invites a
+// highlight reel). Keys are stored in stories[].prompt_key ('' = their own way).
+export const STORY_GUIDES: { key: string; title: string; hint: string }[] = [
+  { key: 'moment', title: 'A moment from your life.', hint: 'Something that happened, big or small.' },
+  {
+    key: 'still_think',
+    title: 'Something that happened that you still think about.',
+    hint: "Last week or forty years ago. It doesn't need a lesson or an ending.",
+  },
+  { key: 'day', title: 'A day you remember well.', hint: 'Any day at all. An ordinary one counts.' },
+  { key: 'remember', title: 'Start with "I remember..." and keep going.', hint: 'One memory, any size.' },
+  {
+    key: 'recognize',
+    title: 'A story the people who know you would recognize as yours.',
+    hint: "Told the way you'd tell it.",
+  },
 ];
 
-export function storyPromptLabel(key: string): string {
-  return STORY_PROMPTS.find((p) => p.key === key)?.label ?? 'A story';
+export function storyGuide(key: string | null | undefined) {
+  return STORY_GUIDES.find((g) => g.key === key) ?? null;
 }
-
-// Memory-jogging questions only. The AI and the app never write the story.
-export const STORY_REFLECTION_QUESTIONS = [
-  'Pick one specific moment. Where were you, and who was there?',
-  'What did you notice, feel, or decide in that moment?',
-  "It's fine to leave it unfinished. What part are you still thinking about?",
-];
 
 export type Story = { prompt_key: string; text: string };
 
 export function normalizeStories(raw: unknown): Story[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter((s) => s && typeof s.prompt_key === 'string' && typeof s.text === 'string')
-    .map((s) => ({ prompt_key: s.prompt_key as string, text: (s.text as string).slice(0, STORY_MAX_LENGTH) }))
+    .filter((s) => s && typeof s.text === 'string')
+    .map((s) => ({ prompt_key: typeof s.prompt_key === 'string' ? (s.prompt_key as string) : '', text: (s.text as string).slice(0, STORY_MAX_LENGTH) }))
     .slice(0, MAX_STORIES);
 }
 

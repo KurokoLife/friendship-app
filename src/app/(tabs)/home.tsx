@@ -9,6 +9,7 @@ import { CoachMark } from '@/components/coach-mark';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { useTestTools } from '@/lib/test-mode';
+import { fetchProfileStories } from '@/lib/stories';
 import { expressInterest, lastActionErrorDetail, interestSavedCopy, SAVED_FULL_COPY, saveForLater } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -41,6 +42,9 @@ type Suggestion = {
   lifeTransitions: string[];
   reasoning: string;
   humanDetail: string | null;
+  // 2026-10-18: the card shows only the person's own words.
+  whatBrings?: string | null;
+  storyOpening?: string | null;
   locationCity: string | null;
   distanceMiles: number | null;
   selfieVerified?: boolean;
@@ -99,6 +103,14 @@ type DiscoverState = {
   items: { candidate_id: string; reasoning: string; human_detail: string | null; created_at: string }[];
 };
 
+// The opening of a story for the card: about two lines, cut at a word.
+function openingLines(text: string, max = 180): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max - 20)).trim()}...`;
+}
+
 function deviceTimeZone(): string | null {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
@@ -129,12 +141,14 @@ export default function HomeScreen() {
     if (items.length === 0) return [];
     const { data: profiles } = await supabase
       .from('discovery_profiles')
-      .select('user_id, display_name, age_band, life_transitions, location_city, distance_miles, selfie_verified')
+      .select('user_id, display_name, age_band, life_transitions, life_transitions_other, location_city, distance_miles, selfie_verified')
       .in('user_id', items.map((i) => i.candidate_id));
+    const stories = await Promise.all(items.map((i) => fetchProfileStories(i.candidate_id)));
     return items
-      .map((row): Suggestion | null => {
+      .map((row, idx): Suggestion | null => {
         const profile = profiles?.find((p) => p.user_id === row.candidate_id);
         if (!profile) return null;
+        const firstStory = stories[idx]?.find((st) => st.text.trim())?.text.trim() ?? null;
         return {
           userId: row.candidate_id,
           displayName: profile.display_name,
@@ -142,6 +156,8 @@ export default function HomeScreen() {
           lifeTransitions: profile.life_transitions ?? [],
           reasoning: row.reasoning,
           humanDetail: row.human_detail ?? null,
+          whatBrings: profile.life_transitions_other?.trim() || null,
+          storyOpening: firstStory ? openingLines(firstStory) : null,
           locationCity: profile.location_city,
           distanceMiles: profile.distance_miles,
           selfieVerified: Boolean(profile.selfie_verified),
@@ -349,7 +365,6 @@ export default function HomeScreen() {
           {!full && suggestions.map((s) => {
             const isSaved = false;
             const isInterested = false;
-            const fragment = lifeTransitionFragment(s.lifeTransitions);
             const distanceLabel = formatDistance(s.distanceMiles, s.locationCity);
             return (
               <View
@@ -372,20 +387,21 @@ export default function HomeScreen() {
                         </View>
                       )}
                     </View>
-                    {fragment && (
-                      <Text className="text-caption text-accent-500">{fragment}</Text>
-                    )}
                     {distanceLabel && (
                       <Text className="text-caption text-stone-500 dark:text-stone-400">
                         {distanceLabel}
                       </Text>
                     )}
-                    <Text className="text-body leading-relaxed text-stone-700 dark:text-stone-300">
-                      {s.reasoning}
-                    </Text>
-                    {s.humanDetail && (
-                      <Text className="text-caption leading-relaxed text-stone-500 dark:text-stone-400">
-                        {s.humanDetail}
+                    {/* Only their own words (2026-10-18). A short card is
+                        fine: it honestly shows how much they wrote. */}
+                    {s.whatBrings && (
+                      <Text className="text-body leading-relaxed text-stone-700 dark:text-stone-300">
+                        {s.whatBrings}
+                      </Text>
+                    )}
+                    {s.storyOpening && (
+                      <Text className="text-body italic leading-relaxed text-stone-500 dark:text-stone-400">
+                        {s.storyOpening}
                       </Text>
                     )}
                   </View>

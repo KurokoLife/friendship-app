@@ -14,6 +14,7 @@ import {
 import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { calculateAge } from '@/lib/age';
+import { flushStartDraft } from '@/lib/start-draft';
 import { track } from '@/lib/analytics';
 import { publicName, saveProfileName } from '@/lib/names';
 import { FRIENDLY_SAVE_ERROR } from '@/lib/auth-errors';
@@ -148,8 +149,9 @@ export default function ProfileBasicsScreen() {
       return;
     }
 
-    // New order (docs/DECISIONS.md): Basics, then the optional
-    // account-recovery screen, then Identity.
+    // 2026-10-18: what they wrote in "Start with you" (kept on the phone
+    // until now) is saved to their profile. Then the optional recovery screen.
+    await flushStartDraft();
     router.replace('/account-recovery');
   };
 

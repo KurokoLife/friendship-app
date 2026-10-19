@@ -95,13 +95,13 @@ async function rpcAs(user, sql, params = []) {
   const C3 = c3.id;
   await go(m.page, `/thread/${C3}`, 3500);
   t = await text(m.page);
-  check('Day 1: no nudge yet', !t.includes('A short hello is plenty'));
+  check('Day 1: hello line from day 0, no close-date card yet', t.includes('A short hello is plenty') && !t.includes('this match closes quietly'));
   await go(m.page, '/inbox', 3000);
   check('Day 1: Inbox says say hello when ready', (await text(m.page)).includes("Say hello when you're ready"));
   await q(`update connections set opened_at = now() - interval '3 days' where id=$1`, [C3]);
   await go(m.page, `/thread/${C3}`, 3500);
   t = await text(m.page);
-  check('Day 3: chat shows the gentle hello nudge with a close date', t.includes('A short hello is plenty') && t.includes('this match closes quietly'));
+  check('Day 3: chat shows the gentle hello nudge with a close date', t.includes('both said Interested') && t.includes('this match closes quietly'));
   const e = await L.as(ELENA);
   await go(e.page, `/thread/${C3}`, 3500);
   check('The other person sees the same nudge', (await text(e.page)).includes('A short hello is plenty'));

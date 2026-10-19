@@ -446,6 +446,13 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
         Pick any ideas you&apos;d enjoy, mark when you&apos;re free, and add a note if you like. Then send {name} one
         invite.
       </Text>
+      {/* 2026-10-18: only before the first meetup. People expect a "no" more
+          than they get one. */}
+      {(state?.meetup_count ?? 0) === 0 && (
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Most people are glad to be asked, even when they can&apos;t make it that time.
+        </Text>
+      )}
 
       <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">1. What would you enjoy?</Text>
       {generating && !hasIdeas ? (

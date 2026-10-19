@@ -340,31 +340,30 @@ type ScoreBreakdown = {
 
 async function weightedScore(
   // deno-lint-ignore no-explicit-any
-  supabase: any,
+  _supabase: any,
   viewer: Viewer,
   candidate: Candidate
 ): Promise<ScoreBreakdown> {
-  const lifeTransitions = lifeTransitionsScore(viewer, candidate);
-  const values = valuesScore(viewer, candidate);
-  // Personality similarity no longer scores (2026-10-04). Kept in the
-  // breakdown as 0 so the shape stays stable.
-  const bigFive = 0;
-  const hangout = hangoutScore(viewer, candidate);
-  const friendshipType = friendshipTypeScore(viewer, candidate);
-  const meetingFreq = meetingFreqScore(viewer, candidate);
-  const language = languageScore(viewer, candidate);
-  const communicationStyle = communicationStyleScore(viewer, candidate);
-  const activities = activityBonusScore(viewer, candidate);
+  // 2026-10-18 (founder): meeting pace 40, interests 40, friendship type 20.
+  // "What brings you here" is now free text (never read or scored), values,
+  // hangout style and opening up are no longer asked, and a shared language
+  // is a requirement (compatible_candidates_for), not points. The old parts
+  // stay in the breakdown as 0 so its shape is stable.
+  const dist = meetingFreqDistance(viewer, candidate);
+  const meetingFreq = dist === null ? 0 : dist === 0 ? 40 : dist === 1 ? 25 : dist === 2 ? 10 : 0;
+  const sharedActs = sharedActivityCategories(viewer, candidate).length;
+  const activities = sharedActs >= 3 ? 40 : sharedActs === 2 ? 30 : sharedActs === 1 ? 18 : 0;
+  const friendshipType = friendshipTypeScore(viewer, candidate) * 2;
   return {
-    total: lifeTransitions + values + bigFive + hangout + friendshipType + meetingFreq + language + communicationStyle + activities,
-    lifeTransitions,
-    values,
-    bigFive,
-    hangout,
+    total: meetingFreq + activities + friendshipType,
+    lifeTransitions: 0,
+    values: 0,
+    bigFive: 0,
+    hangout: 0,
     friendshipType,
     meetingFreq,
-    language,
-    communicationStyle,
+    language: 0,
+    communicationStyle: 0,
     activities,
   };
 }

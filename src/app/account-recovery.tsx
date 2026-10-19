@@ -135,7 +135,7 @@ export default function AccountRecoveryScreen() {
     setMode('email-sent');
   };
 
-  const goNext = () => router.replace(fromSettings ? '/settings' : '/gender-identity');
+  const goNext = () => router.replace(fromSettings ? '/settings' : '/profile-build');
   const hasLinked = linked.google || linked.apple;
 
   return (
