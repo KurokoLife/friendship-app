@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
-import { draftHasWriting, loadStartDraft } from '@/lib/start-draft';
+import { normalizeStories } from '@/lib/stories';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
@@ -27,7 +27,7 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 // further along than profile-basics lands on /home rather than exactly
 // where they left off, a deliberate, smaller scope than modeling every
 // later onboarding stage would require.
-type ResumeTarget = '/philosophy-intro' | '/home' | '/inbox' | '/profile-basics' | '/start-with-you';
+type ResumeTarget = '/philosophy-intro' | '/home' | '/inbox' | '/profile-basics' | '/start-with-you' | '/profile-build';
 
 export default function Index() {
   const [target, setTarget] = useState<ResumeTarget | null>(null);
@@ -67,14 +67,28 @@ export default function Index() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name')
+        .select('display_name, life_transitions_other, stories, activity_interests')
         .eq('user_id', user.id)
         .maybeSingle();
 
+      // 2026-10-19: joining order is sign-up, Basics, then "Start with you",
+      // then the rest. Someone who stopped before Basics goes back there.
+      // Someone still joining (readiness_status is only set at "Before you
+      // start") goes back to "Start with you" until they've picked any
+      // interests, with what they already wrote filled in from their account
+      // (so they can finish on another device), and to the profile builder
+      // after that. A member who finished joining is never sent back.
       if (!profile?.display_name) {
-        // 2026-10-18: joining starts with "Start with you". Someone who
-        // signed in before writing anything goes there first.
-        setTarget(draftHasWriting(await loadStartDraft()) ? '/profile-basics' : '/start-with-you');
+        setTarget('/profile-basics');
+        return;
+      }
+      const { data: userRow } = await supabase.from('users').select('readiness_status').eq('id', user.id).maybeSingle();
+      if (!userRow?.readiness_status) {
+        const interests = profile.activity_interests as { categories?: unknown[] } | null;
+        const startedBuilder = Array.isArray(interests?.categories) && interests.categories.length > 0;
+        const hasStory = normalizeStories(profile.stories).some((s) => s.text.trim());
+        const startDone = !!profile.life_transitions_other?.trim() && hasStory;
+        setTarget(startDone && startedBuilder ? '/profile-build' : '/start-with-you');
         return;
       }
 

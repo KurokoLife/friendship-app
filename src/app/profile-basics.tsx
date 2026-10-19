@@ -149,10 +149,11 @@ export default function ProfileBasicsScreen() {
       return;
     }
 
-    // 2026-10-18: what they wrote in "Start with you" (kept on the phone
-    // until now) is saved to their profile. Then the optional recovery screen.
+    // 2026-10-19: sign-up comes first now, so "Start with you" follows
+    // Basics and saves straight to the profile. flushStartDraft only picks
+    // up a draft left on this device by the older order.
     await flushStartDraft();
-    router.replace('/account-recovery');
+    router.replace('/start-with-you');
   };
 
   return (

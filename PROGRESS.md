@@ -233,3 +233,10 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Research rounds with the founder (stories that show who someone is, getting out of your own head, easing the hard parts), then a proposal doc ("Limen: Joining and profile proposal") she approved.
 - Built: two-screen intro, Start with you (before the phone number, saved on the device until Basics), new order, dropped values / opening up / hangout style / AI summary / onboarding videos, Good to know about me, own-words interest lines, How you connect (6 questions, answers on own profile), ground rules screen, preview step, Discover cards in people's own words, profile order, shared language required, new matching weights, 14 moment lines inside existing cards, first-profile tip.
 - Migration `20261018000000_shared_language_required.sql`; redeploy `generate-match-suggestions`. `qa-onboard` rewritten (58 checks); qa-meetups, qa-noghost, qa-oct9b, qa-inbox-chat updated for the new wording.
+
+
+## 2026-10-19: Sign-up first, writing follows you
+
+- Founder asked about desktop use and why sign-up isn't first like other apps. Agreed: with sign-up first, Start with you saves to the account, so it can be finished on a computer.
+- New order: intro → phone and code → Basics → Start with you → ... → preview → Keep your account safe (recovery) → All set. Resume while joining goes to Basics / Start with you / builder.
+- No database update. `qa-onboard` 64/64, qa-profile, qa-discover, qa-pending pass.

@@ -8,7 +8,9 @@ import { PaddedSafeArea } from '@/components/padded-safe-area';
 // adult is hard, and it's not just you. Then what Limen offers, keeping the
 // heart of the earlier intro (the liking gap: after a first conversation,
 // people underestimate how much the other person liked them, Boothby et
-// al., 2018). Then "Start with you", before any phone number or form.
+// al., 2018). Then sign-up (phone and code), Basics, and "Start with you"
+// (2026-10-19: sign-up moved first so what people write is saved to their
+// account at once and follows them to any device, phone or computer).
 export default function PhilosophyIntroScreen() {
   const [page, setPage] = useState<0 | 1>(0);
 
@@ -60,10 +62,10 @@ export default function PhilosophyIntroScreen() {
 
         <View className="gap-3">
           <Pressable
-            onPress={() => (page === 0 ? setPage(1) : router.push('/start-with-you'))}
+            onPress={() => (page === 0 ? setPage(1) : router.push('/phone-verification'))}
             className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
             <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
-              {page === 0 ? 'Continue' : "Let's start with you"}
+              {page === 0 ? 'Continue' : 'Join Limen'}
             </Text>
           </Pressable>
           {page === 0 && (

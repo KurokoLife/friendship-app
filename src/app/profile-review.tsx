@@ -93,7 +93,7 @@ export default function ProfileReviewScreen() {
         {onboarding && (
           <View className="gap-3 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-4 dark:border-stone-800 dark:bg-stone-900">
             <Pressable
-              onPress={() => router.replace('/modules-complete')}
+              onPress={() => router.replace('/account-recovery')}
               className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
               <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Looks good</Text>
             </Pressable>

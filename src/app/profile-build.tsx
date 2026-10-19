@@ -548,7 +548,7 @@ export default function ProfileBuildScreen() {
       return;
     }
     if (step === 0) {
-      router.replace('/account-recovery');
+      router.replace('/start-with-you');
       return;
     }
     setStep((s) => s - 1);

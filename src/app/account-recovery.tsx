@@ -135,7 +135,8 @@ export default function AccountRecoveryScreen() {
     setMode('email-sent');
   };
 
-  const goNext = () => router.replace(fromSettings ? '/settings' : '/profile-build');
+  // 2026-10-19: in joining this now comes near the end, after the preview.
+  const goNext = () => router.replace(fromSettings ? '/settings' : '/modules-complete');
   const hasLinked = linked.google || linked.apple;
 
   return (
@@ -143,14 +144,14 @@ export default function AccountRecoveryScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1 px-6 py-10">
-        <Pressable onPress={() => (mode === 'choose' ? router.replace(fromSettings ? '/settings' : '/profile-basics') : setMode('choose'))}>
+        <Pressable onPress={() => (mode === 'choose' ? router.replace(fromSettings ? '/settings' : '/profile-review?from=onboarding') : setMode('choose'))}>
           <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
         </Pressable>
 
         <ScrollView className="flex-1" contentContainerClassName="gap-5 pt-6" showsVerticalScrollIndicator={false}>
           <View className="gap-3">
             <Text className="text-display text-stone-900 dark:text-stone-50">
-              {fromSettings ? 'Sign-in and recovery' : 'Add a way to recover your account'}
+              {fromSettings ? 'Sign-in and recovery' : 'Keep your account safe'}
             </Text>
             {fromSettings && (
               <Text className="text-caption text-stone-500 dark:text-stone-400">
@@ -165,7 +166,8 @@ export default function AccountRecoveryScreen() {
               </Text>
             )}
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              Optional. We&apos;ll only use this to recover your account or send important updates. Linking
+              Optional. If you ever lose or change your phone number, this is how you get back in. We&apos;ll
+              only use it to recover your account or send important updates. Linking
               Google or Apple also shows a &quot;verified&quot; badge on your profile.
             </Text>
           </View>

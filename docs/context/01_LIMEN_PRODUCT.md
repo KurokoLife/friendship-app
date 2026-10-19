@@ -1,6 +1,6 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-18. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-19. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
@@ -30,14 +30,15 @@ Working rules that follow from these:
 
 ## 3. Joining (onboarding)
 
-Since Oct 18, joining starts with the person (proposal doc "Limen: Joining and profile proposal"):
+Since Oct 18, joining starts with the person (proposal doc "Limen: Joining and profile proposal"). Since Oct 19, sign-up comes right after the intro (like most apps), so writing is saved to the account and follows the person to any device:
 1. Intro, two screens: "Making friends as an adult is hard. It's not just you." then "Meeting people is only the beginning." (the liking-gap line, one person at a time, no swiping, no perfect profile). "Already a member? Sign in" on the first screen.
-2. Start with you, before any phone number: "What brings you to Limen?" (open box) and "Share a story so people can get to know you" (up to 3 stories; 5 optional guides to start from, never shown to readers). Kept on the phone until Basics, then saved.
-3. Phone number and code. 4. Basics (name, birthdate), account recovery (optional).
+2. Phone number and code (sign-up).
+3. Basics (name, birthdate). Under 18 is turned away here, before anything else (the database refuses it too).
+4. Start with you: "What brings you to Limen?" (open box) and "Share a story so people can get to know you" (up to 3 stories; 5 optional guides to start from, never shown to readers). Saved to the account as the person writes, so they can start on the phone and finish on a computer. Someone who leaves comes back here, with what they wrote filled in.
 5. What you enjoy: interests, each with an optional line in your own words.
 6. Practical bits: where you're based; friendship type, meeting pace, reply pace, free times; bars or drinks (Fine with me / I'd rather not / I don't drink); Good to know about me; how I like care; languages (at least one). Then who you'd like to meet and ages.
 7. How you connect: 6 private questions about friendship habits (answers show only on your own Profile, "You as a friend"; no summary, never used for matching).
-8. Photo. 9. Before you start (friendship only, honest endings, public places at first, the quiet-chat rule). 10. "Here's what people will see" preview. 11. All set, with the selfie check offer.
+8. Photo. 9. Before you start (friendship only, honest endings, public places at first, the quiet-chat rule). 10. "Here's what people will see" preview. 11. Keep your account safe (account recovery, optional; moved here from after Basics). 12. All set, with the selfie check offer.
 
 No "Step N of 10", no "Required" labels. The two onboarding videos and quiz were removed from joining (they stay in the Guide).
 
