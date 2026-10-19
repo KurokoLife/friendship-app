@@ -30,27 +30,23 @@ const SHOTS = process.env.SHOTS || '';
   check('Only one preview button, Settings has none', (await text(m.page)).includes('See exactly what others see'));
   check('Full name note has one period', (await text(m.page)).includes('last initial: Maria S.') && !(await text(m.page)).includes('Maria S..'));
   t = await text(m.page);
-  check('Renamed: connection summary, no "personality reflection"', t.includes('Your connection summary') && t.includes('never used to pick who you meet') && !t.toLowerCase().includes('personality reflection'), t.slice(-900));
-  await tap(m.page, 'See my connection summary', { wait: 1500 });
-  t = await text(m.page);
-  check('Shows the saved summary at once', t.includes('You warm up slowly.') && t.includes('Retake the questions for a new summary'), t.slice(-600));
-  await tap(m.page, 'Close', { wait: 600 });
+  // 2026-10-18: the summary is gone; your own How you connect answers show instead.
+  check('You as a friend: own answers, no summary', t.includes('You as a friend') && !t.toLowerCase().includes('connection summary') && !t.toLowerCase().includes('personality reflection'), t.slice(-900));
 
   // Edit profile
   await go(m.page, '/profile-build?from=profile', 4000);
   t = await text(m.page);
   if (SHOTS) await m.page.screenshot({ path: `${SHOTS}/edit.png`, fullPage: true });
-  check('Edit profile title and short list', t.includes('Edit profile') && !t.includes('Build your profile') && t.includes('What brings you here') && t.includes('Photos') && !t.includes('Honesty'), t.slice(0, 900));
+  check('Edit profile title and short list', t.includes('Edit profile') && t.includes('What brings you here and your stories') && t.includes('Photos') && !t.includes('What matters to you') && !t.includes('How you like to hang out'), t.slice(0, 900));
   check('Same completion number as the tab', t.includes(`${tabPct}% complete.`), t.slice(0, 300));
   check('Each part says if it is used for matching', t.includes('Used for matching') && t.includes('Not used for matching') && t.includes('Partly used for matching') && t.includes('never used to pick who you meet'), t.slice(0, 1500));
-  await tap(m.page, 'What matters to you', { wait: 1000 });
+  await tap(m.page, 'What brings you here and your stories', { wait: 1000 });
   t = await text(m.page);
-  if (SHOTS) await m.page.screenshot({ path: `${SHOTS}/edit-values.png` });
-  check('Opens just that part, with its matching line', t.includes('Used for matching. This counts a lot.') && t.includes('Honesty') && !t.includes("Where you're based") && t.includes('Done with this part'), t.slice(0, 900));
+  check('Opens just that part: what brings you, stories with guides', t.includes('What brings you to Limen?') && t.includes('Your stories') && !t.includes("Where you're based") && t.includes('Done with this part'), t.slice(0, 900));
   await tap(m.page, 'Done with this part', { wait: 800 });
   await tap(m.page, 'Friendship type, pace and free times', { wait: 1000 });
   t = await text(m.page);
-  check('Reply pace says it is not used for matching', t.includes('Not used for matching. Sets when the one gentle note comes') && !t.includes('Required for matching'), t.slice(0, 1500));
+  check('Reply pace explains how it is used, no Required', t.includes('Shown on your profile, so people know what to expect.') && !/\bRequired\b/.test(t), t.slice(0, 1500));
   await tap(m.page, 'All sections', { wait: 800 });
   check('Back to the list', (await text(m.page)).includes('Undo my changes since I opened this'));
 
