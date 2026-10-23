@@ -30,6 +30,7 @@ type OwnProfile = {
   meet_genders: string[] | null;
   completion_pct: number;
   friendship_experience: FriendshipExperience | null;
+  share_friendship_experience: boolean | null;
 };
 
 const GENDER_LABELS: Record<string, string> = { woman: 'Woman', man: 'Man', non_binary: 'Non-binary' };
@@ -77,7 +78,7 @@ export default function ProfileScreen() {
       supabase
         .from('profiles')
         .select(
-          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, min_friend_age, max_friend_age, search_radius_miles, friendship_experience, personal_statement, values, activity_interests, hangout_type_preference, stories, meeting_freq, response_time, bar_preference, dealbreakers, photo_url, location_lat, location_lng, friendship_types, communication_style_openness, availability, languages'
+          'birthdate, location_city, life_transitions, life_transitions_other, show_life_transitions, care_style, min_friend_age, max_friend_age, search_radius_miles, friendship_experience, share_friendship_experience, personal_statement, values, activity_interests, hangout_type_preference, stories, meeting_freq, response_time, bar_preference, dealbreakers, photo_url, location_lat, location_lng, friendship_types, communication_style_openness, availability, languages'
         )
         .eq('user_id', user.id)
         .maybeSingle(),
@@ -247,6 +248,13 @@ export default function ProfileScreen() {
                   </Text>
                 </Pressable>
               </View>
+              {profile.friendship_experience && (
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  {profile.share_friendship_experience
+                    ? 'People you have a chat with see your answers to the last four questions. Tap Edit to change this.'
+                    : 'Only you see these. Tap Edit if you want to share some with people you connect with.'}
+                </Text>
+              )}
               {profile.friendship_experience ? (
                 EXPERIENCE_QUESTIONS.map((q) => {
                   const answer = normalizeExperience(profile.friendship_experience)[q.key].join(', ');
@@ -259,7 +267,7 @@ export default function ProfileScreen() {
                 })
               ) : (
                 <Text className="text-caption text-stone-500 dark:text-stone-400">
-                  A few questions about how friendships tend to go for you. Only you see your answers.
+                  A few questions about how friendships tend to go for you. Private unless you choose to share some.
                 </Text>
               )}
             </View>

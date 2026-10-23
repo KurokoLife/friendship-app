@@ -44,6 +44,10 @@ export default function HowYouConnectScreen() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 2026-10-22: share the four questions about now with people you're
+  // connected with, or keep everything private. Two equal choices, no default
+  // while joining; someone who answered before keeps theirs private.
+  const [share, setShare] = useState<boolean | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -55,15 +59,22 @@ export default function HowYouConnectScreen() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase.from('profiles').select('friendship_experience').eq('user_id', user.id).maybeSingle();
-        if (data?.friendship_experience) setExperience(normalizeExperience(data.friendship_experience));
+        const { data } = await supabase
+          .from('profiles')
+          .select('friendship_experience, share_friendship_experience')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (data?.friendship_experience) {
+          setExperience(normalizeExperience(data.friendship_experience));
+          setShare(!!data.share_friendship_experience);
+        }
       }
       setLoaded(true);
     })();
   }, []);
 
   const answered = EXPERIENCE_QUESTIONS.filter((q) => experience[q.key].length > 0).length;
-  const allAnswered = allExperienceAnswered(experience);
+  const allAnswered = allExperienceAnswered(experience) && share !== null;
 
   const toggleMulti = (key: ExperienceKey, option: string) =>
     setExperience((prev) => {
@@ -85,7 +96,7 @@ export default function HowYouConnectScreen() {
     }
     const { error: saveError } = await supabase
       .from('profiles')
-      .upsert({ user_id: user.id, friendship_experience: experience });
+      .upsert({ user_id: user.id, friendship_experience: experience, share_friendship_experience: share === true });
     setSaving(false);
     if (saveError) {
       setError('Something went wrong saving that. Try again.');
@@ -113,8 +124,8 @@ export default function HowYouConnectScreen() {
           <View className="gap-3">
             <Text className="text-display text-stone-900 dark:text-stone-50">How you connect</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
-              A few questions about how friendships tend to go for you. No right answers. Only you see your answers, on
-              your own profile, and they&apos;re never used to pick who you meet.
+              A few questions about how friendships tend to go for you. No right answers. They&apos;re never used to
+              pick who you meet, and at the end you choose whether people you connect with can see some of them.
             </Text>
           </View>
 
@@ -136,6 +147,22 @@ export default function HowYouConnectScreen() {
               </View>
             </View>
           ))}
+
+          <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+            <Text className="text-title text-stone-900 dark:text-stone-50">Share with people you connect with?</Text>
+            <Text className="text-body text-stone-500 dark:text-stone-400">
+              Knowing what feels hard for someone helps the other person make it easier. And people usually see
+              this kind of sharing more kindly than the person sharing expects.
+            </Text>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              If you share, only people you have a chat with see your answers to the last four questions. Never
+              anyone else, and never your answers about past friendships. You can change this anytime.
+            </Text>
+            <View className="gap-2">
+              <OptionRow label="Share with people I connect with" selected={share === true} onPress={() => setShare(true)} />
+              <OptionRow label="Keep private" selected={share === false} onPress={() => setShare(false)} />
+            </View>
+          </View>
         </ScrollView>
 
         <View className="gap-3 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-4 dark:border-stone-800 dark:bg-stone-900">
@@ -148,7 +175,13 @@ export default function HowYouConnectScreen() {
             }`}>
             {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
             <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
-              {allAnswered ? (isEditMode ? 'Save' : 'Continue') : `${answered} of ${EXPERIENCE_QUESTIONS.length} answered`}
+              {allAnswered
+                ? isEditMode
+                  ? 'Save'
+                  : 'Continue'
+                : answered < EXPERIENCE_QUESTIONS.length
+                  ? `${answered} of ${EXPERIENCE_QUESTIONS.length} answered`
+                  : 'Choose whether to share'}
             </Text>
           </Pressable>
         </View>

@@ -157,3 +157,22 @@ export const WHEN_UNCERTAIN_PENDING_COPY =
 export async function saveFriendshipExperience(userId: string, experience: FriendshipExperience): Promise<void> {
   await supabase.from('profiles').upsert({ user_id: userId, friendship_experience: experience });
 }
+
+// Sharing (2026-10-22): a person can choose to share the four questions about
+// now with people they're connected with (never on a public profile, never
+// used for matching). The two about past friendships always stay private.
+// Labels are written for the reader: "When something feels awkward, Kim
+// usually thinks: ...".
+export const SHARED_EXPERIENCE: { key: ExperienceKey; label: (name: string) => string }[] = [
+  { key: 'hardestCurrentStep', label: (n) => `What feels hardest for ${n} right now` },
+  { key: 'afterPositiveMeetupBehavior', label: (n) => `After a good first meetup, ${n} usually` },
+  { key: 'slowReplyThought', label: (n) => `When someone takes a while to reply, ${n} usually thinks` },
+  { key: 'awkwardnessInterpretation', label: (n) => `When something feels awkward, ${n} usually thinks` },
+];
+
+export async function fetchConnectedFriendshipAnswers(otherUserId: string): Promise<FriendshipExperience | null> {
+  const { data, error } = await supabase.rpc('get_connected_friendship_answers', { p_other_user_id: otherUserId });
+  if (error || !data) return null;
+  const answers = normalizeExperience(data);
+  return SHARED_EXPERIENCE.some((s) => answers[s.key].length > 0) ? answers : null;
+}

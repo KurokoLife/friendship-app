@@ -30,6 +30,7 @@ import { ReportModal } from '@/components/report-modal';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { EndedConnectionVideoLink } from '@/components/video-guidance-card';
 import { fetchConnectionCareStyle } from '@/lib/care-style';
+import { fetchConnectedFriendshipAnswers } from '@/lib/friendship-experience';
 import { fetchCuriosityNotes } from '@/lib/stories';
 import {
   FriendlyError,
@@ -166,6 +167,7 @@ export default function ThreadScreen() {
   const [planBoardOpenRequest, setPlanBoardOpenRequest] = useState(0);
   const [planNotice, setPlanNotice] = useState<string | null>(null);
   const [otherCareStyle, setOtherCareStyle] = useState<string | null>(null);
+  const [otherSharedAnswers, setOtherSharedAnswers] = useState(false);
   useEffect(() => {
     if (!connectionId) return;
     let cancelled = false;
@@ -193,6 +195,8 @@ export default function ThreadScreen() {
   useEffect(() => {
     if (!otherId) return;
     fetchCuriosityNotes(otherId).then((notes) => setMyNoteAboutThem(notes[0]?.note ?? null)).catch(() => undefined);
+    // Whether they shared how they approach new friendships (link in the header).
+    fetchConnectedFriendshipAnswers(otherId).then((a) => setOtherSharedAnswers(!!a)).catch(() => undefined);
   }, [otherId]);
   // Ambiguous-state fix: whether the CURRENT VIEWER is the one who
   // blocked the other participant, as opposed to the one who was
@@ -862,6 +866,13 @@ export default function ThreadScreen() {
             {otherCareStyle && (
               <Text numberOfLines={2} className="text-caption text-stone-500 dark:text-stone-400">
                 How {(other?.display_name ?? 'they').split(' ')[0]} likes care: “{otherCareStyle}”
+              </Text>
+            )}
+            {/* 2026-10-22: shown only when they chose to share; opens their
+                profile, where the answers are. */}
+            {otherSharedAnswers && (
+              <Text className="text-caption font-semibold text-accent-500">
+                How {(other?.display_name ?? 'they').split(' ')[0]} approaches new friendships
               </Text>
             )}
           </Pressable>

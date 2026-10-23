@@ -94,3 +94,5 @@ tests usually delete connections for the people they use first.
 - pg_cron and pg_net are skipped when migrations load locally.
 - Video files aren't served locally; screens with videos still load.
 - If a screen tap does nothing in a script, check for two elements with the same text (for example a video offer's own "Not now").
+
+SQL check `sharesql.sql` (2026-10-22): shared friendship answers and care words need a real chat; strangers and saved-only see nothing; past-friendship answers never shared.

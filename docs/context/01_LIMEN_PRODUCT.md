@@ -37,7 +37,7 @@ Since Oct 18, joining starts with the person (proposal doc "Limen: Joining and p
 4. Start with you: "What brings you to Limen?" (open box) and "Share a story so people can get to know you" (up to 3 stories; 5 optional guides to start from, never shown to readers). Saved to the account as the person writes, so they can start on the phone and finish on a computer. Someone who leaves comes back here, with what they wrote filled in.
 5. What you enjoy: interests, each with an optional line in your own words (each interest shows its own example line).
 6. Practical bits: where you're based; friendship type, meeting pace, reply pace, free times; bars or drinks (Fine with me / I'd rather not / I don't drink); Good to know about me; how I like care; languages (at least one; English starts selected). Then who you'd like to meet and ages.
-7. How you connect: 6 private questions about friendship habits, any number of answers each (answers show only on your own Profile, "You as a friend"; no summary, never used for matching).
+7. How you connect: 6 questions about friendship habits, any number of answers each, then "Share with people you connect with?" (Share with people I connect with / Keep private, equal, no default). Never used for matching.
 8. Photo. 9. Before you start: "Everyone here agrees to the same few things": Friendship only / Honest is kinder than quiet / Meet somewhere public first / Answer every hello, even with a "no thanks" (the quiet-chat rule spelled out: twice within two months, later in suggestions for the next month), then "Sounds good". 10. "Here's what people will see" preview. 11. Keep your account safe (account recovery, optional; moved here from after Basics). 12. All set, with the selfie check offer.
 
 No "Step N of 10", no "Required" labels. Every joining screen after the intro has Back. The two onboarding videos and quiz were removed from joining (they stay in the Guide).
@@ -46,11 +46,12 @@ No "Step N of 10", no "Required" labels. Every joining screen after the intro ha
 
 - Fill in: what brings you here (own words); 1 to 3 stories (own words, optional guides); interests (32 categories, own line and optional details); location; friendship type, meeting pace, reply pace, usual free times; bars or drinks; Good to know about me; "How I like care" (shown only to people you're connected with, at the top of your chat); languages; 1 face photo required, 2 more optional. Values, opening up, hangout style and "Right now" are no longer asked (Oct 18).
 - Others see: a small photo next to the name ("See N photos" opens them large), first name, a 5-year age range (18-24, 25-29, 30-34 ... 65-69, 70+; since Oct 22), distance, then what brings them here, their stories, what they enjoy (own line first), looking for, and a compact "How they like to connect" box (meeting up, replies, free times, bars or drinks, languages, good to know). Discover cards show only their own words: what brings them here and the opening of a story.
-- Private: phone, recovery login, selfie, exact location, birthdate, gender and who you want to meet, hidden life transitions, reflection answers.
+- Private: phone, recovery login, selfie, exact location, birthdate, gender and who you want to meet, hidden life transitions, How you connect answers unless you choose to share them with people you connect with.
 - Curiosity notes: while reading a profile you can privately write "I wonder...". Only you see it.
 - One shared view (`public-profile-view.tsx`) for other people's profiles and "See exactly what others see".
 - Edit profile: a short list of parts, each opens alone; each says in plain words how it's used. Matching uses who you'd like to meet, ages, distance and a shared language (requirements), and meeting pace 40, interests 40, friendship type 20 (score). People's own words are never used for matching.
-- You as a friend (Profile, only you): your How you connect answers, with Edit. The written summary was removed Oct 18.
+- You as a friend (Profile): your How you connect answers, with Edit, and whether you share them. The written summary was removed Oct 18.
+- Shared friendship answers (since Oct 22, by choice): people you have a chat with see "How X approaches new friendships" on your profile (and a link under your care words in the chat header): your answers to the four questions about now (what feels hardest right now, after a good first meetup, when someone takes a while to reply, when something feels awkward). The two about past friendships always stay private. Private by default; never on public profiles or in Discover.
 
 ## 5. Discover and connecting
 

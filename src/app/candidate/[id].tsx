@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CoachMark } from '@/components/coach-mark';
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
+import { SharedFriendshipAnswers } from '@/components/shared-friendship-answers';
+import { fetchConnectedFriendshipAnswers, type FriendshipExperience } from '@/lib/friendship-experience';
 import { ReportModal } from '@/components/report-modal';
 import { CAPACITY_ERROR_MESSAGES, reinitiateEndedConnection } from '@/lib/connections';
 import {
@@ -49,6 +51,9 @@ export default function CandidateProfileScreen() {
   // Set when a live connection already has a conversation or mutual
   // interest, so the main button opens the chat instead.
   const [openConnectionId, setOpenConnectionId] = useState<string | null>(null);
+  // Their shared "How you connect" answers: only when you have a chat with
+  // them and they chose to share (the server checks both).
+  const [sharedAnswers, setSharedAnswers] = useState<FriendshipExperience | null>(null);
   // A past chat that ended or closed (2026-10-09). The old "Interested"
   // choices are still on file, so the button showed "Interested" as already
   // done and nothing could be tapped. It now offers "Say hello again".
@@ -99,6 +104,7 @@ export default function CandidateProfileScreen() {
           .or(`and(user_a_id.eq.${user.id},user_b_id.eq.${id}),and(user_a_id.eq.${id},user_b_id.eq.${user.id})`),
       ]);
 
+      if ((anyConnections ?? []).length > 0) fetchConnectedFriendshipAnswers(id).then(setSharedAnswers);
       const live = (anyConnections ?? []).find((c) => LIVE_STATUSES.has(c.status as string | null));
       setPastChat(!live && (anyConnections ?? []).some((c) => c.status === 'ended' || c.status === 'inactive'));
       if (live) {
@@ -264,6 +270,9 @@ export default function CandidateProfileScreen() {
             text="See something you'd like to ask about? Tap Note it privately and write it down. Only you see it, and it'll be there when you start chatting."
           />
           <PublicProfileView profile={profile} />
+          {sharedAnswers && (
+            <SharedFriendshipAnswers answers={sharedAnswers} name={(profile.display_name ?? 'They').split(' ')[0]} />
+          )}
         </ScrollView>
 
         <View className="gap-2 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-4 dark:border-stone-800 dark:bg-stone-900">
