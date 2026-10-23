@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Image, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { ProfileStories } from '@/components/profile-stories';
@@ -110,10 +110,14 @@ export function PublicProfileView({
   profile,
   readOnly = false,
   ownerHidden,
+  afterHeader,
 }: {
   profile: PublicProfile;
   readOnly?: boolean;
   ownerHidden?: OwnerHiddenItems;
+  // 2026-10-23: shown right after the name and photo (for people you have a
+  // chat with: how they like care, how they approach new friendships).
+  afterHeader?: ReactNode;
 }) {
   const hiddenTransitions = ownerHidden ? lifeTransitionSentences(ownerHidden.lifeTransitions) : [];
   const showHiddenTransitions =
@@ -200,6 +204,8 @@ export function PublicProfileView({
           </Pressable>
         </View>
       </Modal>
+
+      {afterHeader}
 
       {/* What brings them here, in their own words (2026-10-18). */}
       {profile.life_transitions_other?.trim() && (
