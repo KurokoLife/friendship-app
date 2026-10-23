@@ -26,12 +26,10 @@ export function calculateAge(birthdate: string | Date): number {
 export function ageToBand(age: number): string {
   if (age < 18) return 'Under 18';
   if (age <= 24) return '18-24';
-  if (age <= 29) return '25-29';
-  if (age <= 39) return '30s';
-  if (age <= 49) return '40s';
-  if (age <= 59) return '50s';
-  if (age <= 69) return '60s';
-  return '70+';
+  if (age >= 70) return '70+';
+  // 2026-10-22: 5-year ranges (25-29, 30-34, ... 65-69), same as public.age_band().
+  const start = Math.floor(age / 5) * 5;
+  return `${start}-${start + 4}`;
 }
 
 export function birthdateToAgeBand(birthdate: string | Date): string {

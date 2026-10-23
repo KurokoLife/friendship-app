@@ -28,8 +28,8 @@ const AGREEMENTS: { title: string; text: string }[] = [
     text: 'And go with how you feel. You can leave, report or block anytime.',
   },
   {
-    title: 'Reply when you can',
-    text: "Everyone takes time to reply. If several of your chats close with no reply at all, you'll show up a little later in suggestions for a while. Nobody is told, and it resets on its own.",
+    title: 'Answer every hello, even with a "no thanks"',
+    text: "Take the time you need. If a new chat closes because you never answered, and that happens twice within two months, you'll show up later in suggestions for the next month. Nobody is told.",
   },
 ];
 

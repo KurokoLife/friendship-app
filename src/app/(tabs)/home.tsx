@@ -60,7 +60,7 @@ const DEV_FALLBACK_SUGGESTIONS: Suggestion[] = [
   {
     userId: 'dev-fallback-1',
     displayName: 'Aisha Bello',
-    ageBand: '40s',
+    ageBand: '45-49',
     lifeTransitions: ['Relocation'],
     reasoning: 'Dev fallback card, no signed-in session, not fetched from Supabase.',
     humanDetail: 'Dev fallback data, not a real profile.',
@@ -80,7 +80,7 @@ const DEV_FALLBACK_SUGGESTIONS: Suggestion[] = [
   {
     userId: 'dev-fallback-3',
     displayName: 'Priya Nair',
-    ageBand: '30s',
+    ageBand: '35-39',
     lifeTransitions: ['Career change'],
     reasoning: 'Dev fallback card, no signed-in session, not fetched from Supabase.',
     humanDetail: 'Dev fallback data, not a real profile.',

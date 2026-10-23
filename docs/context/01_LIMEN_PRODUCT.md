@@ -1,6 +1,6 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-19. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-22. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
@@ -31,21 +31,21 @@ Working rules that follow from these:
 ## 3. Joining (onboarding)
 
 Since Oct 18, joining starts with the person (proposal doc "Limen: Joining and profile proposal"). Since Oct 19, sign-up comes right after the intro (like most apps), so writing is saved to the account and follows the person to any device:
-1. Intro, one screen (since Oct 22): "Making friends as an adult is hard. It's not just you.", the liking-gap line, one person at a time, no swiping, no perfect profile. "Join Limen" and "Already a member? Sign in".
+1. Intro, one screen (since Oct 22): "Making friends as an adult is hard. It's not just you.", the liking-gap line, and "Limen introduces you to one person at a time, and helps with the parts that can feel awkward, from a first hello to meeting in person" (no promise of a friend), no swiping, no perfect profile. "Join Limen" and "Already a member? Sign in".
 2. Phone number and code (sign-up).
 3. Basics (name, birthdate). Under 18 is turned away here, before anything else (the database refuses it too).
 4. Start with you: "What brings you to Limen?" (open box) and "Share a story so people can get to know you" (up to 3 stories; 5 optional guides to start from, never shown to readers). Saved to the account as the person writes, so they can start on the phone and finish on a computer. Someone who leaves comes back here, with what they wrote filled in.
 5. What you enjoy: interests, each with an optional line in your own words (each interest shows its own example line).
 6. Practical bits: where you're based; friendship type, meeting pace, reply pace, free times; bars or drinks (Fine with me / I'd rather not / I don't drink); Good to know about me; how I like care; languages (at least one; English starts selected). Then who you'd like to meet and ages.
 7. How you connect: 6 private questions about friendship habits, any number of answers each (answers show only on your own Profile, "You as a friend"; no summary, never used for matching).
-8. Photo. 9. Before you start: "Everyone here agrees to the same few things": Friendship only / Honest is kinder than quiet / Meet somewhere public first / Reply when you can (the quiet-chat rule), then "Sounds good". 10. "Here's what people will see" preview. 11. Keep your account safe (account recovery, optional; moved here from after Basics). 12. All set, with the selfie check offer.
+8. Photo. 9. Before you start: "Everyone here agrees to the same few things": Friendship only / Honest is kinder than quiet / Meet somewhere public first / Answer every hello, even with a "no thanks" (the quiet-chat rule spelled out: twice within two months, later in suggestions for the next month), then "Sounds good". 10. "Here's what people will see" preview. 11. Keep your account safe (account recovery, optional; moved here from after Basics). 12. All set, with the selfie check offer.
 
 No "Step N of 10", no "Required" labels. Every joining screen after the intro has Back. The two onboarding videos and quiz were removed from joining (they stay in the Guide).
 
 ## 4. Profile
 
 - Fill in: what brings you here (own words); 1 to 3 stories (own words, optional guides); interests (32 categories, own line and optional details); location; friendship type, meeting pace, reply pace, usual free times; bars or drinks; Good to know about me; "How I like care" (shown only to people you're connected with, at the top of your chat); languages; 1 face photo required, 2 more optional. Values, opening up, hangout style and "Right now" are no longer asked (Oct 18).
-- Others see: a small photo next to the name ("See N photos" opens them large), first name, age range, distance, then what brings them here, their stories, what they enjoy (own line first), looking for, and a compact "How they like to connect" box (meeting up, replies, free times, bars or drinks, languages, good to know). Discover cards show only their own words: what brings them here and the opening of a story.
+- Others see: a small photo next to the name ("See N photos" opens them large), first name, a 5-year age range (18-24, 25-29, 30-34 ... 65-69, 70+; since Oct 22), distance, then what brings them here, their stories, what they enjoy (own line first), looking for, and a compact "How they like to connect" box (meeting up, replies, free times, bars or drinks, languages, good to know). Discover cards show only their own words: what brings them here and the opening of a story.
 - Private: phone, recovery login, selfie, exact location, birthdate, gender and who you want to meet, hidden life transitions, reflection answers.
 - Curiosity notes: while reading a profile you can privately write "I wonder...". Only you see it.
 - One shared view (`public-profile-view.tsx`) for other people's profiles and "See exactly what others see".

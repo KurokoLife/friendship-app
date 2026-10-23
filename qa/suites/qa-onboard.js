@@ -26,6 +26,7 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('intro screen 1: making friends as an adult is hard', /Making friends as an adult is hard/.test(await t()));
   check('intro has side margins', (await margin("Making friends as an adult is hard. It's not just you.")) >= 16);
   // 2026-10-22: one intro screen (was two).
+  check('intro does not promise friends', /helps with the parts that can feel awkward/.test(await t()) && !/simply friends/.test(await t()));
   check('one intro screen keeps the liking-gap line', /underestimate how much the other person liked them/.test(await t()) && /No swiping/.test(await t()));
   check('intro leads straight to joining', /Join Limen/.test(await t()) && /Already a member\? Sign in/.test(await t()));
   await tap('Join Limen', true, 2000);
@@ -119,7 +120,9 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('ground rules screen replaces the videos', /Before you start/.test(await t()) && !/Begin With Curiosity/.test(await t()));
   check('readiness screen has side margins', (await margin('Before you start')) >= 16);
   check('Before you start reads warmly', /Everyone here agrees to the same few things/.test(await t()) && /Friendship only/.test(await t()) && /Honest is kinder than quiet/.test(await t()));
+  check('the reply rule is spelled out', /Answer every hello, even with a "no thanks"/.test(await t()) && /twice within two months/.test(await t()));
   await tap('Sounds good', true, 3500);
+  check('preview shows a 5-year age range', /Tess W\., (45-49|50-54)/.test(await t()));
   check('preview has Back', (await page.getByText('Back', { exact: true }).filter({ visible: true }).count()) > 0);
   check("preview: here's what people will see", /Here's what people will see/.test(await t()) && /old friends moved away/.test(await t()));
   check('preview shows the story but not the guide', /power went out on our street/.test(await t()) && !/A day you remember well/.test(await t()));

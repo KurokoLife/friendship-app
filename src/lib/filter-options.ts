@@ -116,7 +116,7 @@ export const MAX_AGE = 100;
 // band values, matching public.age_band()'s own output exactly. "Under
 // 18" is deliberately excluded, profiles.birthdate has a server-side
 // 18+ check constraint, that band can never actually occur.
-export const AGE_BANDS = ['18-24', '25-29', '30s', '40s', '50s', '60s', '70+'];
+export const AGE_BANDS = ['18-24', '25-29', '30-34', '35-39', '40-44', '45-49', '50-54', '55-59', '60-64', '65-69', '70+'];
 
 // Fix 2b: search radius slider bounds and default, profiles.
 // search_radius_miles has a matching DB check (5-100).

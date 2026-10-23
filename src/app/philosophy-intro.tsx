@@ -22,8 +22,8 @@ export default function PhilosophyIntroScreen() {
             most people underestimate how much the other person liked them.
           </Text>
           <Text className="text-body text-stone-500 dark:text-stone-400">
-            Limen introduces you to one person at a time and helps you keep meeting until you&apos;re simply
-            friends. No swiping. No perfect profile. Just you.
+            Limen introduces you to one person at a time, and helps with the parts that can feel awkward, from
+            a first hello to meeting in person. No swiping. No perfect profile. Just you.
           </Text>
         </View>
 
