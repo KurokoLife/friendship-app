@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RememberFreeNoteEditor } from '@/components/remember-free-note-editor';
 import { RememberNoteEditor } from '@/components/remember-note-editor';
 import { goBack } from '@/lib/navigation';
+import { deleteCuriosityNote, fetchCuriosityNotes, updateCuriosityNote, type CuriosityNote } from '@/lib/stories';
 import {
   deleteAllNotes,
   deleteNote,
@@ -73,6 +74,12 @@ export default function RememberNotesScreen() {
   const [askHandled, setAskHandled] = useState(false);
   const [query, setQuery] = useState('');
   const [topicFilter, setTopicFilter] = useState<TopicKey | null>(null);
+  // 2026-10-23 (founder): two tabs, like Inbox. Meetups: one card per meetup.
+  // Notes: everything else, including notes written on their profile
+  // ("Note it privately"), the same notes, editable here.
+  const [tab, setTab] = useState<'meetups' | 'notes' | null>(null);
+  const [profileNotes, setProfileNotes] = useState<CuriosityNote[]>([]);
+  const [editingProfileNote, setEditingProfileNote] = useState<{ id: string; text: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured || !connectionId) {
@@ -89,7 +96,7 @@ export default function RememberNotesScreen() {
     setMyId(user.id);
     const [{ data: person }, { data: conn }, ms, ns] = await Promise.all([
       supabase.from('connection_participant_profiles').select('display_name').eq('connection_id', connectionId).maybeSingle(),
-      supabase.from('connections').select('status').eq('id', connectionId).maybeSingle(),
+      supabase.from('connections').select('status, user_a_id, user_b_id').eq('id', connectionId).maybeSingle(),
       fetchMeetupsThatHappened(connectionId),
       fetchNotes(connectionId),
     ]);
@@ -97,6 +104,10 @@ export default function RememberNotesScreen() {
     setClosed(CLOSED_STATUSES.includes((conn as { status: string | null } | null)?.status ?? ''));
     setMeetups(ms);
     setNotes(ns);
+    const c = conn as { user_a_id: string; user_b_id: string } | null;
+    const otherId = c ? (c.user_a_id === user.id ? c.user_b_id : c.user_a_id) : null;
+    setProfileNotes(otherId ? await fetchCuriosityNotes(otherId) : []);
+    setTab((t) => t ?? (ms.length > 0 ? 'meetups' : 'notes'));
     setLoaded(true);
 
     // Opened from "Anything you'd like to remember?": go straight to that
@@ -107,6 +118,7 @@ export default function RememberNotesScreen() {
       const m = ms.find((x) => x.id === askMeetup);
       if (m && !ns.some((n) => n.meetup_id === m.id)) {
         setEditing({ kind: 'meetup', meetup: m });
+        setTab('meetups');
         return;
       }
     }
@@ -117,9 +129,16 @@ export default function RememberNotesScreen() {
         const [kind, id] = open.split(':');
         const m = kind === 'meetup' ? ms.find((x) => x.id === id) : undefined;
         const n = kind === 'free' && id !== 'new' ? ns.find((x) => x.id === id) : undefined;
-        if (m) setEditingState({ kind: 'meetup', meetup: m });
-        else if (kind === 'free' && id === 'new') setEditingState({ kind: 'free', note: null });
-        else if (n) setEditingState({ kind: 'free', note: n });
+        if (m) {
+          setEditingState({ kind: 'meetup', meetup: m });
+          setTab('meetups');
+        } else if (kind === 'free' && id === 'new') {
+          setEditingState({ kind: 'free', note: null });
+          setTab('notes');
+        } else if (n) {
+          setEditingState({ kind: 'free', note: n });
+          setTab('notes');
+        }
       }
     }
   }, [connectionId, askMeetup, askHandled]);
@@ -144,7 +163,6 @@ export default function RememberNotesScreen() {
   // Notes between meetups: group g holds notes written after meetup g
   // (0 = before the first meetup).
   const freeNotes = notes.filter((n) => !n.meetup_id || !meetupIds.has(n.meetup_id));
-  const groupOf = (n: RememberNote) => meetups.filter((m) => m.date <= noteDay(n)).length;
   const asks = openAsksFrom(notes);
   const doneAsks = notes.filter((n) => n.ask_next && n.ask_next_done_at);
 
@@ -207,6 +225,7 @@ export default function RememberNotesScreen() {
     if (!connectionId) return;
     try {
       await deleteAllNotes(connectionId);
+      await Promise.all(profileNotes.map((n) => deleteCuriosityNote(n.id)));
       await load();
     } catch {
       setError("Couldn't delete your notes. Please try again.");
@@ -310,11 +329,7 @@ export default function RememberNotesScreen() {
       </View>
     );
 
-  const groupHeading = (g: number) => {
-    if (g === 0) return meetups.length === 0 ? 'Your notes' : 'Before your first meetup';
-    if (g === meetups.length) return 'Since your last meetup';
-    return `Between your ${ordinal(g)} and ${ordinal(g + 1)} meetups`;
-  };
+
 
   // Topic filters and search, only once there are enough notes to need
   // them (2026-10-10).
@@ -329,18 +344,10 @@ export default function RememberNotesScreen() {
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
     : [];
 
-  const sections: ReactNode[] = [];
-  for (let g = meetups.length; g >= 0; g--) {
-    const inGroup = freeNotes.filter((n) => groupOf(n) === g).sort((a, b) => b.created_at.localeCompare(a.created_at));
-    if (inGroup.length > 0) {
-      sections.push(
-        <View key={`group-${g}`} className="gap-3">
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">{groupHeading(g)}</Text>
-          {inGroup.map(freeNoteCard)}
-        </View>
-      );
-    }
-    if (g === 0) break;
+  // Meetups tab: one card per meetup, newest first.
+  const meetupSections: ReactNode[] = [];
+  const sections = meetupSections;
+  for (let g = meetups.length; g >= 1; g--) {
     const m = meetups[g - 1];
     const note = noteForMeetup(m.id);
     const title = meetupTitle(m);
@@ -422,30 +429,6 @@ export default function RememberNotesScreen() {
             </View>
           )}
 
-          {editing?.kind === 'free' && editing.note === null ? (
-            <RememberFreeNoteEditor
-              firstName={first}
-              heading="A note for yourself"
-              draftKey={`free-new-${connectionId}`}
-              initialText=""
-              initialTopics={[]}
-              onSave={saveFree(null)}
-              onCancel={cancelEditing}
-            />
-          ) : (
-            <Pressable
-              onPress={() => setEditing({ kind: 'free', note: null })}
-              className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-              <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Write something down</Text>
-            </Pressable>
-          )}
-
-          {meetups.length === 0 && notes.length === 0 && (
-            <Text className="text-body text-stone-600 dark:text-stone-300">
-              After you meet {first}, each meetup gets its own place here. You can also write something down anytime.
-            </Text>
-          )}
-
           {showFilters && (
             <View className="gap-2">
               <TextInput
@@ -477,6 +460,31 @@ export default function RememberNotesScreen() {
                   );
                 })}
               </View>
+            </View>
+          )}
+
+          {/* Tabs (2026-10-23). Search and topic filters above them look
+              through every note; while filtering, matches show instead. */}
+          {!filtering && (
+            <View className="flex-row gap-2">
+              {(['meetups', 'notes'] as const).map((k) => {
+                const on = tab === k;
+                const count = k === 'meetups' ? meetups.length : freeNotes.length + profileNotes.length;
+                return (
+                  <Pressable
+                    key={k}
+                    onPress={() => setTab(k)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: on }}
+                    className={`rounded-full border px-4 py-1.5 ${
+                      on ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50' : 'border-stone-300 dark:border-stone-600'
+                    }`}>
+                    <Text className={`text-caption font-semibold ${on ? 'text-stone-50 dark:text-stone-900' : 'text-stone-600 dark:text-stone-300'}`}>
+                      {k === 'meetups' ? 'Meetups' : 'Notes'}{count > 0 ? ` (${count})` : ''}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
 
@@ -524,25 +532,124 @@ export default function RememberNotesScreen() {
                 );
               })}
             </View>
+          ) : tab === 'meetups' ? (
+            <View className="gap-4">
+              {meetups.length === 0 ? (
+                <Text className="text-body text-stone-600 dark:text-stone-300">
+                  After you meet {first}, each meetup gets its own place here.
+                </Text>
+              ) : (
+                meetupSections
+              )}
+            {doneAsks.length > 0 && (
+              <View className="gap-2">
+                <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Already asked</Text>
+                {doneAsks.map((n) => (
+                  <View key={n.id} className="flex-row items-start gap-3">
+                    <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">{n.ask_next}</Text>
+                    <Pressable onPress={() => toggleAsked(n.id, false)} hitSlop={6}>
+                      <Text className="text-caption text-stone-400 dark:text-stone-500">Undo</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+            </View>
           ) : (
-            sections
-          )}
-
-          {doneAsks.length > 0 && (
-            <View className="gap-2">
-              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Already asked</Text>
-              {doneAsks.map((n) => (
-                <View key={n.id} className="flex-row items-start gap-3">
-                  <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">{n.ask_next}</Text>
-                  <Pressable onPress={() => toggleAsked(n.id, false)} hitSlop={6}>
-                    <Text className="text-caption text-stone-400 dark:text-stone-500">Undo</Text>
-                  </Pressable>
+            <View className="gap-4">
+              {editing?.kind === 'free' && editing.note === null ? (
+                <RememberFreeNoteEditor
+                  firstName={first}
+                  heading="A note for yourself"
+                  draftKey={`free-new-${connectionId}`}
+                  initialText=""
+                  initialTopics={[]}
+                  onSave={saveFree(null)}
+                  onCancel={cancelEditing}
+                />
+              ) : (
+                <Pressable
+                  onPress={() => setEditing({ kind: 'free', note: null })}
+                  className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
+                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Write something down</Text>
+                </Pressable>
+              )}
+              {freeNotes.length === 0 && profileNotes.length === 0 && (
+                <Text className="text-body text-stone-600 dark:text-stone-300">
+                  Anything you want to remember about {first}, anytime.
+                </Text>
+              )}
+              {[...freeNotes].sort((x, y) => y.created_at.localeCompare(x.created_at)).map(freeNoteCard)}
+              {profileNotes.length > 0 && (
+                <View className="gap-3">
+                  <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+                    Written on {first}&apos;s profile
+                  </Text>
+                  {profileNotes.map((pn) =>
+                    editingProfileNote?.id === pn.id ? (
+                      <View
+                        key={pn.id}
+                        className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
+                        <TextInput
+                          value={editingProfileNote.text}
+                          onChangeText={(t) => setEditingProfileNote({ id: pn.id, text: t.slice(0, 300) })}
+                          multiline
+                          accessibilityLabel="Edit your note"
+                          className="min-h-16 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
+                        />
+                        <View className="flex-row gap-4">
+                          <Pressable
+                            onPress={async () => {
+                              if (!editingProfileNote.text.trim()) return;
+                              const ok = await updateCuriosityNote(pn.id, editingProfileNote.text);
+                              if (!ok) setError("Couldn't save that. Please try again.");
+                              setEditingProfileNote(null);
+                              await load();
+                            }}>
+                            <Text className="text-caption font-semibold text-accent-500">Save</Text>
+                          </Pressable>
+                          <Pressable onPress={() => setEditingProfileNote(null)}>
+                            <Text className="text-caption text-stone-500 dark:text-stone-400">Cancel</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : (
+                      <View
+                        key={pn.id}
+                        className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
+                        <Text className="text-caption text-stone-400 dark:text-stone-500">{formatDay(pn.created_at.slice(0, 10))}</Text>
+                        <Text className="text-body text-stone-800 dark:text-stone-200">{pn.note}</Text>
+                        <View className="flex-row gap-4">
+                          <Pressable onPress={() => setEditingProfileNote({ id: pn.id, text: pn.note })}>
+                            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Edit</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={async () => {
+                              if (confirmDelete !== pn.id) {
+                                setConfirmDelete(pn.id);
+                                return;
+                              }
+                              setConfirmDelete(null);
+                              await deleteCuriosityNote(pn.id);
+                              await load();
+                            }}>
+                            <Text
+                              className={`text-caption font-semibold ${
+                                confirmDelete === pn.id ? 'text-red-600 dark:text-red-400' : 'text-stone-400 dark:text-stone-500'
+                              }`}>
+                              {confirmDelete === pn.id ? 'Tap again to delete' : 'Delete'}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    )
+                  )}
                 </View>
-              ))}
+              )}
             </View>
           )}
 
-          {notes.length > 0 && (
+          {(notes.length > 0 || profileNotes.length > 0) && (
             <View className="flex-row items-center gap-4 pt-2">
               <Pressable onPress={removeAll}>
                 <Text

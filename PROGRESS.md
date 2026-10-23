@@ -254,3 +254,8 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 ## 2026-10-22 (evening): Inbox and chat check
 
 - All suites passed; hands-on walkthrough found: planning card left in chat after Close, added-today meetup shown as a plan (bug), no waiting state, one draft per chat (other person blocked), stacked tips, bar text cut off. Founder approved A-D; built. Migration 20261022000002.
+
+
+## 2026-10-23: Calmer chat, notes in one place
+
+- Founder approved all simplifications: one way to plan, header ⋯ menu, care words and shared answers on the profile, one tip line, one Reminders switch per chat, no unsent-invite mention in Inbox, Remember tabs (Meetups / Notes incl. profile notes), preview section for connected-only info. Migration 20261023000000.

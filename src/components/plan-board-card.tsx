@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { LogMeetupForm } from '@/components/log-meetup-form';
 import { RememberAsksLine } from '@/components/remember-bar';
 import {
   BUDGET_OPTIONS,
@@ -61,6 +62,8 @@ type Props = {
   openRequest?: number;
   onStart: () => void;
   onSent?: () => void;
+  // A meetup made outside the app was added from this window.
+  onMeetupAdded?: () => void;
   // Your own "next time, ask..." notes, shown while picking (2026-10-10).
   notesOn?: boolean;
 };
@@ -125,7 +128,7 @@ function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: (
   );
 }
 
-export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openRequest, onStart, onSent, notesOn = true }: Props) {
+export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openRequest, onStart, onSent, onMeetupAdded, notesOn = true }: Props) {
   const name = firstName(otherName);
   const [state, setState] = useState<PlanState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +143,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   const [myTimes, setMyTimes] = useState<Set<string>>(new Set());
   const [availability, setAvailability] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   const [note, setNote] = useState('');
   const [noteStem, setNoteStem] = useState<string | null>(null);
   // True once this person tapped "Let's plan something" here. The card is
@@ -327,6 +331,28 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
               </View>
             </View>
             <ScrollView contentContainerClassName="gap-3 pb-4" keyboardShouldPersistTaps="handled">
+              {/* 2026-10-23: adding a meetup made outside the app lives here
+                  now (it used to be in the plan bar). */}
+              {logOpen ? (
+                <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+                  <LogMeetupForm
+                    connectionId={connectionId}
+                    otherName={otherName}
+                    onCancel={() => setLogOpen(false)}
+                    onDone={() => {
+                      setLogOpen(false);
+                      setSheetOpen(false);
+                      onMeetupAdded?.();
+                    }}
+                  />
+                </View>
+              ) : (
+                <Pressable onPress={() => setLogOpen(true)} className="self-start" hitSlop={6}>
+                  <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+                    Met up already? Add it
+                  </Text>
+                </Pressable>
+              )}
               <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} withIdeas />
               {children}
               {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}

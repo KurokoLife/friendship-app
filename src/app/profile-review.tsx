@@ -4,6 +4,8 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
+import { SharedFriendshipAnswers } from '@/components/shared-friendship-answers';
+import { normalizeExperience, SHARED_EXPERIENCE, type FriendshipExperience } from '@/lib/friendship-experience';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 
@@ -22,6 +24,9 @@ export default function ProfileReviewScreen() {
   const onboarding = from === 'onboarding';
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // 2026-10-23: what only people you have a chat with also see.
+  const [care, setCare] = useState<string | null>(null);
+  const [shared, setShared] = useState<FriendshipExperience | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -42,6 +47,14 @@ export default function ProfileReviewScreen() {
       const columns = PUBLIC_PROFILE_COLUMNS.replace(', distance_miles', '');
       const { data } = await supabase.from('my_public_preview').select(columns).eq('user_id', user.id).maybeSingle();
       setProfile(data as PublicProfile | null);
+      const { data: own } = await supabase
+        .from('profiles')
+        .select('care_style, share_friendship_experience, friendship_experience')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setCare(own?.care_style?.trim() ? own.care_style.trim() : null);
+      const exp = own?.share_friendship_experience && own.friendship_experience ? normalizeExperience(own.friendship_experience) : null;
+      setShared(exp && SHARED_EXPERIENCE.some((x) => exp[x.key].length > 0) ? exp : null);
       setLoaded(true);
     })();
   }, []);
@@ -91,6 +104,22 @@ export default function ProfileReviewScreen() {
 
         <ScrollView contentContainerClassName="px-6 pb-10 pt-5">
           <PublicProfileView profile={profile} readOnly />
+          {(care || shared) && (
+            <View className="mt-6 gap-3 border-t border-stone-200 pt-5 dark:border-stone-800">
+              <Text className="text-caption font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+                Only people you have a chat with also see
+              </Text>
+              {care && (
+                <View className="gap-1 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+                  <Text className="text-title text-stone-900 dark:text-stone-50">
+                    How {(profile.display_name ?? 'you').split(' ')[0]} likes care
+                  </Text>
+                  <Text className="text-body text-stone-700 dark:text-stone-300">“{care}”</Text>
+                </View>
+              )}
+              {shared && <SharedFriendshipAnswers answers={shared} name={(profile.display_name ?? 'You').split(' ')[0]} />}
+            </View>
+          )}
         </ScrollView>
 
         {onboarding && (

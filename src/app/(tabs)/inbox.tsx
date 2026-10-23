@@ -160,7 +160,11 @@ export default function InboxScreen() {
     ]);
     const { data: hiddenRows } = await supabase.from('hidden_chats').select('connection_id');
     setHidden(new Set(((hiddenRows ?? []) as { connection_id: string }[]).map((h) => h.connection_id)));
-    fetchMyPlanTurns().then(setPlanTurns);
+    // 2026-10-23: an unsent invite is private to its window, so it isn't
+    // mentioned on the Inbox row either.
+    fetchMyPlanTurns().then((turns) =>
+      setPlanTurns(Object.fromEntries(Object.entries(turns).filter(([, t]) => t.stage !== 'drafting')))
+    );
     setPauses(new Map(pauseRows.map((p) => [p.connection_id, p])));
     setIBlocked(new Set(((blockRows ?? []) as { blocked_id: string }[]).map((b) => b.blocked_id)));
     setNewMutual((mutualRows ?? []) as NewMutual[]);

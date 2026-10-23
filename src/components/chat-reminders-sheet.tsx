@@ -3,7 +3,6 @@ import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import {
   PROMPT_KINDS,
-  PROMPT_LABELS,
   getPromptSettings,
   setPromptSetting,
   type PromptKind,
@@ -27,7 +26,7 @@ export function ChatRemindersSheet({
   onChanged: (settings: PromptSettings) => void;
 }) {
   const [settings, setSettings] = useState<PromptSettings | null>(null);
-  const [busy, setBusy] = useState<PromptKind | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,15 +36,24 @@ export function ChatRemindersSheet({
 
   if (!visible) return null;
 
-  const toggle = async (kind: PromptKind, enabled: boolean) => {
-    setBusy(kind);
+  // 2026-10-23 (founder): one switch per chat. On means every kind of
+  // reminder can show here (anything turned off for all chats in Settings
+  // stays off); off turns them all off for this chat only.
+  const chatOn = settings ? PROMPT_KINDS.every((k) => settings[k]?.chat !== false) : true;
+  const someOffForAll = settings ? PROMPT_KINDS.some((k) => settings[k] && !settings[k].all) : false;
+
+  const toggleAll = async (enabled: boolean) => {
+    setBusy(true);
     setError(null);
-    const ok = await setPromptSetting(connectionId, kind, enabled);
+    let ok = true;
+    for (const kind of PROMPT_KINDS) {
+      if (!(await setPromptSetting(connectionId, kind, enabled))) ok = false;
+    }
     if (!ok) setError("That didn't save. Please try again.");
     const fresh = await getPromptSettings(connectionId);
     setSettings(fresh);
     onChanged(fresh);
-    setBusy(null);
+    setBusy(false);
   };
 
   return (
@@ -53,29 +61,28 @@ export function ChatRemindersSheet({
       <View className="flex-1 items-center justify-center bg-black/40 px-6">
         <ScrollView className="w-full grow-0" contentContainerClassName="gap-4 rounded-3xl bg-stone-50 p-6 dark:bg-stone-900">
           <Text className="text-title text-stone-900 dark:text-stone-50">Reminders for this chat</Text>
-          <Text className="text-body text-stone-600 dark:text-stone-300">
-            Choose what Limen shows you in your chat with {otherName}. Only you see these, and {otherName} isn&apos;t told.
-          </Text>
-          {PROMPT_KINDS.map((kind) => {
-            const s = settings?.[kind];
-            const offForAll = s ? !s.all : false;
-            return (
-              <View key={kind} className="flex-row items-start gap-3">
-                <View className="flex-1 gap-0.5">
-                  <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{PROMPT_LABELS[kind].title}</Text>
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    {offForAll ? 'Turned off for all chats in Settings.' : PROMPT_LABELS[kind].detail}
-                  </Text>
-                </View>
-                <Switch
-                  accessibilityLabel={PROMPT_LABELS[kind].title}
-                  value={s ? s.all && s.chat : true}
-                  disabled={!s || offForAll || busy !== null}
-                  onValueChange={(v) => toggle(kind, v)}
-                />
-              </View>
-            );
-          })}
+          <View className="flex-row items-start gap-3">
+            <View className="flex-1 gap-0.5">
+              <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+                Reminders and nudges with {otherName}
+              </Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
+                Check-ins, nudges to meet, the morning-of check, the calendar question and your notes coming back. Only you see these, and{' '}
+                {otherName} isn&apos;t told.
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={`Reminders and nudges with ${otherName}`}
+              value={chatOn}
+              disabled={!settings || busy}
+              onValueChange={toggleAll}
+            />
+          </View>
+          {someOffForAll && (
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              Some are turned off for all chats. You can change those in Settings, Reminders and nudges.
+            </Text>
+          )}
           <Text className="text-caption text-stone-500 dark:text-stone-400">
             Always on: when someone says hello and hasn&apos;t heard back yet, one gentle note. It only shows once, and
             only before you&apos;ve both written.

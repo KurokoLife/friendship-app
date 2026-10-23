@@ -83,6 +83,9 @@ type Props = {
   otherCareStyle?: string | null;
   otherName?: string | null;
   disabled?: boolean;
+  // 2026-10-23 (founder): in a chat, one line under the message box. The
+  // short tip for this stage, then "More tips" opens Reflect first's tips.
+  tipLine?: string | null;
 };
 
 export function UniversalTextBox({
@@ -91,6 +94,7 @@ export function UniversalTextBox({
   otherCareStyle,
   otherName,
   disabled,
+  tipLine,
 }: Props) {
   const [showReflect, setShowReflect] = useState(false);
 
@@ -102,11 +106,24 @@ export function UniversalTextBox({
 
   return (
     <View className="gap-2">
-      <Pressable onPress={() => setShowReflect((s) => !s)} disabled={disabled} className="self-start">
-        <Text className="text-caption font-semibold text-accent-500">
-          {showReflect ? 'Hide questions' : 'Reflect first'}
-        </Text>
-      </Pressable>
+      {tipLine ? (
+        <Pressable
+          onPress={() => setShowReflect((s) => !s)}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`${tipLine} ${showReflect ? 'Hide tips' : 'More tips'}`}>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
+            {tipLine}{' '}
+            <Text className="font-semibold text-accent-500">{showReflect ? 'Hide tips' : 'More tips'}</Text>
+          </Text>
+        </Pressable>
+      ) : (
+        <Pressable onPress={() => setShowReflect((s) => !s)} disabled={disabled} className="self-start">
+          <Text className="text-caption font-semibold text-accent-500">
+            {showReflect ? 'Hide questions' : 'Reflect first'}
+          </Text>
+        </Pressable>
+      )}
 
       {showReflect && (
         // Scrolls inside a short box so the chat above stays in view on a phone.

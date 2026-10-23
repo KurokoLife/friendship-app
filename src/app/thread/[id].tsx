@@ -18,6 +18,7 @@ import { ChatRemindersSheet } from '@/components/chat-reminders-sheet';
 import { EndConnectionModal } from '@/components/end-connection-modal';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { NextMeetupIndicatorV2, type EditorPrefill } from '@/components/next-meetup-indicator-v2';
+import { ChatActionsSheet } from '@/components/chat-actions-sheet';
 import { PlanBoardCard } from '@/components/plan-board-card';
 import { onChatMessageSent } from '@/components/stem-message-box';
 import { PlanInviteBubble, usePlanInvites } from '@/components/plan-invite';
@@ -29,8 +30,6 @@ import { getHeldCard, holdCard, releaseCard, type HeldCard } from '@/lib/held-ca
 import { ReportModal } from '@/components/report-modal';
 import { UniversalTextBox } from '@/components/universal-text-box';
 import { EndedConnectionVideoLink } from '@/components/video-guidance-card';
-import { fetchConnectionCareStyle } from '@/lib/care-style';
-import { fetchConnectedFriendshipAnswers } from '@/lib/friendship-experience';
 import { fetchCuriosityNotes } from '@/lib/stories';
 import {
   FriendlyError,
@@ -166,18 +165,7 @@ export default function ThreadScreen() {
   const [planBoardKey, setPlanBoardKey] = useState(0);
   const [planBoardOpenRequest, setPlanBoardOpenRequest] = useState(0);
   const [planNotice, setPlanNotice] = useState<string | null>(null);
-  const [otherCareStyle, setOtherCareStyle] = useState<string | null>(null);
-  const [otherSharedAnswers, setOtherSharedAnswers] = useState(false);
-  useEffect(() => {
-    if (!connectionId) return;
-    let cancelled = false;
-    fetchConnectionCareStyle(connectionId).then((t) => {
-      if (!cancelled) setOtherCareStyle(t);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [connectionId]);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
   // 20260818000000: the standalone Honest Exit entry point, reachable
@@ -195,8 +183,6 @@ export default function ThreadScreen() {
   useEffect(() => {
     if (!otherId) return;
     fetchCuriosityNotes(otherId).then((notes) => setMyNoteAboutThem(notes[0]?.note ?? null)).catch(() => undefined);
-    // Whether they shared how they approach new friendships (link in the header).
-    fetchConnectedFriendshipAnswers(otherId).then((a) => setOtherSharedAnswers(!!a)).catch(() => undefined);
   }, [otherId]);
   // Ambiguous-state fix: whether the CURRENT VIEWER is the one who
   // blocked the other participant, as opposed to the one who was
@@ -812,24 +798,26 @@ export default function ThreadScreen() {
                 initiative, deliberately NOT shown once the connection is
                 already blocked/inactive/ended, ending an already-ended
                 connection has nothing left to do. */}
-            <View className="flex-row gap-4">
-              {!conversationEnded && connectionStatus !== 'paused' && messages.length > 0 && (
-                <Pressable onPress={() => setPauseModalVisible(true)}>
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">Pause</Text>
-                </Pressable>
-              )}
-              {!conversationEnded && (
-                <Pressable onPress={() => setEndConnectionVisible(true)}>
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">End</Text>
-                </Pressable>
-              )}
-              <Pressable onPress={() => setReportModalVisible(true)}>
-                <Text className="text-caption text-stone-500 dark:text-stone-400">Report</Text>
-              </Pressable>
-              <Pressable onPress={() => setBlockConfirmVisible(true)}>
-                <Text className="text-caption font-semibold text-red-600 dark:text-red-400">Block</Text>
-              </Pressable>
-            </View>
+            {/* 2026-10-23 (founder): Pause, End, Report and Block sit in one
+                menu, so the top of the chat stays calm. */}
+            <Pressable
+              onPress={() => setActionsOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Chat options: Pause, End, Report, Block"
+              hitSlop={10}
+              className="px-1">
+              <Text className="text-title font-semibold text-stone-500 dark:text-stone-400">⋯</Text>
+            </Pressable>
+            <ChatActionsSheet
+              visible={actionsOpen}
+              onClose={() => setActionsOpen(false)}
+              canPause={!conversationEnded && connectionStatus !== 'paused' && messages.length > 0}
+              canEnd={!conversationEnded}
+              onPause={() => setPauseModalVisible(true)}
+              onEnd={() => setEndConnectionVisible(true)}
+              onReport={() => setReportModalVisible(true)}
+              onBlock={() => setBlockConfirmVisible(true)}
+            />
           </View>
           {/* F16 update: tapping the name or the rest of the header opens
               the same full-profile screen Discovery and Browse use
@@ -842,7 +830,7 @@ export default function ThreadScreen() {
             onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
             disabled={!otherId}>
             <Text className="text-title text-stone-900 dark:text-stone-50">
-              {other?.display_name ?? 'A member'}
+              {other?.display_name ?? 'A member'} <Text className="text-body text-stone-400 dark:text-stone-500">›</Text>
             </Text>
             {/* S1 (Part 1) subsumes the permanent response-time header
                 for the sender during its own 24-hour window ("X typically
@@ -860,21 +848,8 @@ export default function ThreadScreen() {
                 {statusLine}
               </Text>
             )}
-            {/* 2026-10-12: their own "How I like care" words sit here, under
-                how often they reply, instead of inside Reflect first.
-                Shown only to people they're connected with. */}
-            {otherCareStyle && (
-              <Text numberOfLines={2} className="text-caption text-stone-500 dark:text-stone-400">
-                How {(other?.display_name ?? 'they').split(' ')[0]} likes care: “{otherCareStyle}”
-              </Text>
-            )}
-            {/* 2026-10-22: shown only when they chose to share; opens their
-                profile, where the answers are. */}
-            {otherSharedAnswers && (
-              <Text className="text-caption font-semibold text-accent-500">
-                How {(other?.display_name ?? 'they').split(' ')[0]} approaches new friendships
-              </Text>
-            )}
+            {/* 2026-10-23: their care words and shared friendship answers
+                moved to the top of their profile (tap the name). */}
           </Pressable>
           {rhythmNoteText && (
             <View className="mt-1 flex-row items-start gap-2">
@@ -1079,7 +1054,7 @@ export default function ThreadScreen() {
               <CoachMark
                 markKey="chat_actions"
                 title="This chat"
-                text="The words at the top are always here for you. Pause takes a short break, with a note so they aren't left guessing. End closes the chat honestly. Report tells the Limen team privately if something felt wrong. Block stops all contact right away."
+                text="The ⋯ at the top is always here for you. Pause takes a short break, with a note so they aren't left guessing. End closes the chat honestly. Report tells the Limen team privately if something felt wrong. Block stops all contact right away. Tap their name to see their profile, including how they like care."
               />
               <CoachMark
                 markKey="chat_bars"
@@ -1184,6 +1159,10 @@ export default function ThreadScreen() {
                 onSent={() => {
                   reloadPlanInvites();
                   reloadMessages();
+                }}
+                onMeetupAdded={() => {
+                  setPlanRefreshKey((k) => k + 1);
+                  loadNewSystemIntervention();
                 }}
               />
             )}
@@ -1401,26 +1380,23 @@ export default function ThreadScreen() {
               link, matching "buttons below the text field, single row"
               literally for the app's primary message-composition
               surface. */}
+          {/* One line under the box (2026-10-18, merged with Reflect first
+              2026-10-23). For your first few messages it's a short tip for
+              that stage, then it settles on "Not sure what they meant?".
+              "More tips" opens the Reflect first tips. The app doesn't
+              interpret the other person; the person asks them. */}
           <UniversalTextBox
             value={draft}
             onChangeText={setDraft}
             context="reply"
             otherName={other?.display_name ?? null}
+            tipLine={(() => {
+              const mine = messages.filter((m) => m.sender_id === myId).length;
+              if (messages.length === 0 || mine < 2) return 'Asking one question back keeps things going.';
+              if (mine < 5) return "A follow-up question, like 'how did that go?', helps people feel heard.";
+              return 'Not sure what they meant? Ask them. Only they know.';
+            })()}
           />
-          {/* One line under the box (2026-10-18). For your first few
-              messages it's a short tip for that stage, then it settles on
-              "Not sure what they meant?" for good. Never two lines. The app
-              doesn't interpret the other person; the person asks them. */}
-          {messages.length > 0 && (
-            <Text className="text-caption text-stone-500 dark:text-stone-400">
-              {(() => {
-                const mine = messages.filter((m) => m.sender_id === myId).length;
-                if (mine < 2) return 'Asking one question back keeps things going.';
-                if (mine < 5) return "A follow-up question, like 'how did that go?', helps people feel heard.";
-                return 'Not sure what they meant? Ask them. Only they know.';
-              })()}
-            </Text>
-          )}
         </>
         )}
         </View>

@@ -8,6 +8,7 @@ import { CoachMark } from '@/components/coach-mark';
 import { BlockConfirmModal } from '@/components/block-confirm-modal';
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
 import { SharedFriendshipAnswers } from '@/components/shared-friendship-answers';
+import { fetchConnectionCareStyle } from '@/lib/care-style';
 import { fetchConnectedFriendshipAnswers, type FriendshipExperience } from '@/lib/friendship-experience';
 import { ReportModal } from '@/components/report-modal';
 import { CAPACITY_ERROR_MESSAGES, reinitiateEndedConnection } from '@/lib/connections';
@@ -54,6 +55,8 @@ export default function CandidateProfileScreen() {
   // Their shared "How you connect" answers: only when you have a chat with
   // them and they chose to share (the server checks both).
   const [sharedAnswers, setSharedAnswers] = useState<FriendshipExperience | null>(null);
+  // Their "How I like care" words: only for people they have a chat with.
+  const [careStyle, setCareStyle] = useState<string | null>(null);
   // A past chat that ended or closed (2026-10-09). The old "Interested"
   // choices are still on file, so the button showed "Interested" as already
   // done and nothing could be tapped. It now offers "Say hello again".
@@ -106,6 +109,8 @@ export default function CandidateProfileScreen() {
 
       if ((anyConnections ?? []).length > 0) fetchConnectedFriendshipAnswers(id).then(setSharedAnswers);
       const live = (anyConnections ?? []).find((c) => LIVE_STATUSES.has(c.status as string | null));
+      const anyChat = (anyConnections ?? []).find((c) => c.status);
+      if (anyChat) fetchConnectionCareStyle(anyChat.id as string).then(setCareStyle);
       setPastChat(!live && (anyConnections ?? []).some((c) => c.status === 'ended' || c.status === 'inactive'));
       if (live) {
         const [{ count }, mutual] = await Promise.all([
@@ -269,10 +274,21 @@ export default function CandidateProfileScreen() {
             title="Notice something?"
             text="See something you'd like to ask about? Tap Note it privately and write it down. Only you see it, and it'll be there when you start chatting."
           />
-          <PublicProfileView profile={profile} />
+          {/* 2026-10-23: for people you have a chat with, how they like care
+              and how they approach new friendships come first (they used to
+              sit in the chat header). The server only returns them then. */}
+          {careStyle && (
+            <View className="gap-1 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-title text-stone-900 dark:text-stone-50">
+                How {(profile.display_name ?? 'they').split(' ')[0]} likes care
+              </Text>
+              <Text className="text-body text-stone-700 dark:text-stone-300">“{careStyle}”</Text>
+            </View>
+          )}
           {sharedAnswers && (
             <SharedFriendshipAnswers answers={sharedAnswers} name={(profile.display_name ?? 'They').split(' ')[0]} />
           )}
+          <PublicProfileView profile={profile} />
         </ScrollView>
 
         <View className="gap-2 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-4 dark:border-stone-800 dark:bg-stone-900">

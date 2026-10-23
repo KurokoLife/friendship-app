@@ -543,53 +543,30 @@ export function NextMeetupIndicatorV2({
       : waiting.other_said_yes
         ? `${otherName} said you two met on ${waitingDate}. It counts once you say yes too, or after a week.`
         : null;
+  // 2026-10-23 (founder): one way to plan. With no plan, the bar only shows a
+  // meetup waiting to be counted, or how many times you've met (with the
+  // meeting pace and history). "Plan a meetup" is gone from here: planning
+  // starts with "Let's plan something", and "Met up already? Add it" lives in
+  // that window. The editor below still opens from an invite ("Pick a time
+  // that works", "Set the plan").
   if (!plan) {
-    if (!expanded && panel === 'none' && !savedNotice) {
+    if (!waitingLine && meetupCount === 0 && !savedNotice) return null;
+    const metLine = `Met ${meetupCount} ${meetupCount === 1 ? 'time' : 'times'}`;
+    if (!expanded && !savedNotice) {
       return bar(
-        waitingLine ??
-          (meetupCount > 0 ? `No meetup planned yet · Met ${meetupCount} ${meetupCount === 1 ? 'time' : 'times'}` : 'No meetup planned yet'),
+        waitingLine ?? metLine,
         null,
-        <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => openEditor('new')} hitSlop={6}>
-            <Text className="text-caption font-semibold text-accent-500">Plan a meetup</Text>
-          </Pressable>
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">More</Text>
-        </View>
+        <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">More</Text>
       );
     }
     return (
       <View className="mx-6 mt-3 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
         <View className="flex-row items-center justify-between gap-2">
-          <Text className="text-caption text-stone-400 dark:text-stone-500">No meetup planned yet</Text>
-          <View className="flex-row items-center gap-4">
-            <Pressable onPress={() => openEditor('new')}>
-              <Text className="text-caption font-semibold text-accent-500">Plan a meetup</Text>
-            </Pressable>
-            {hideLink}
-          </View>
+          <Text className="flex-1 text-caption text-stone-600 dark:text-stone-300">{savedNotice ?? waitingLine ?? metLine}</Text>
+          {hideLink}
         </View>
-        {savedNotice && <Text className="text-caption text-stone-600 dark:text-stone-300">{savedNotice}</Text>}
-        {waitingLine && !savedNotice && (
+        {savedNotice && waitingLine && (
           <Text className="text-caption text-stone-600 dark:text-stone-300">{waitingLine}</Text>
-        )}
-        {waiting?.added && waiting.i_said_yes ? null : panel === 'log' ? (
-          <View className="border-t border-stone-200 pt-3 dark:border-stone-700">
-            <LogMeetupForm
-              connectionId={connectionId}
-              otherName={otherName}
-              onCancel={() => setPanel('none')}
-              onDone={async () => {
-                setPanel('none');
-                setSavedNotice(`Added. ${otherName} will be asked to confirm.`);
-                await load();
-                onChanged();
-              }}
-            />
-          </View>
-        ) : (
-          <Pressable onPress={() => setPanel('log')} className="self-start">
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Met up already? Add it</Text>
-          </Pressable>
         )}
         {paceLine}
         {historyLink}

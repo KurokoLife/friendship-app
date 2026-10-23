@@ -87,6 +87,12 @@ export async function addCuriosityNote(subjectUserId: string, note: string, stor
   return !error;
 }
 
+// 2026-10-23: editable from the Notes tab in "What I want to remember".
+export async function updateCuriosityNote(id: string, note: string): Promise<boolean> {
+  const { error } = await supabase.from('curiosity_notes').update({ note: note.trim().slice(0, 300) }).eq('id', id);
+  return !error;
+}
+
 export async function deleteCuriosityNote(id: string): Promise<void> {
   await supabase.from('curiosity_notes').delete().eq('id', id);
 }
