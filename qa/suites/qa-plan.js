@@ -32,6 +32,7 @@ function nextDow(dow, from = 1) {
   const seedAll = (await q(`select id from users where _is_seed_account(id)`)).map((r) => r.id);
   await q(`delete from connections where user_a_id = any($1) or user_b_id = any($1)`, [seedAll]);
   await q(`delete from plan_prefs where user_id = any($1)`, [seedAll]);
+  await q(`delete from prompt_settings where user_id = any($1)`, [seedAll]);
   await q(`insert into coach_marks_seen (user_id, mark_key) select u, k from unnest($1::uuid[]) u, unnest(array['tab_discover','tab_saved','tab_inbox','tab_remember','tab_profile','no_ghost_prompt','meetup_checkin','credits_premium','video_first_meetup']) k on conflict do nothing`, [seedAll]).catch(() => {});
   await q(`update profiles set availability = array['Weekends'] where user_id = $1`, [U.david]);
   await q(`update profiles set availability = array['Weekday evenings'] where user_id = $1`, [U.maria]);
