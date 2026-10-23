@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
-import { EXPERIENCE_QUESTIONS, type FriendshipExperience } from '@/lib/friendship-experience';
+import { EXPERIENCE_QUESTIONS, normalizeExperience, type FriendshipExperience } from '@/lib/friendship-experience';
 import { loadProfileName } from '@/lib/names';
 import { completionPct, type CompletionInput } from '@/lib/profile-completion';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -249,8 +249,7 @@ export default function ProfileScreen() {
               </View>
               {profile.friendship_experience ? (
                 EXPERIENCE_QUESTIONS.map((q) => {
-                  const a = profile.friendship_experience?.[q.key];
-                  const answer = Array.isArray(a) ? a.join(', ') : a;
+                  const answer = normalizeExperience(profile.friendship_experience)[q.key].join(', ');
                   return (
                     <View key={q.key} className="gap-0.5">
                       <Text className="text-caption text-stone-400 dark:text-stone-400">{q.prompt}</Text>

@@ -75,7 +75,44 @@ export const BAR_CHOICES: { value: string; label: string }[] = [
   { value: "I don't drink", label: "I don't drink" },
 ];
 
-const INTEREST_NOTE_PLACEHOLDER = 'In your own words (optional), like "mostly talking to my tomatoes"';
+// One example line per interest (2026-10-22), shown in light grey inside
+// the optional "in your own words" box, so it fits the interest it sits under.
+const INTEREST_NOTE_EXAMPLES: Record<string, string> = {
+  movies: "I'll watch anything with subtitles",
+  music: 'Always looking for a good live show',
+  food: 'On a mission to find the best tacos in town',
+  sports: 'Big basketball fan, mostly from the couch',
+  fitness: 'Trying to make the gym a habit',
+  travel: 'Slowly working my way through the national parks',
+  museums_galleries: 'I could happily spend a whole day in one',
+  games: 'Board game nights are my favorite kind of night',
+  outdoors: 'Happiest on a trail early in the morning',
+  reading_podcasts: 'Always halfway through three books',
+  cooking_grilling: 'I cook too much and love sharing it',
+  volunteering_causes: 'I help at an animal shelter on weekends',
+  drinks_nightlife: 'A quiet spot with good music is my kind of night',
+  pets: 'My dog runs the house',
+  technology: 'I like taking things apart to see how they work',
+  fashion: 'Thrift stores are my treasure hunts',
+  photography: 'Mostly street photos on my phone',
+  dancing: 'Two left feet, and I love it anyway',
+  yoga_wellness: 'Trying to stick with a morning stretch',
+  running_cycling: 'Slow and steady, training for my first 10K',
+  tennis_pickleball: 'New to pickleball and a little hooked',
+  golf: 'I spend more time looking for the ball than playing',
+  martial_arts: 'Back on the mat after years away',
+  coffee_culture: 'I know every cafe within a mile of home',
+  writing_journaling: 'I journal most mornings with my coffee',
+  crafts: 'Learning to knit, one crooked scarf at a time',
+  collecting: 'Old records, mostly from yard sales',
+  live_shows: 'Stand-up comedy is my favorite night out',
+  learning_growth: 'Taking a Spanish class just for fun',
+  spirituality_faith: 'Faith is a big part of my week',
+  gardening_plants: 'Mostly talking to my tomatoes',
+  entrepreneurship: 'Building a small business on the side',
+};
+const interestNotePlaceholder = (key: string) =>
+  `Optional. Like "${INTEREST_NOTE_EXAMPLES[key] ?? 'what it means to you, in a few words'}"`;
 
 // "Good to know about me" (replaces "Hard nos", stored in dealbreakers):
 // a different grey example each visit.
@@ -479,7 +516,8 @@ export default function ProfileBuildScreen() {
           searchRadiusMiles: data.search_radius_miles ?? DEFAULT_SEARCH_RADIUS_MILES,
           ethnicity: data.ethnicity ?? [],
           ethnicityOther: data.ethnicity_other ?? '',
-          languages: data.languages ?? [],
+          // 2026-10-22: English starts selected; people can deselect it.
+          languages: data.languages?.length ? data.languages : ['English'],
           languagesOther: data.languages_other ?? '',
           friendshipType: data.friendship_type,
           friendshipTypes:
@@ -523,7 +561,7 @@ export default function ProfileBuildScreen() {
   const stepMissingFields = getMissingRequiredFieldsForStep(profile, isPhotoStep ? STEP_PHOTO : ONBOARDING_STEPS[step]);
   const canAdvanceStep = stepMissingFields.length === 0 && isSupabaseConfigured;
 
-  const handleStepNext = () => {
+  const handleStepNext = async () => {
     if (!canAdvanceStep) {
       setAttemptedContinue(true);
       return;
@@ -534,6 +572,8 @@ export default function ProfileBuildScreen() {
       return;
     }
     if (isLastStep) {
+      // Saves the preselected English even if nobody touched the chips.
+      await persist(profile);
       router.replace('/gender-identity');
       return;
     }
@@ -1113,7 +1153,7 @@ export default function ProfileBuildScreen() {
                   }))
                 }
                 onBlur={() => persist(profile)}
-                placeholder={INTEREST_NOTE_PLACEHOLDER}
+                placeholder={interestNotePlaceholder(category.key)}
                 placeholderTextColor={MUTED_ICON_COLOR}
                 accessibilityLabel={`${category.label} in your own words`}
                 className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-50"

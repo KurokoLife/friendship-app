@@ -69,6 +69,9 @@ export default function ProfileReviewScreen() {
       <SafeAreaView className="flex-1">
         {onboarding ? (
           <View className="gap-2 px-6 pt-10">
+            <Pressable onPress={() => router.replace('/readiness-commitment')} className="self-start">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            </Pressable>
             <Text className="text-display text-stone-900 dark:text-stone-50">Here&apos;s what people will see</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
               Your words, the way you wrote them. You can change anything now or later.

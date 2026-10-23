@@ -15,16 +15,19 @@ import { supabase } from '@/lib/supabase';
 // block signal, never turned into a score or a label, unchanged
 // throughout every version of this feature's own trigger.
 
-export type ExperienceMultiKey = 'growthFactors' | 'lostMomentumReasons';
-export type ExperienceSingleKey =
+// 2026-10-22: every question takes any number of answers. They used to be
+// "pick the one most likely", but people often think more than one thing,
+// and since the answers are private and never scored, there is no reason
+// to make them choose.
+export type ExperienceKey =
+  | 'growthFactors'
+  | 'lostMomentumReasons'
   | 'awkwardnessInterpretation'
   | 'slowReplyThought'
   | 'afterPositiveMeetupBehavior'
   | 'hardestCurrentStep';
 
-export type ExperienceQuestion =
-  | { key: ExperienceMultiKey; type: 'multi'; prompt: string; options: string[] }
-  | { key: ExperienceSingleKey; type: 'single'; prompt: string; options: string[] };
+export type ExperienceQuestion = { key: ExperienceKey; prompt: string; options: string[] };
 
 // Mirrors supabase/functions/generate-personality-narrative's own
 // EXPERIENCE_PROMPTS/EXPERIENCE_OPTIONS exactly (that Deno function
@@ -33,7 +36,6 @@ export type ExperienceQuestion =
 export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
   {
     key: 'growthFactors',
-    type: 'multi',
     prompt: 'Think about a friendship that grew well. What helped it grow?',
     options: [
       'We saw each other regularly',
@@ -47,7 +49,6 @@ export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
   },
   {
     key: 'lostMomentumReasons',
-    type: 'multi',
     prompt: 'When a promising new connection faded, what usually happened?',
     options: [
       'The conversation became one-sided',
@@ -62,8 +63,7 @@ export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
   },
   {
     key: 'awkwardnessInterpretation',
-    type: 'single',
-    prompt: 'When a first conversation or meetup feels awkward, what are you most likely to think?',
+    prompt: 'When a first conversation or meetup feels awkward, what goes through your mind?',
     options: [
       'We probably do not click',
       'I probably said something wrong',
@@ -76,7 +76,6 @@ export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
   // 2026-10-18: replaces the old "When a friend cancels last minute" question.
   {
     key: 'slowReplyThought',
-    type: 'single',
     prompt: 'When someone takes a while to reply, I usually think...',
     options: [
       "They're probably just busy",
@@ -88,8 +87,7 @@ export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
   },
   {
     key: 'afterPositiveMeetupBehavior',
-    type: 'single',
-    prompt: 'After a good first meetup, what are you most likely to do?',
+    prompt: 'After a good first meetup, what do you usually do?',
     options: [
       'Reach out soon',
       'Want to reach out, but wait',
@@ -100,8 +98,7 @@ export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
   },
   {
     key: 'hardestCurrentStep',
-    type: 'single',
-    prompt: 'Which part of building a new friendship feels hardest right now?',
+    prompt: 'Which parts of building a new friendship feel hardest right now?',
     options: [
       'Starting the conversation',
       'Suggesting a meetup',
@@ -115,28 +112,31 @@ export const EXPERIENCE_QUESTIONS: ExperienceQuestion[] = [
   },
 ];
 
-export type FriendshipExperience = {
-  growthFactors: string[];
-  lostMomentumReasons: string[];
-  awkwardnessInterpretation: string | null;
-  slowReplyThought: string | null;
-  afterPositiveMeetupBehavior: string | null;
-  hardestCurrentStep: string | null;
-};
+export type FriendshipExperience = Record<ExperienceKey, string[]>;
 
 export const EMPTY_EXPERIENCE: FriendshipExperience = {
   growthFactors: [],
   lostMomentumReasons: [],
-  awkwardnessInterpretation: null,
-  slowReplyThought: null,
-  afterPositiveMeetupBehavior: null,
-  hardestCurrentStep: null,
+  awkwardnessInterpretation: [],
+  slowReplyThought: [],
+  afterPositiveMeetupBehavior: [],
+  hardestCurrentStep: [],
 };
 
+// Older answers saved one choice as a plain string; read them as a list.
+export function normalizeExperience(stored: unknown): FriendshipExperience {
+  const out: FriendshipExperience = { ...EMPTY_EXPERIENCE };
+  if (!stored || typeof stored !== 'object') return out;
+  const obj = stored as Record<string, unknown>;
+  for (const q of EXPERIENCE_QUESTIONS) {
+    const v = obj[q.key];
+    out[q.key] = Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' && v ? [v] : [];
+  }
+  return out;
+}
+
 export function allExperienceAnswered(experience: FriendshipExperience): boolean {
-  return EXPERIENCE_QUESTIONS.every((q) =>
-    q.type === 'multi' ? experience[q.key].length > 0 : experience[q.key] !== null
-  );
+  return EXPERIENCE_QUESTIONS.every((q) => experience[q.key].length > 0);
 }
 
 // Shown in place of a real "what has helped" / "when uncertain" section

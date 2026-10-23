@@ -25,12 +25,13 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   // Intro, two screens (2026-10-18)
   check('intro screen 1: making friends as an adult is hard', /Making friends as an adult is hard/.test(await t()));
   check('intro has side margins', (await margin("Making friends as an adult is hard. It's not just you.")) >= 16);
-  await tap('Continue', true, 1200);
-  check('intro screen 2 keeps the liking-gap line', /underestimate how much the other person liked them/.test(await t()));
-  check('intro screen 2 leads to joining', /Join Limen/.test(await t()));
+  // 2026-10-22: one intro screen (was two).
+  check('one intro screen keeps the liking-gap line', /underestimate how much the other person liked them/.test(await t()) && /No swiping/.test(await t()));
+  check('intro leads straight to joining', /Join Limen/.test(await t()) && /Already a member\? Sign in/.test(await t()));
   await tap('Join Limen', true, 2000);
   // 2026-10-19: sign-up comes first (phone and code), then Basics, then Start with you.
   check('sign-up comes right after the intro', /What's your number\?/.test(await t()));
+  check('phone screen has Back', (await page.getByText('Back', { exact: true }).filter({ visible: true }).count()) > 0);
   check('phone screen has side margins', (await margin("What's your number?")) >= 16);
   await page.getByPlaceholder('Phone number').fill(PHONE);
   await tap('Send code', true, 2000);
@@ -75,6 +76,7 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('then: what you enjoy (no Step N of 10)', /What you enjoy/.test(await t()) && !/Step \d+ of/.test(await t()));
   check('no "Required" labels', !/\bRequired\b/.test(await t()));
   await tap('Coffee culture', true, 600);
+  check('each interest has its own example line', (await page.getByPlaceholder('Optional. Like "I know every cafe within a mile of home"').count()) > 0 && (await page.getByPlaceholder('talking to my tomatoes', { exact: false }).count()) === 0);
   await page.getByLabel('Coffee culture in your own words').fill('A new cafe every Saturday');
   await page.getByLabel('Coffee culture in your own words').blur();
   await tap('Continue', true, 1500);
@@ -90,8 +92,10 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   await tap("I'd rather not", true, 400);
   await tap('Continue', true, 1500);
   check('languages step', /Languages I am comfortable connecting in/.test(await t()));
+  await tap('English', true, 400);
   await tap('Continue', true, 1000);
-  check('a language is needed to continue', /At least one language/.test(await t()));
+  // English starts selected, so tapping it once deselects it.
+  check('English starts selected (tapping it deselects, then a language is needed)', /At least one language/.test(await t()));
   await tap('English', true, 400); await tap('Continue', true, 2500);
   // Who you'd like to meet comes after the practical bits
   check('gender screen has side margins', (await margin("What's your gender?")) >= 16);
@@ -100,8 +104,12 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   // How you connect: six questions, no summary
   const hyc = await t();
   check('How you connect: six friendship questions', /How you connect/.test(hyc) && /When someone takes a while to reply, I usually think/.test(hyc) && !/After a full day of social plans/.test(hyc));
+  check('every How you connect question takes several answers', ((await t()).match(/Choose any that fit/g) || []).length === 6);
+  await tap('It depends', false, 200);
   for (const a of ['We saw each other regularly', 'We talked but never made plans', 'We may both just need more time', "They're probably just busy", 'Want to reach out, but wait', 'Suggesting a meetup']) await tap(a, true, 250);
   await tap('Continue', true, 3000);
+  const exp = (await q("select p.friendship_experience e from profiles p join auth.users a on a.id = p.user_id where a.phone = $1", ['+1' + PHONE]))[0]?.e || {};
+  check('several answers are saved for one question', Array.isArray(exp.afterPositiveMeetupBehavior) && exp.afterPositiveMeetupBehavior.length === 2, JSON.stringify(exp).slice(0, 200));
   check('no summary screen; photo comes next', /A photo of you/.test(await t()) && !/A little about how you connect/.test(await t()));
   const [fc] = await Promise.all([page.waitForEvent('filechooser', { timeout: 8000 }), tap('Add a photo', true, 300)]);
   await fc.setFiles(require('path').join(__dirname, '..', '.local', 'face.jpg'));
@@ -110,7 +118,9 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   // Ground rules instead of the videos
   check('ground rules screen replaces the videos', /Before you start/.test(await t()) && !/Begin With Curiosity/.test(await t()));
   check('readiness screen has side margins', (await margin('Before you start')) >= 16);
-  await tap("Yes, I'm ready", true, 3500);
+  check('Before you start reads warmly', /Everyone here agrees to the same few things/.test(await t()) && /Friendship only/.test(await t()) && /Honest is kinder than quiet/.test(await t()));
+  await tap('Sounds good', true, 3500);
+  check('preview has Back', (await page.getByText('Back', { exact: true }).filter({ visible: true }).count()) > 0);
   check("preview: here's what people will see", /Here's what people will see/.test(await t()) && /old friends moved away/.test(await t()));
   check('preview shows the story but not the guide', /power went out on our street/.test(await t()) && !/A day you remember well/.test(await t()));
   check('preview shows the own line for an interest', /A new cafe every Saturday/.test(await t()));

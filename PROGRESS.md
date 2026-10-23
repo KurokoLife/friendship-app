@@ -240,3 +240,8 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Founder asked about desktop use and why sign-up isn't first like other apps. Agreed: with sign-up first, Start with you saves to the account, so it can be finished on a computer.
 - New order: intro → phone and code → Basics → Start with you → ... → preview → Keep your account safe (recovery) → All set. Resume while joining goes to Basics / Start with you / builder.
 - No database update. `qa-onboard` 64/64, qa-profile, qa-discover, qa-pending pass.
+
+
+## 2026-10-22: Joining polish
+
+- Founder tested joining: one intro screen, per-interest examples, English preselected, How you connect multi-answer, warmer Before you start, Back on every joining screen. No database update. qa-onboard 70/70, qa-profile 22/22.

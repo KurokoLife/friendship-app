@@ -11,7 +11,10 @@ export default function ModulesCompleteScreen() {
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
-        <View className="gap-4 pt-16">
+        <View className="gap-4">
+          <Pressable onPress={() => router.replace('/account-recovery')} className="self-start">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          </Pressable>
           <Text className="text-display text-stone-900 dark:text-stone-50">You&apos;re all set</Text>
           <Text className="text-body text-stone-600 dark:text-stone-300">
             You&apos;ll meet one new person each day in Discover, so take your time with each one.

@@ -7,8 +7,8 @@ import {
   allExperienceAnswered,
   EMPTY_EXPERIENCE,
   EXPERIENCE_QUESTIONS,
-  type ExperienceMultiKey,
-  type ExperienceSingleKey,
+  normalizeExperience,
+  type ExperienceKey,
   type FriendshipExperience,
 } from '@/lib/friendship-experience';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -56,24 +56,20 @@ export default function HowYouConnectScreen() {
       } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase.from('profiles').select('friendship_experience').eq('user_id', user.id).maybeSingle();
-        const stored = data?.friendship_experience as Partial<FriendshipExperience> | null;
-        if (stored) setExperience({ ...EMPTY_EXPERIENCE, ...stored });
+        if (data?.friendship_experience) setExperience(normalizeExperience(data.friendship_experience));
       }
       setLoaded(true);
     })();
   }, []);
 
-  const answered = EXPERIENCE_QUESTIONS.filter((q) =>
-    q.type === 'multi' ? experience[q.key].length > 0 : experience[q.key] !== null
-  ).length;
+  const answered = EXPERIENCE_QUESTIONS.filter((q) => experience[q.key].length > 0).length;
   const allAnswered = allExperienceAnswered(experience);
 
-  const toggleMulti = (key: ExperienceMultiKey, option: string) =>
+  const toggleMulti = (key: ExperienceKey, option: string) =>
     setExperience((prev) => {
       const current = prev[key];
       return { ...prev, [key]: current.includes(option) ? current.filter((o) => o !== option) : [...current, option] };
     });
-  const setSingle = (key: ExperienceSingleKey, option: string) => setExperience((prev) => ({ ...prev, [key]: option }));
 
   const onContinue = async () => {
     if (!allAnswered) return;
@@ -127,27 +123,16 @@ export default function HowYouConnectScreen() {
               key={question.key}
               className="gap-3 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
               <Text className="text-title text-stone-900 dark:text-stone-50">{question.prompt}</Text>
-              {question.type === 'multi' && (
-                <Text className="text-caption text-stone-500 dark:text-stone-400">Choose any that fit</Text>
-              )}
+              <Text className="text-caption text-stone-500 dark:text-stone-400">Choose any that fit</Text>
               <View className="gap-2">
-                {question.options.map((option) =>
-                  question.type === 'multi' ? (
-                    <OptionRow
-                      key={option}
-                      label={option}
-                      selected={experience[question.key].includes(option)}
-                      onPress={() => toggleMulti(question.key, option)}
-                    />
-                  ) : (
-                    <OptionRow
-                      key={option}
-                      label={option}
-                      selected={experience[question.key] === option}
-                      onPress={() => setSingle(question.key, option)}
-                    />
-                  )
-                )}
+                {question.options.map((option) => (
+                  <OptionRow
+                    key={option}
+                    label={option}
+                    selected={experience[question.key].includes(option)}
+                    onPress={() => toggleMulti(question.key, option)}
+                  />
+                ))}
               </View>
             </View>
           ))}

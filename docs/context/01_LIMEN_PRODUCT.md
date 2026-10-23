@@ -31,16 +31,16 @@ Working rules that follow from these:
 ## 3. Joining (onboarding)
 
 Since Oct 18, joining starts with the person (proposal doc "Limen: Joining and profile proposal"). Since Oct 19, sign-up comes right after the intro (like most apps), so writing is saved to the account and follows the person to any device:
-1. Intro, two screens: "Making friends as an adult is hard. It's not just you." then "Meeting people is only the beginning." (the liking-gap line, one person at a time, no swiping, no perfect profile). "Already a member? Sign in" on the first screen.
+1. Intro, one screen (since Oct 22): "Making friends as an adult is hard. It's not just you.", the liking-gap line, one person at a time, no swiping, no perfect profile. "Join Limen" and "Already a member? Sign in".
 2. Phone number and code (sign-up).
 3. Basics (name, birthdate). Under 18 is turned away here, before anything else (the database refuses it too).
 4. Start with you: "What brings you to Limen?" (open box) and "Share a story so people can get to know you" (up to 3 stories; 5 optional guides to start from, never shown to readers). Saved to the account as the person writes, so they can start on the phone and finish on a computer. Someone who leaves comes back here, with what they wrote filled in.
-5. What you enjoy: interests, each with an optional line in your own words.
-6. Practical bits: where you're based; friendship type, meeting pace, reply pace, free times; bars or drinks (Fine with me / I'd rather not / I don't drink); Good to know about me; how I like care; languages (at least one). Then who you'd like to meet and ages.
-7. How you connect: 6 private questions about friendship habits (answers show only on your own Profile, "You as a friend"; no summary, never used for matching).
-8. Photo. 9. Before you start (friendship only, honest endings, public places at first, the quiet-chat rule). 10. "Here's what people will see" preview. 11. Keep your account safe (account recovery, optional; moved here from after Basics). 12. All set, with the selfie check offer.
+5. What you enjoy: interests, each with an optional line in your own words (each interest shows its own example line).
+6. Practical bits: where you're based; friendship type, meeting pace, reply pace, free times; bars or drinks (Fine with me / I'd rather not / I don't drink); Good to know about me; how I like care; languages (at least one; English starts selected). Then who you'd like to meet and ages.
+7. How you connect: 6 private questions about friendship habits, any number of answers each (answers show only on your own Profile, "You as a friend"; no summary, never used for matching).
+8. Photo. 9. Before you start: "Everyone here agrees to the same few things": Friendship only / Honest is kinder than quiet / Meet somewhere public first / Reply when you can (the quiet-chat rule), then "Sounds good". 10. "Here's what people will see" preview. 11. Keep your account safe (account recovery, optional; moved here from after Basics). 12. All set, with the selfie check offer.
 
-No "Step N of 10", no "Required" labels. The two onboarding videos and quiz were removed from joining (they stay in the Guide).
+No "Step N of 10", no "Required" labels. Every joining screen after the intro has Back. The two onboarding videos and quiz were removed from joining (they stay in the Guide).
 
 ## 4. Profile
 

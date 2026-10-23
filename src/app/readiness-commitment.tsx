@@ -11,6 +11,28 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 
 type Step = 'question' | 'pause-options' | 'paused-confirmation';
 
+// "Before you start" (2026-10-22 wording): the same agreements, in the warm
+// tone of the rest of joining. "Removed" is real (users.suspended_at), and
+// so is the quiet-chat rule (ghosting_events, is_ghosting_penalized).
+const AGREEMENTS: { title: string; text: string }[] = [
+  {
+    title: 'Friendship only',
+    text: 'No dating, no romance, and never asking for money. People who do are removed.',
+  },
+  {
+    title: 'Honest is kinder than quiet',
+    text: "If a chat isn't right for you, a short note is kinder than disappearing. Limen makes that easy.",
+  },
+  {
+    title: 'Meet somewhere public first',
+    text: 'And go with how you feel. You can leave, report or block anytime.',
+  },
+  {
+    title: 'Reply when you can',
+    text: "Everyone takes time to reply. If several of your chats close with no reply at all, you'll show up a little later in suggestions for a while. Nobody is told, and it resets on its own.",
+  },
+];
+
 const PAUSE_OPTIONS: { label: string; days: number }[] = [
   { label: 'Pause for 30 days', days: 30 },
   { label: 'Pause for 60 days', days: 60 },
@@ -166,64 +188,35 @@ export default function ReadinessCommitmentScreen() {
                 Their messages now show as single lines at the moment they
                 matter. "Removal" is real: users.suspended_at. The quiet-chat
                 rule is real too (ghosting_events, is_ghosting_penalized). */}
-            <Text className="text-display text-stone-900 dark:text-stone-50">Before you start</Text>
-            <View className="gap-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-body text-stone-700 dark:text-stone-300">
-                Limen is for friendship only. Romantic advances or asking for money lead to removal.
+            <View className="gap-2">
+              <Text className="text-display text-stone-900 dark:text-stone-50">Before you start</Text>
+              <Text className="text-body text-stone-500 dark:text-stone-400">
+                Everyone here agrees to the same few things, so you know what to expect from each other.
               </Text>
-              <Text className="text-body text-stone-700 dark:text-stone-300">
-                If a chat isn&apos;t right for you, say so. A short honest note is kinder than going quiet.
-              </Text>
-              <Text className="text-body text-stone-700 dark:text-stone-300">
-                Meet in public places at first, and trust how you feel.
-              </Text>
-              <Text className="text-body text-stone-700 dark:text-stone-300">
-                If several chats go quiet until they close, you&apos;re shown a little later in suggestions for a
-                while. Nobody is told, and it resets on its own.
-              </Text>
+            </View>
+            <View className="gap-5 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+              {AGREEMENTS.map((a) => (
+                <View key={a.title} className="gap-1">
+                  <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{a.title}</Text>
+                  <Text className="text-body text-stone-600 dark:text-stone-300">{a.text}</Text>
+                </View>
+              ))}
               <Pressable onPress={() => setExpanded((v) => !v)}>
                 <Text className="text-body font-semibold text-accent-500">
-                  {expanded ? 'Show less' : 'Tell me more'}
+                  {expanded ? 'Show less' : 'More about quiet chats'}
                 </Text>
               </Pressable>
 
               {expanded && (
-                <View className="gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 dark:border-stone-700 dark:bg-stone-900">
-                  <View className="gap-1">
-                    <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
-                      What we track
-                    </Text>
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">
-                      Patterns like whether messages get a timely reply or an honest exit, and
-                      whether meetups you agree to happen or get cancelled without rescheduling,
-                      over time.
-                    </Text>
-                  </View>
-                  <View className="gap-1">
-                    <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
-                      What we don&apos;t track
-                    </Text>
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">
-                      The content of your messages is never scored, read for this purpose, or used
-                      to rank you. None of this ever appears on your profile, as a badge, or as a
-                      score, and it&apos;s never visible to other users.
-                    </Text>
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">
-                      One exception: early messages are checked on the receiver&apos;s phone against a
-                      short list of words linked to scams, such as requests for money, so we can show
-                      the receiver a safety note. Nothing is scored or stored.
-                    </Text>
-                  </View>
-                  <View className="gap-1">
-                    <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
-                      What it affects
-                    </Text>
-                    <Text className="text-caption text-stone-500 dark:text-stone-400">
-                      Only where you appear in new people&apos;s suggestions, and only after a real
-                      pattern (2 or more in 60 days). A single missed reply or an honest exit is
-                      never held against you.
-                    </Text>
-                  </View>
+                <View className="gap-2 rounded-2xl border border-stone-200 bg-stone-50 p-4 dark:border-stone-700 dark:bg-stone-900">
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    Only a chat that closes because you never replied counts, and only when it happens 2 or more
+                    times in 60 days. Ending a chat honestly, pausing, or taking a few days to reply never counts.
+                  </Text>
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    It only changes where you appear in new people&apos;s suggestions for a while. It never shows on
+                    your profile, nobody else sees it, and nobody reads your messages to decide it.
+                  </Text>
                 </View>
               )}
             </View>
@@ -249,7 +242,7 @@ export default function ReadinessCommitmentScreen() {
                 }`}>
                 {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
                 <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
-                  {saving ? 'Saving...' : "Yes, I'm ready"}
+                  {saving ? 'Saving...' : 'Sounds good'}
                 </Text>
               </Pressable>
               <Pressable onPress={() => setStep('pause-options')} disabled={saving}>
