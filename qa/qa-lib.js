@@ -58,6 +58,18 @@ async function openPlan(page) {
     await page.waitForTimeout(800);
   }
 }
+// 2026-10-23: Pause / End / Report / Block live in the ⋯ menu.
+async function chatAction(page, label) {
+  await page.getByLabel(/Chat options/).first().click();
+  await page.waitForTimeout(700);
+  await tap(page, label, { wait: 1200 });
+}
+// 2026-10-23: one way to plan. "Set the plan" (a day already agreed) is
+// inside the Let's plan something window.
+async function setPlanDirect(page) {
+  await tap(page, "Let's plan something", { wait: 3000 });
+  await tap(page, 'Already agreed on something? Set the plan', { wait: 1500 });
+}
 async function q(sql, params = []) { return (await pool.query(sql, params)).rows; }
 async function makeChat(a, b, messages = []) {
   const [c] = await q(`insert into connections (user_a_id, user_b_id, status) values ($1,$2,'active') returning id`, [a, b]);
@@ -73,4 +85,4 @@ async function finish() {
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
   if (failed.length) console.log('FAILED:', failed.map((f) => f.label).join(' | '));
 }
-module.exports = { start, as, text, go, tap, q, makeChat, check, finish, U, openPlan };
+module.exports = { start, as, text, go, tap, q, makeChat, check, finish, U, openPlan, chatAction, setPlanDirect };

@@ -28,10 +28,9 @@ const PHOTON = { features: [
   await m.page.getByText('David C.', { exact: false }).first().click();
   await m.page.waitForTimeout(3000);
   check('Testing: Back is tappable (not covered by banner)', await hitIs(m.page, 'Back'));
-  check('Testing: Report is tappable', await hitIs(m.page, 'Report'));
-  check('Testing: Block is tappable', await hitIs(m.page, 'Block'));
+  check('Testing: the ⋯ menu is tappable (not covered by banner)', await m.page.getByLabel(/Chat options/).first().isVisible());
   check('Testing: banner still shown', (await text(m.page)).includes('Back to me'));
-  await m.page.getByText('Report', { exact: true }).first().click(); await m.page.waitForTimeout(1200);
+  await L.chatAction(m.page, 'Report');
   check('Report opens while testing', /What happened|Report/i.test(await text(m.page)) && (await text(m.page)).length > 0);
   await m.page.keyboard.press('Escape'); await go(m.page, '/inbox', 2000);
   await m.page.getByText('David C.', { exact: false }).first().click(); await m.page.waitForTimeout(2500);
@@ -76,7 +75,7 @@ const PHOTON = { features: [
   await go(m.page, `/thread/${C}`, 3500);
   const photonUrls = [];
   await m.page.route('https://photon.komoot.io/**', (r) => { photonUrls.push(r.request().url()); return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(PHOTON) }); });
-  await tap(m.page, 'Plan a meetup');
+  await L.setPlanDirect(m.page);
   await m.page.locator('input[type=date]').fill(localDate(5));
   await m.page.locator('input[type=time]').fill('10:30');
   await m.page.getByPlaceholder('Search for a cafe, park, or address').fill('@blue bottle, oakland');

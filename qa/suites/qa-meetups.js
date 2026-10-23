@@ -30,7 +30,7 @@ async function tool(page, label) {
 
   // 1. Plan a meetup with full details
   await go(m.page, `/thread/${C}`, 3500);
-  await tap(m.page, 'Plan a meetup');
+  await L.setPlanDirect(m.page);
   let t = await text(m.page);
   check('Editor: title and nudge', t.includes('Plan your 1st meetup') && t.includes('Add a time and place'));
   await m.page.locator('input[type=date]').fill(localDate(4));

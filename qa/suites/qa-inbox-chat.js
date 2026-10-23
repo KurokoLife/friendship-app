@@ -38,14 +38,24 @@ const { U, check, tap, text, go, q } = L;
   await d.page.waitForTimeout(3500);
   t = await text(d.page);
   check('Chat opens from Inbox', d.page.url().includes(`/thread/${C}`));
-  check('Chat: header actions', t.includes('Pause') && t.includes('End') && t.includes('Report') && t.includes('Block'));
-  check('Chat: notes bar and plan bar', t.includes('What I want to remember about Mochi') && (t.includes('No meetup planned yet') || t.includes('Plan a meetup')));
+  // 2026-10-23: calmer header; Pause / End / Report / Block in the ⋯ menu.
+  check('Chat: header is just the name, reply pace and ⋯', t.includes('Mochi W. ›') && t.includes('⋯') && !t.includes('Pause End Report Block'));
+  await d.page.getByLabel(/Chat options/).first().click(); await d.page.waitForTimeout(700);
+  t = await text(d.page);
+  check('Chat: ⋯ menu has Pause, End, Report, Block', ['Pause', 'End', 'Report', 'Block'].every((w) => t.includes(w)) && t.includes('Stop all contact right away.'));
+  await tap(d.page, 'Cancel', { wait: 600 });
+  t = await text(d.page);
+  check('Chat: notes bar; no "Plan a meetup" bar', t.includes('What I want to remember about Mochi') && !t.includes('Plan a meetup') && !t.includes('No meetup planned yet'));
   check('Chat: meeting in person line', t.includes('Limen is for meeting in person. Chatting is how you get there.'));
   check('Chat: scam note shown once', (t.match(/Limen will never ask you for money/g) || []).length === 1, t.slice(0, 900));
-  check('Chat: Reflect first, "ask them" line, Reminders; no "Another way to see it"', t.includes('Reflect first') && /Not sure what they meant\? Ask them\. Only they know\.|Asking one question back keeps things going\.|A follow-up question, like 'how did that go\?', helps people feel heard\./.test(t) && t.includes('Reminders') && !t.includes('Another way to see it'));
+  check('Chat: Reflect first, "ask them" line, Reminders; no "Another way to see it"', t.includes('More tips') && /Not sure what they meant\? Ask them\. Only they know\.|Asking one question back keeps things going\.|A follow-up question, like 'how did that go\?', helps people feel heard\./.test(t) && t.includes('Reminders') && !t.includes('Another way to see it'));
   check('Chat: no read receipts', !/\b(seen|read at|delivered)\b/i.test(t));
   check('Chat: no guide offer inside the chat', !t.includes('A short guide on showing up'));
-  check('Chat: care words under the reply pace', t.includes('How Mochi likes care: “people showing up for me”') && t.indexOf('How Mochi likes care') < t.indexOf('What I want to remember'), t.slice(0, 400));
+  check('Chat: care words are no longer in the header', !t.includes('likes care'));
+  await d.page.getByText('Mochi W. ›', { exact: false }).first().click(); await d.page.waitForTimeout(3500);
+  t = await text(d.page);
+  check('Their profile starts with how they like care', t.includes('How Mochi likes care') && t.includes('“people showing up for me”'), t.slice(0, 500));
+  await go(d.page, `/thread/${C}`, 3500, { expand: false });
 
   // Send a message in your own words
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('Limen is for meeting, how about a walk Sunday?');
@@ -59,19 +69,19 @@ const { U, check, tap, text, go, q } = L;
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('a draft');
   await d.page.waitForTimeout(400);
   check('No "Check" link, even with a draft (removed)', (await d.page.getByText('Check', { exact: true }).count()) === 0);
-  await tap(d.page, 'Reflect first', { wait: 800 });
+  await tap(d.page, 'More tips', { exact: false, wait: 800 });
   t = await text(d.page);
-  check('Reflect first: care words no longer repeated there', (t.match(/likes care/g) || []).length === 1);
+  check('One line under the box: the tip, then More tips', !t.includes('Reflect first'));
   check('Reflect first: "ask them" tip', t.includes('Not sure what they meant? Ask them, like "what do you mean?"'));
-  check('Reflect first: tips for replying', t.includes('Hide questions') && t.includes('Notice') && t.includes('Keep it going') && t.includes('Reply to one thing they said before adding your own news.'), t.slice(-900));
+  check('Reflect first: tips for replying', t.includes('Hide tips') && t.includes('Notice') && t.includes('Keep it going') && t.includes('Reply to one thing they said before adding your own news.'), t.slice(-900));
   await d.page.locator('textarea[placeholder="Write a message"], input[placeholder="Write a message"]').first().fill('');
-  await tap(d.page, 'Hide questions', { wait: 500 });
+  await tap(d.page, 'Hide tips', { exact: false, wait: 500 });
   await go(d.page, `/thread/${C}`, 3000);
 
   // Reminders sheet
   await tap(d.page, 'Reminders', { wait: 1000 });
   t = await text(d.page);
-  check('Reminders sheet opens', t.includes('Reminders for this chat') && t.includes('Check-ins'));
+  check('Reminders: one switch for this chat', t.includes('Reminders for this chat') && t.includes('Reminders and nudges with Mochi') && (await d.page.getByRole('switch').count()) === 1);
   await tap(d.page, 'Done', { wait: 800 });
 
   // The other side: Mochi sees David's new message in Inbox
@@ -90,7 +100,7 @@ const { U, check, tap, text, go, q } = L;
 
   // Report
   await go(d.page, `/thread/${C}`, 3000);
-  await tap(d.page, 'Report', { nth: 0, wait: 1000 });
+  await L.chatAction(d.page, 'Report');
   t = await text(d.page);
   check('Report: 8 categories', ['Fake identity', 'Harassment', 'Romantic or sexual misuse', 'Hate', 'Scam', 'Unsafe meetup', 'Impersonation', 'Other'].every((c) => t.includes(c)), t.slice(0, 600));
   await tap(d.page, 'Scam', { wait: 500 });
@@ -102,7 +112,7 @@ const { U, check, tap, text, go, q } = L;
 
   // Block
   await go(d.page, `/thread/${C}`, 3000);
-  await tap(d.page, 'Block', { nth: 0, wait: 1000 });
+  await L.chatAction(d.page, 'Block');
   await tap(d.page, 'Block', { wait: 2500 });
   t = await text(d.page);
   check('Block: chat is read-only', t.includes('blocked') || t.includes('Messaging is unavailable'), t.slice(0, 600));

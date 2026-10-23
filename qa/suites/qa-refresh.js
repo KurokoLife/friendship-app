@@ -45,6 +45,7 @@ const { U, check, tap, text, go, q } = L;
 
   // 3. A note being written, then refresh
   await go(a.page, `/remember/${C}`, 3000);
+  if (await a.page.getByRole('tab', { name: /^Notes/ }).count()) { await a.page.getByRole('tab', { name: /^Notes/ }).click(); await a.page.waitForTimeout(800); }
   await tap(a.page, 'Write something down', { nth: 0, wait: 1000 });
   await a.page.fill('textarea[aria-label="Your note"]', 'Half written thought about his sister');
   await a.page.waitForTimeout(500);

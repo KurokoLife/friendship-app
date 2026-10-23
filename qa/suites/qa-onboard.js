@@ -174,7 +174,7 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   // Aisha shares her answers: Tess (now connected) sees them on Aisha's profile.
   await q(`update profiles set share_friendship_experience = true, friendship_experience = '{"hardestCurrentStep":["Suggesting a meetup"],"slowReplyThought":["They''re probably just busy"],"growthFactors":["We saw each other regularly"]}'::jsonb where user_id = '10000000-0000-0000-0000-000000000003'`);
   await tap('Aisha', false, 3500);
-  check('chat header links to how they approach new friendships', /How Aisha approaches new friendships/.test(await t()));
+  check('chat header stays calm (shared answers are on her profile)', !/approaches new friendships/.test(await t()));
   await page.goto('http://localhost:8099/candidate/10000000-0000-0000-0000-000000000003'); await page.waitForTimeout(3500);
   const shared = await t();
   check('connected: their shared answers show on their profile', /How Aisha approaches new friendships/.test(shared) && /What feels hardest for Aisha right now/.test(shared) && /Suggesting a meetup/.test(shared), shared.slice(-500));

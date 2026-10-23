@@ -77,7 +77,7 @@ function nextDow(dow, from = 1) {
   check("David doesn't see Maria's unsent draft", !t.includes('Plan something') && !t.includes('Your invite'), t.slice(0, 500));
   await go(m.page, '/inbox', 3500);
   t = await text(m.page);
-  check('Inbox (Maria): invite not sent yet', t.includes('Your invite to meet is not sent yet'), t.slice(0, 600));
+  check('Inbox (Maria): an unsent invite is not mentioned (2026-10-23)', !t.includes('Your invite to meet is not sent yet'), t.slice(0, 600));
   await go(m.page, `/thread/${cid}`, 3500);
   t = await text(m.page);
   // 2026-10-22: an unsent invite never shows in the chat; Let's plan something reopens it.

@@ -64,6 +64,8 @@ type Props = {
   onSent?: () => void;
   // A meetup made outside the app was added from this window.
   onMeetupAdded?: () => void;
+  // Already agreed on a day in the chat: open the plan editor directly.
+  onSetPlan?: () => void;
   // Your own "next time, ask..." notes, shown while picking (2026-10-10).
   notesOn?: boolean;
 };
@@ -128,7 +130,7 @@ function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: (
   );
 }
 
-export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openRequest, onStart, onSent, onMeetupAdded, notesOn = true }: Props) {
+export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openRequest, onStart, onSent, onMeetupAdded, onSetPlan, notesOn = true }: Props) {
   const name = firstName(otherName);
   const [state, setState] = useState<PlanState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -347,11 +349,25 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
                   />
                 </View>
               ) : (
-                <Pressable onPress={() => setLogOpen(true)} className="self-start" hitSlop={6}>
-                  <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-                    Met up already? Add it
-                  </Text>
-                </Pressable>
+                <View className="flex-row flex-wrap gap-x-5 gap-y-1">
+                  {onSetPlan && (
+                    <Pressable
+                      onPress={() => {
+                        setSheetOpen(false);
+                        onSetPlan();
+                      }}
+                      hitSlop={6}>
+                      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+                        Already agreed on something? Set the plan
+                      </Text>
+                    </Pressable>
+                  )}
+                  <Pressable onPress={() => setLogOpen(true)} hitSlop={6}>
+                    <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+                      Met up already? Add it
+                    </Text>
+                  </Pressable>
+                </View>
               )}
               <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} withIdeas />
               {children}

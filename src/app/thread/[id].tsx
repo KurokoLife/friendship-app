@@ -1164,6 +1164,7 @@ export default function ThreadScreen() {
                   setPlanRefreshKey((k) => k + 1);
                   loadNewSystemIntervention();
                 }}
+                onSetPlan={() => setPlanEditorRequest((r) => ({ mode: 'new', n: (r?.n ?? 0) + 1 }))}
               />
             )}
             {/* Gentle nudge to meet in person after weeks of only chatting

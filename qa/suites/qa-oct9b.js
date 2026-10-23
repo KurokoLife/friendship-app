@@ -139,8 +139,8 @@ async function rpcAs(user, sql, params = []) {
   const C4 = await L.makeChat(U.maria, U.david, [[U.david, 'How was your week?', 30], [U.maria, 'Good! Yours?', 29], [U.david, 'Busy but fine', 28]]);
   await go(m.page, `/thread/${C4}`, 3500);
   t = await text(m.page);
-  check('Header shows Pause · End · Report · Block', ['Pause', 'End', 'Report', 'Block'].every((w) => t.includes(w)));
-  await tap(m.page, 'Pause', { wait: 1200 });
+  check('Header has the ⋯ menu', t.includes('⋯'));
+  await L.chatAction(m.page, 'Pause');
   t = await text(m.page);
   check('Pause explains the rules', t.includes('Pause this chat?') && t.includes('It still counts as one of your 3 active conversations') && t.includes('will see your note'));
   check('Pause offers 3 days / 1 week / 2 weeks only', t.includes('3 days') && t.includes('1 week') && t.includes('2 weeks') && !t.includes("when I'm ready"));
@@ -222,7 +222,7 @@ async function rpcAs(user, sql, params = []) {
   await q(`delete from connection_interventions where connection_id=$1`, [C4]);
   await q(`delete from friendship_events where connection_id=$1`, [C4]);
   await go(m.page, `/thread/${C4}`, 3500);
-  await tap(m.page, 'Pause', { nth: 0, wait: 1200 });
+  await L.chatAction(m.page, 'Pause');
   t = await text(m.page);
   check('Pause offers 3 days / 1 week / 2 weeks', t.includes('3 days') && t.includes('2 weeks') && t.includes('will see your note'));
   await tap(m.page, '2 weeks', { wait: 600 });

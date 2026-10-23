@@ -48,7 +48,10 @@ const { U, check, tap, text, go, q } = L;
   let rows = await q(`select meetup_id, learned, ask_next from remember_entries where connection_id=$1`, [E]);
   check('One note on the 2nd meetup', rows.length === 1 && rows[0].meetup_id === m2.id, JSON.stringify(rows));
 
+  // 2026-10-23: two tabs, Meetups and Notes (like Inbox).
+  check('Two tabs: Meetups (2) and Notes', t.includes('Meetups (2)') && t.includes('Notes'));
   // A free note (2026-10-10): one open box, first line is the title, topic chips
+  await a.page.getByRole('tab', { name: /^Notes/ }).click(); await a.page.waitForTimeout(800);
   await tap(a.page, 'Write something down', { nth: 0, wait: 1000 });
   t = await text(a.page);
   check('Free note: one box and topic chips, no questions', t.includes('A note for yourself') && t.includes('Topic, if you like') && t.includes('Things they love') && t.includes('Ideas for us') && !t.includes('What did you enjoy?'), t.slice(0, 900));
@@ -56,12 +59,15 @@ const { U, check, tap, text, go, q } = L;
   await a.page.getByRole('checkbox', { name: 'Topic: Things they love' }).click();
   await tap(a.page, 'Save', { wait: 2000 });
   t = await text(a.page);
-  check('Note under "Since your last meetup"', t.includes('Since your last meetup') && t.includes('His story about the dog'));
+  check('Note saved in the Notes tab', t.includes('Notes (1)') && t.includes('His story about the dog'));
   check('Title, body and topic shown', t.includes('A beagle called Miso') && t.includes('Things they love'));
   let free = await q(`select raw_text, topics, meetup_id from remember_entries where connection_id=$1 and meetup_id is null`, [E]);
   check('Saved as a free note with its topic', free.length === 1 && free[0].topics.join() === 'loves' && free[0].raw_text.startsWith('His story about the dog'), JSON.stringify(free));
   check('Few notes: no search or filters yet', (await a.page.locator('input[aria-label="Search your notes"]').count()) === 0);
-  check('Order: since last, then 2nd, then 1st', t.indexOf('Since your last meetup') < t.indexOf('Your 2nd meetup') && t.indexOf('Your 2nd meetup') < t.indexOf('Your 1st meetup'));
+  check('Notes tab shows notes only, not meetup cards', !t.includes('Your 2nd meetup'));
+  await a.page.getByRole('tab', { name: /^Meetups/ }).click(); await a.page.waitForTimeout(800);
+  t = await text(a.page);
+  check('Meetups tab: newest first, no free notes', t.indexOf('Your 2nd meetup') < t.indexOf('Your 1st meetup') && !t.includes('His story about the dog'));
 
   // Asked moves it off the list, Undo brings it back
   await tap(a.page, 'Asked', { exact: true, wait: 1500 });
@@ -71,6 +77,7 @@ const { U, check, tap, text, go, q } = L;
   check('Undo puts it back', (await text(a.page)).includes('Next time, ask David about...'));
 
   // Edit
+  await a.page.getByRole('tab', { name: /^Notes/ }).click(); await a.page.waitForTimeout(800);
   await tap(a.page, 'Edit', { nth: 0, wait: 1000 });
   await a.page.fill('textarea[aria-label="Your note"]', 'His story about the dog and the cat\nA beagle called Miso');
   await tap(a.page, 'Save', { wait: 2000 });
@@ -137,6 +144,19 @@ const { U, check, tap, text, go, q } = L;
   const d = await L.as(U.david);
   await go(d.page, `/remember/${E}`, 3000);
   t = await text(d.page);
+  // A note written on David's profile shows in Aisha's Notes tab (2026-10-23).
+  await q(`insert into curiosity_notes (user_id, subject_user_id, note) values ($1,$2,'Ask about his trip to Lisbon')`, [U.aisha, U.david]);
+  await go(a.page, `/remember/${E}`, 3000);
+  await a.page.getByRole('tab', { name: /^Notes/ }).click(); await a.page.waitForTimeout(800);
+  t = await text(a.page);
+  check('Profile note shows in the Notes tab', t.includes("Written on David's profile") && t.includes('Ask about his trip to Lisbon'), t.slice(-700));
+  await tap(a.page, 'Edit', { wait: 800 });
+  await a.page.fill('textarea[aria-label="Edit your note"]', 'Ask about his trip to Lisbon and Porto');
+  await tap(a.page, 'Save', { wait: 2000 });
+  check('Profile note can be edited here', (await q(`select note from curiosity_notes where user_id=$1 and subject_user_id=$2`, [U.aisha, U.david]))[0].note === 'Ask about his trip to Lisbon and Porto');
+  await go(d.page, `/remember/${E}`, 3000);
+  t = await text(d.page);
+  check("David never sees Aisha's profile note", !t.includes('Lisbon'));
   check("David's page has none of Aisha's notes", t.includes('What I want to remember about Aisha') && !t.includes('guitar') && !t.includes('dog'));
 
   // Ended chat: notes stay
