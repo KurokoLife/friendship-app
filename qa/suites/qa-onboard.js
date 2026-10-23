@@ -159,20 +159,25 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('Interested is saved to Pending', /under Pending/.test(await t()));
   await page.goto('http://localhost:8099/inbox'); await page.waitForTimeout(3500);
   check('Inbox tip explains the tabs', /Tip · Your Inbox/i.test(await t()) && /Pending is people you said Interested to/.test(await t()));
+  // The Pending tip waits until the Inbox tip is closed (2026-10-22).
   await tap('Pending (1)', true, 2000);
+  check('Pending tip waits for the Inbox tip', !/Tip · Pending/i.test(await t()));
+  await tap('Got it', true, 1500);
   check('Pending tip shows', /Tip · Pending/i.test(await t()));
   // Aisha says Interested back, the selfie is approved: the chat opens.
   await q("insert into interests (from_user_id,to_user_id) values ('10000000-0000-0000-0000-000000000003',$1) on conflict do nothing", [me]);
   await q("insert into selfie_checks (user_id,pose,status,consent_at,reviewed_at) values ($1,'three fingers','approved',now(),now()) on conflict (user_id) do update set status='approved'", [me]);
+  // Aisha's selfie may have been changed by an earlier test; make sure it's approved.
+  await q("insert into selfie_checks (user_id,pose,status,consent_at,reviewed_at) values ('10000000-0000-0000-0000-000000000003','three fingers','approved',now(),now()) on conflict (user_id) do update set status='approved'");
   await page.goto('http://localhost:8099/inbox'); await page.waitForTimeout(4500);
-  check('chat opens once both are ready', /YOU BOTH CHOSE TO CONNECT/i.test(await t()));
+  check('chat opens once both are ready', /YOU BOTH CHOSE TO CONNECT/i.test(await t()) && (await q("select count(*)::int n from connections where status is not null and $1 in (user_a_id,user_b_id)", [me]))[0].n === 1);
   // Aisha shares her answers: Tess (now connected) sees them on Aisha's profile.
   await q(`update profiles set share_friendship_experience = true, friendship_experience = '{"hardestCurrentStep":["Suggesting a meetup"],"slowReplyThought":["They''re probably just busy"],"growthFactors":["We saw each other regularly"]}'::jsonb where user_id = '10000000-0000-0000-0000-000000000003'`);
   await tap('Aisha', false, 3500);
   check('chat header links to how they approach new friendships', /How Aisha approaches new friendships/.test(await t()));
   await page.goto('http://localhost:8099/candidate/10000000-0000-0000-0000-000000000003'); await page.waitForTimeout(3500);
   const shared = await t();
-  check('connected: their shared answers show on their profile', /How Aisha approaches new friendships/.test(shared) && /What feels hardest for Aisha right now/.test(shared) && /Suggesting a meetup/.test(shared));
+  check('connected: their shared answers show on their profile', /How Aisha approaches new friendships/.test(shared) && /What feels hardest for Aisha right now/.test(shared) && /Suggesting a meetup/.test(shared), shared.slice(-500));
   check('past-friendship answers are never shared', !/We saw each other regularly/.test(shared));
   await q("update profiles set share_friendship_experience = false where user_id = '10000000-0000-0000-0000-000000000003'");
   await page.reload(); await page.waitForTimeout(3500);
