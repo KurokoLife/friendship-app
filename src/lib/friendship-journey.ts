@@ -202,13 +202,37 @@ export type MeetupPlan = {
   many_moves_answered: boolean;
 };
 
-export async function getMeetupPlan(
-  connectionId: string
-): Promise<{ meetup: MeetupPlan | null; meetupCount: number; localToday: string | null }> {
+// 2026-10-22: a meetup waiting to be counted (someone said "yes, we met",
+// or added one made outside the app). Shown in the plan bar, never as a plan.
+export type MeetupWaiting = {
+  id: string;
+  date: string;
+  activity: string | null;
+  added: boolean;
+  i_said_yes: boolean;
+  other_said_yes: boolean;
+};
+
+export async function getMeetupPlan(connectionId: string): Promise<{
+  meetup: MeetupPlan | null;
+  meetupCount: number;
+  localToday: string | null;
+  waiting: MeetupWaiting | null;
+}> {
   const { data, error } = await supabase.rpc('get_meetup_plan', { p_connection_id: connectionId });
   if (error) throw error;
-  const d = (data ?? {}) as { meetup?: MeetupPlan | null; meetup_count?: number; local_today?: string };
-  return { meetup: d.meetup ?? null, meetupCount: d.meetup_count ?? 0, localToday: d.local_today ?? null };
+  const d = (data ?? {}) as {
+    meetup?: MeetupPlan | null;
+    meetup_count?: number;
+    local_today?: string;
+    waiting?: MeetupWaiting | null;
+  };
+  return {
+    meetup: d.meetup ?? null,
+    meetupCount: d.meetup_count ?? 0,
+    localToday: d.local_today ?? null,
+    waiting: d.waiting ?? null,
+  };
 }
 
 export type MeetupPrompt = 'still_on' | 'feeling' | 'many_moves';

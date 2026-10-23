@@ -512,6 +512,7 @@ export default function InboxScreen() {
             <>
               <CoachMark
                 markKey="inbox_pending"
+                after="tab_inbox"
                 title="Pending"
                 text="Only you see this list. A chat opens when you both say Interested and both selfie checks are approved. Each one closes on its own after 30 days, and the other person is never told you were waiting."
               />

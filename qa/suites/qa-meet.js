@@ -145,5 +145,30 @@ const { U, check, tap, text, go, q } = L;
   await cl.end();
   check("David can't see Aisha's answers", r.rows[0].n === 0);
 
+  // 2026-10-22: a meetup added for TODAY is not an upcoming plan, and the
+  // plan bar shows it waiting to be counted, for both people.
+  const C3 = await L.makeChat(U.maria, U.robert, [[U.maria, 'Hello!', 50], [U.robert, 'Hi Maria!', 49]]);
+  const mr = await L.as(U.maria, { viewport: { width: 390, height: 844 } });
+  await go(mr.page, `/thread/${C3}`, 3500, { expand: false });
+  await mr.page.getByText('No meetup planned yet', { exact: false }).first().click(); await mr.page.waitForTimeout(1200);
+  await tap(mr.page, 'Met up already? Add it', { wait: 1500 });
+  await mr.page.getByPlaceholder('e.g. Coffee').fill('Coffee');
+  await tap(mr.page, 'Add this meetup', { wait: 3000 });
+  await go(mr.page, `/thread/${C3}`, 3500, { expand: false });
+  t = await text(mr.page);
+  check('Added for today: not shown as an upcoming plan', !t.includes('Meeting today') && !t.includes('Add it to your calendar?') && !t.includes('Running late?'), t.slice(0, 600));
+  check('Plan bar: waiting for the other person', t.includes('You said you met on') && t.includes('It counts once Robert K. says yes too, or after a week.'), t.slice(0, 600));
+  check("Let's plan something is still offered", t.includes("Let's plan something"));
+  const rr = await L.as(U.robert, { viewport: { width: 390, height: 844 } });
+  await go(rr.page, `/thread/${C3}`, 4000, { expand: false });
+  t = await text(rr.page);
+  check('Other person: no upcoming plan either', !t.includes('Meeting today'), t.slice(0, 600));
+  check('Other person: bar says it is waiting on their yes', t.includes('Maria S. said you two met on') && t.includes('It counts once you say yes too, or after a week.'), t.slice(0, 600));
+  check('Other person still gets the "Is that right?" card', t.includes('added a meetup') && t.includes('Yes, we met'));
+  await tap(rr.page, 'Yes, we met', { wait: 3000 });
+  await go(rr.page, `/thread/${C3}`, 3500, { expand: false });
+  t = await text(rr.page);
+  check('Once both said yes, it counts', t.includes('Met 1 time'), t.slice(0, 600));
+
   await L.finish();
 })().catch(async (e) => { console.log('CRASH', e.message); await L.finish().catch(() => {}); });

@@ -137,7 +137,6 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   const [homeSkipped, setHomeSkipped] = useState(false);
   const [editingHome, setEditingHome] = useState(false);
   const [ownIdea, setOwnIdea] = useState('');
-  const [dismissedEnding, setDismissedEnding] = useState<string | null>(null);
   const [myTimes, setMyTimes] = useState<Set<string>>(new Set());
   const [availability, setAvailability] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -282,24 +281,9 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
   if (!state || !board || state.has_upcoming_plan || !state.chat_open) return null;
 
   // ---- Ended ----
-  if (!open) {
-    if (dismissedEnding === board.id) return null;
-    if (board.close_reason !== 'not_now' && board.close_reason !== 'quiet') return null;
-    if (board.started_by !== myId && board.closed_by !== myId) return null;
-    return (
-      <View className="mx-6 mt-2 gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-        <Text className="text-body text-stone-700 dark:text-stone-300">
-          {board.close_reason === 'quiet'
-            ? 'Your invite closed after 2 quiet weeks without being sent. Start again anytime.'
-            : 'No plan for now. Start again anytime.'}
-        </Text>
-        <View className="flex-row gap-4">
-          <LinkButton label="Start again" onPress={onStart} />
-          <LinkButton label="OK" muted onPress={() => setDismissedEnding(board.id)} />
-        </View>
-      </View>
-    );
-  }
+  // 2026-10-22 (founder): nothing about an unsent invite ever shows in the
+  // chat. A cancelled or quietly closed draft simply goes away.
+  if (!open) return null;
 
   // Someone else's draft: private to them.
   if (!mine) return null;
@@ -311,30 +295,35 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
         Not sent yet. This draft closes quietly on {shortDate(board.closes_at)} if nothing changes.
       </Text>
     ) : null;
-  // In the chat: a short summary. Tapping it opens the whole card as a
-  // sheet, so the messages stay in view.
-  const shell = (children: ReactNode, summary: string) => (
+  // 2026-10-22 (founder): the invite lives only in this window. Nothing shows
+  // in the chat while it's unsent. "Save for later" (or tapping outside)
+  // keeps the draft, and "Let's plan something" opens it again where it was
+  // left. "Cancel" throws the draft away.
+  const shell = (children: ReactNode, _summary: string) => (
     <>
-      <Pressable
-        onPress={() => setSheetOpen(true)}
-        className="mx-6 mt-2 gap-1 rounded-2xl border border-accent-500/40 bg-white p-4 dark:bg-stone-800">
-        <View className="flex-row items-center justify-between gap-2">
-          <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Plan something</Text>
-          <Text className="text-caption font-semibold text-accent-500">Open</Text>
-        </View>
-        <Text className="text-caption text-stone-600 dark:text-stone-300">{summary}</Text>
-        {nudge}
-      </Pressable>
       <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
         <View className="flex-1 justify-end bg-black/30">
-          <Pressable className="flex-1" onPress={() => setSheetOpen(false)} />
+          <Pressable className="flex-1" onPress={() => setSheetOpen(false)} accessibilityLabel="Save for later" />
           <View className="max-h-[88%] gap-3 rounded-t-3xl border-t border-stone-200 bg-stone-50 px-6 pb-8 pt-5 dark:border-stone-800 dark:bg-stone-900">
             <View className="h-1 w-10 self-center rounded-full bg-stone-300 dark:bg-stone-700" />
             <View className="flex-row items-center justify-between gap-2">
               <Text className="text-title text-stone-900 dark:text-stone-50">Plan something</Text>
               <View className="flex-row gap-4">
-                <LinkButton label="Not now" muted disabled={busy} onPress={() => run(() => closePlanBoard(board.id))} />
-                <LinkButton label="Close" onPress={() => setSheetOpen(false)} />
+                <LinkButton
+                  label="Cancel"
+                  muted
+                  disabled={busy}
+                  onPress={() =>
+                    run(async () => {
+                      await closePlanBoard(board.id);
+                      setSheetOpen(false);
+                      setNote('');
+                      setNoteStem(null);
+                      saveDraft(`plan-note:${board.id}`, null);
+                    })
+                  }
+                />
+                <LinkButton label="Save for later" onPress={() => setSheetOpen(false)} />
               </View>
             </View>
             <ScrollView contentContainerClassName="gap-3 pb-4" keyboardShouldPersistTaps="handled">

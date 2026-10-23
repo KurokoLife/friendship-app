@@ -80,8 +80,10 @@ function nextDow(dow, from = 1) {
   check('Inbox (Maria): invite not sent yet', t.includes('Your invite to meet is not sent yet'), t.slice(0, 600));
   await go(m.page, `/thread/${cid}`, 3500);
   t = await text(m.page);
-  check('Chat shows her draft summary', t.includes('Plan something') && t.includes(`Your invite: 2 ideas, ${nTimes} times. Not sent yet.`), t.slice(0, 700));
-  await tap(m.page, 'Open', { wait: 1500 });
+  // 2026-10-22: an unsent invite never shows in the chat; Let's plan something reopens it.
+  check('Nothing about the unsent invite in the chat', !t.includes('Your invite:') && !/Plan something Open/.test(t), t.slice(0, 700));
+  await tap(m.page, "Let's plan something", { wait: 2500 });
+  check('Let\'s plan something reopens the saved draft', (await text(m.page)).includes(`2 ideas, ${nTimes} times. Only you see this until you send it.`), (await text(m.page)).slice(-700));
   await tap(m.page, 'Would any of these work for you?...', { wait: 500 });
   t = await text(m.page);
   const sendBtn = m.page.getByText('Send invite to David', { exact: true });
@@ -91,7 +93,7 @@ function nextDow(dow, from = 1) {
   await m.page.waitForTimeout(600);
   // An unsent note survives a refresh
   await go(m.page, `/thread/${cid}`, 3500);
-  await tap(m.page, 'Open', { wait: 1500 });
+  await tap(m.page, "Let's plan something", { wait: 2500 });
   check('Unsent note survives a refresh', (await note.inputValue()) === 'Would any of these work for you? Weekends are easiest', await note.inputValue().catch(() => 'none'));
   await note.click(); await note.press('End'); await note.type(' for me.');
   await m.page.waitForTimeout(300);
@@ -239,8 +241,14 @@ function nextDow(dow, from = 1) {
   // Robert opens his own planning while Aisha's draft is open: private drafts
   await go(rb.page, `/thread/${c2}`, 3500);
   check("Robert doesn't see Aisha's draft", !(await text(rb.page)).includes('Plan something'));
+  // Each person has their own private draft (2026-10-22): Robert's opens even while Aisha has one.
+  await tap(rb.page, "Let's plan something", { wait: 3000 });
+  check('Robert can start his own invite while Aisha has an unsent one', (await text(rb.page)).includes('Pick any ideas'), (await text(rb.page)).slice(-500));
+  check('Two private drafts, one each', (await q(`select count(*)::int n from plan_boards where connection_id=$1 and status='open'`, [c2]))[0].n === 2);
+  await tap(rb.page, 'Save for later', { wait: 1500 });
+  check('Save for later: nothing left in the chat', !(await text(rb.page)).includes('Your invite:') && !(await text(rb.page)).includes('Not sent yet'));
   await go(a.page, `/thread/${c2}`, 3500);
-  await tap(a.page, 'Open', { wait: 1500 });
+  await tap(a.page, "Let's plan something", { wait: 2500 });
   await a.page.locator('input[placeholder="Add your own idea"]').fill('Cook dinner at my place');
   await a.page.waitForTimeout(400);
   t = await text(a.page);
@@ -248,7 +256,7 @@ function nextDow(dow, from = 1) {
   // Refresh limit
   await q(`update plan_boards set refreshes_used = 9 where id=$1`, [b5]);
   await go(a.page, `/thread/${c2}`, 3500);
-  await tap(a.page, 'Open', { wait: 2500 });
+  await tap(a.page, "Let's plan something", { wait: 3000 });
   t = await text(a.page);
   check('Refresh countdown shows 1 left', t.includes('Show new ideas (1 left)'), t.slice(0, 900));
   await tap(a.page, 'Show new ideas (1 left)', { wait: 3000 });
@@ -258,20 +266,23 @@ function nextDow(dow, from = 1) {
   // Quiet draft, then Not now
   await rpcAs(U.aisha, `select test_plan_board_age($1, 3)`, [c2]);
   await go(a.page, `/thread/${c2}`, 3500);
+  check('After 3 quiet days: still nothing in the chat', !(await text(a.page)).includes('Not sent yet'));
+  await tap(a.page, "Let's plan something", { wait: 2500 });
   t = await text(a.page);
-  check('After 3 quiet days: says when the draft closes', t.includes('Not sent yet. This draft closes quietly on'), t.slice(0, 600));
-  await tap(a.page, 'Open', { wait: 1500 });
-  await tap(a.page, 'Not now', { wait: 2000 });
+  check('After 3 quiet days: the window says when the draft closes', t.includes('Not sent yet. This draft closes quietly on'), t.slice(-600));
+  await tap(a.page, 'Cancel', { wait: 2500 });
   t = await text(a.page);
-  check('Not now ends it', t.includes('No plan for now. Start again anytime.'), t.slice(0, 500));
+  check('Cancel throws the draft away, nothing in the chat', !t.includes('No plan for now') && !t.includes('Not sent yet'), t.slice(0, 500));
+  check('Cancelled draft is closed', (await q(`select count(*)::int n from plan_boards where connection_id=$1 and started_by=$2 and status='open'`, [c2, U.aisha]))[0].n === 0);
   await go(rb.page, `/thread/${c2}`, 3500);
   check("The other person isn't told about a draft they never saw", !(await text(rb.page)).includes('No plan for now'));
-  await tap(a.page, 'Start again', { wait: 3500 });
-  check('Start again opens a fresh card', (await board(c2)).status === 'open');
+  await tap(a.page, "Let's plan something", { wait: 3500 });
+  const aBoard = async () => (await q(`select * from plan_boards where connection_id=$1 and started_by=$2 order by created_at desc limit 1`, [c2, U.aisha]))[0];
+  check('Let\'s plan something starts fresh after Cancel', (await aBoard()).status === 'open');
   await rpcAs(U.aisha, `select test_plan_board_age($1, 14)`, [c2]);
-  check('14 quiet days: closes quietly', (await board(c2)).close_reason === 'quiet');
+  check('14 quiet days: closes quietly', (await aBoard()).close_reason === 'quiet');
   await go(a.page, `/thread/${c2}`, 3500);
-  check('Quiet close explained', (await text(a.page)).includes('Your invite closed after 2 quiet weeks without being sent.'));
+  check('Quiet close: nothing in the chat', !(await text(a.page)).includes('Your invite closed'));
 
   // ---------- Privacy ----------
   r = await rpcAs(ELENA, `select count(*)::int n from plan_invites where connection_id=$1`, [c2]);

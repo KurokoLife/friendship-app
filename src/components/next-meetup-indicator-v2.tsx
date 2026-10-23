@@ -21,6 +21,7 @@ import {
   submitRhythmPreference,
   updateMeetupActivity,
   type MeetupPlan,
+  type MeetupWaiting,
   type PaceKey,
 } from '@/lib/friendship-journey';
 import {
@@ -118,6 +119,7 @@ export function NextMeetupIndicatorV2({
 }: Props) {
   const [plan, setPlan] = useState<MeetupPlan | null>(null);
   const [meetupCount, setMeetupCount] = useState(0);
+  const [waiting, setWaiting] = useState<MeetupWaiting | null>(null);
   const [localToday, setLocalToday] = useState<string>(toIsoDate(new Date()));
   const [loaded, setLoaded] = useState(false);
   const [editMode, setEditMode] = useState<EditMode | null>(null);
@@ -149,6 +151,7 @@ export function NextMeetupIndicatorV2({
       setPlan(result.meetup);
       onPlanStateRef.current?.(Boolean(result.meetup));
       setMeetupCount(result.meetupCount);
+      setWaiting(result.waiting);
       if (result.localToday) setLocalToday(result.localToday);
 
       if (result.meetup?.status === 'confirmed') {
@@ -413,7 +416,7 @@ export function NextMeetupIndicatorV2({
         tone === 'accent' ? 'border-accent-500/40 bg-accent-500/5' : 'border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800'
       }`}>
       <View className="flex-1">
-        <Text numberOfLines={1} className="text-caption text-stone-700 dark:text-stone-300">
+        <Text numberOfLines={2} className="text-caption text-stone-700 dark:text-stone-300">
           {summary}
         </Text>
         {attention && (
@@ -530,10 +533,21 @@ export function NextMeetupIndicatorV2({
   }
 
   // ---- No plan ----
+  // 2026-10-22: a meetup waiting to be counted shows here, so a "yes, we met"
+  // or an added meetup doesn't look like it went nowhere.
+  const waitingDate = waiting ? formatWhen(waiting.date, null) : '';
+  const waitingLine = !waiting
+    ? null
+    : waiting.i_said_yes
+      ? `You said you met on ${waitingDate}. It counts once ${otherName} says yes too, or after a week.`
+      : waiting.other_said_yes
+        ? `${otherName} said you two met on ${waitingDate}. It counts once you say yes too, or after a week.`
+        : null;
   if (!plan) {
     if (!expanded && panel === 'none' && !savedNotice) {
       return bar(
-        meetupCount > 0 ? `No meetup planned yet · Met ${meetupCount} ${meetupCount === 1 ? 'time' : 'times'}` : 'No meetup planned yet',
+        waitingLine ??
+          (meetupCount > 0 ? `No meetup planned yet · Met ${meetupCount} ${meetupCount === 1 ? 'time' : 'times'}` : 'No meetup planned yet'),
         null,
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => openEditor('new')} hitSlop={6}>
@@ -555,7 +569,10 @@ export function NextMeetupIndicatorV2({
           </View>
         </View>
         {savedNotice && <Text className="text-caption text-stone-600 dark:text-stone-300">{savedNotice}</Text>}
-        {panel === 'log' ? (
+        {waitingLine && !savedNotice && (
+          <Text className="text-caption text-stone-600 dark:text-stone-300">{waitingLine}</Text>
+        )}
+        {waiting?.added && waiting.i_said_yes ? null : panel === 'log' ? (
           <View className="border-t border-stone-200 pt-3 dark:border-stone-700">
             <LogMeetupForm
               connectionId={connectionId}

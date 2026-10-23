@@ -249,3 +249,8 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Later: founder approved intro wording A (no promise of friends), the spelled-out reply rule, and 5-year age ranges (migration 20261022000000). She asked that nothing changes without her approval. qa-onboard 73/73, qa-discover 20/20.
 
 - Later still: shared friendship answers (opt-in, connected people only, four questions about now), and a fix so care words need a real chat. Migration 20261022000001. qa-onboard 79/79, qa-profile 22/22, qa-inbox-chat 31/31, sharesql all true.
+
+
+## 2026-10-22 (evening): Inbox and chat check
+
+- All suites passed; hands-on walkthrough found: planning card left in chat after Close, added-today meetup shown as a plan (bug), no waiting state, one draft per chat (other person blocked), stacked tips, bar text cut off. Founder approved A-D; built. Migration 20261022000002.
