@@ -90,6 +90,7 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('values, opening up and hangout style are gone', !/What matters to you|share personal things|How you like to hang out/.test(more));
   check('bars question reworded', /Are bars or drinks okay when you meet\?/.test(more) && /Fine with me/.test(more) && /I'd rather not/.test(more));
   check('Good to know about me replaces Hard nos', /Good to know about me/.test(more) && !/Hard nos/.test(more));
+  check('No care question (removed 2026-10-24)', !/How I like care|show they care/.test(more));
   await tap("I'd rather not", true, 400);
   await tap('Continue', true, 1500);
   check('languages step', /Languages I am comfortable connecting in/.test(await t()));

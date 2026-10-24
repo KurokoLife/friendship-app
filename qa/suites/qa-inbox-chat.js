@@ -54,7 +54,7 @@ const { U, check, tap, text, go, q } = L;
   check('Chat: care words are no longer in the header', !t.includes('likes care'));
   await d.page.getByText('Mochi W. ›', { exact: false }).first().click(); await d.page.waitForTimeout(3500);
   t = await text(d.page);
-  check('Their profile starts with how they like care', t.includes('How Mochi likes care') && t.includes('“people showing up for me”'), t.slice(0, 500));
+  check('Care words are no longer shown anywhere (question removed 2026-10-24)', !t.includes('likes care') && !t.includes('people showing up for me'), t.slice(0, 500));
   await go(d.page, `/thread/${C}`, 3500, { expand: false });
 
   // Send a message in your own words

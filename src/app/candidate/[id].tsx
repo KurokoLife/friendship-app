@@ -110,7 +110,8 @@ export default function CandidateProfileScreen() {
       if ((anyConnections ?? []).length > 0) fetchConnectedFriendshipAnswers(id).then(setSharedAnswers);
       const live = (anyConnections ?? []).find((c) => LIVE_STATUSES.has(c.status as string | null));
       const anyChat = (anyConnections ?? []).find((c) => c.status);
-      if (anyChat) fetchConnectionCareStyle(anyChat.id as string).then(setCareStyle);
+      // 2026-10-24: care words no longer shown (question removed).
+      void anyChat;
       setPastChat(!live && (anyConnections ?? []).some((c) => c.status === 'ended' || c.status === 'inactive'));
       if (live) {
         const [{ count }, mutual] = await Promise.all([

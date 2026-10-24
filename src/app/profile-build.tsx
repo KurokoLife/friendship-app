@@ -282,7 +282,7 @@ const EDIT_SECTIONS: { step: number; title: string; use: 'yes' | 'some' | 'no' }
   { step: EDIT_BASICS, title: 'Name, age, who you would like to meet', use: 'yes' },
   { step: STEP_LOCATION, title: "Where you're based", use: 'yes' },
   { step: STEP_FRIENDSHIP_TYPE_AND_RHYTHM, title: 'Friendship type, pace and free times', use: 'some' },
-  { step: STEP_COMMUNICATION_STYLE, title: 'Bars or drinks, good to know, how you like care', use: 'no' },
+  { step: STEP_COMMUNICATION_STYLE, title: 'Bars or drinks, good to know', use: 'no' },
   { step: STEP_LANGUAGES, title: 'Languages', use: 'yes' },
   { step: STEP_PHOTO, title: 'Photos', use: 'no' },
 ];
@@ -1013,8 +1013,8 @@ export default function ProfileBuildScreen() {
                 );
               })}
               <Text className="text-caption text-stone-400 dark:text-stone-500">
-                Matching uses only the parts marked above. Your words (what brings you here, your stories, good to know,
-                how you like care) are never used to pick who you meet.
+                Matching uses only the parts marked above. Your words (what brings you here, your stories, good to know)
+                are never used to pick who you meet.
               </Text>
             </View>
           )}
@@ -1332,16 +1332,7 @@ export default function ProfileBuildScreen() {
             />
           </Section>
 
-          <Section title="How I like care" subtitle={`${CARE_STYLE_PROMPT} Optional.`} matching={MATCH_USE.care}>
-            <VoiceTextInput
-              value={profile.careStyle}
-              onChangeText={(text) => setProfile((p) => ({ ...p, careStyle: text }))}
-              onBlur={() => persist(profile)}
-              numberOfLines={3}
-              minHeightClassName="min-h-20"
-              placeholder={CARE_STYLE_EXAMPLES}
-            />
-          </Section>
+          {/* 2026-10-24 (founder): "How I like care" removed from joining and Edit profile. */}
           </>
           )}
 

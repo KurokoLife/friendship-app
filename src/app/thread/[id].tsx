@@ -1054,7 +1054,7 @@ export default function ThreadScreen() {
               <CoachMark
                 markKey="chat_actions"
                 title="This chat"
-                text="The ⋯ at the top is always here for you. Pause takes a short break, with a note so they aren't left guessing. End closes the chat honestly. Report tells the Limen team privately if something felt wrong. Block stops all contact right away. Tap their name to see their profile, including how they like care."
+                text="The ⋯ at the top is always here for you. Pause takes a short break, with a note so they aren't left guessing. End closes the chat honestly. Report tells the Limen team privately if something felt wrong. Block stops all contact right away. Tap their name to see their profile."
               />
               <CoachMark
                 markKey="chat_bars"

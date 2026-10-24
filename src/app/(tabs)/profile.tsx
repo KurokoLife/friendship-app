@@ -232,11 +232,6 @@ export default function ProfileScreen() {
               value="Never shown"
               note={`Others only see your city${profile.location_city ? `: ${profile.location_city}` : ''}.`}
             />
-            <PrivateRow
-              label="How you like to be cared for"
-              value={profile.care_style?.trim() ? profile.care_style : 'Not filled in yet'}
-              note="Shown only to people you're already connected with."
-            />
             {/* 2026-10-18: your own How you connect answers, word for word.
                 The written summary is gone. Never shown to anyone else. */}
             <View className="gap-3 pt-1">

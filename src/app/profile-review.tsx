@@ -52,7 +52,8 @@ export default function ProfileReviewScreen() {
         .select('care_style, share_friendship_experience, friendship_experience')
         .eq('user_id', user.id)
         .maybeSingle();
-      setCare(own?.care_style?.trim() ? own.care_style.trim() : null);
+      // 2026-10-24: care words no longer shown (question removed).
+      setCare(null);
       const exp = own?.share_friendship_experience && own.friendship_experience ? normalizeExperience(own.friendship_experience) : null;
       setShared(exp && SHARED_EXPERIENCE.some((x) => exp[x.key].length > 0) ? exp : null);
       setLoaded(true);
