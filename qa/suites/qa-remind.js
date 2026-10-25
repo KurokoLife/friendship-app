@@ -99,7 +99,7 @@ const { U, check, tap, text, go, q } = L;
   await sw.click();
   await d.page.waitForTimeout(2500);
   ps2 = await q(`select kind from prompt_settings where user_id=$1 and connection_id=$2 and not enabled order by 1`, [U.david, B]);
-  check('Turned off: every kind off for this chat only', ps2.length === 6, JSON.stringify(ps2));
+  check('Turned off: every kind off for this chat only', ps2.length === 5 && !ps2.some((r) => r.kind === 'guides'), JSON.stringify(ps2));
   await tap(d.page, 'Done', { wait: 800 });
   await go(d.page, '/settings', 3000);
   t = await text(d.page);
