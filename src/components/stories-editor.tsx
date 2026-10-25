@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { MAX_STORIES, STORY_GUIDES, STORY_MAX_LENGTH, storyGuide, type Story } from '@/lib/stories';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Stories (rebuilt 2026-10-18): up to three, in the person's own words.
 // Each story can start from one of five optional guides ("A moment from
@@ -72,7 +73,7 @@ export function StoriesEditor({ value, onChange, onCommit }: Props) {
                       </Text>
                       <Text
                         className={`text-caption ${
-                          picked ? 'text-stone-300 dark:text-stone-600' : 'text-stone-500 dark:text-stone-400'
+                          picked ? 'text-stone-300 dark:text-stone-400' : 'text-stone-500 dark:text-stone-400'
                         }`}>
                         {g.hint}
                       </Text>
@@ -87,8 +88,8 @@ export function StoriesEditor({ value, onChange, onCommit }: Props) {
                     {guide.title} {guide.hint}
                   </Text>
                 )}
-                <Pressable onPress={() => setOpenGuides(i)} hitSlop={6}>
-                  <Text className="text-caption font-semibold text-accent-500">
+                <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setOpenGuides(i)} hitSlop={6}>
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                     {guide ? 'Other ways to start' : 'Ways to start'}
                   </Text>
                 </Pressable>
@@ -108,8 +109,8 @@ export function StoriesEditor({ value, onChange, onCommit }: Props) {
               className="min-h-32 rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
             />
             {stories.length > 1 && (
-              <Pressable onPress={() => onCommit(stories.filter((_, idx) => idx !== i))} className="self-start">
-                <Text className="text-caption text-stone-400 dark:text-stone-600">Remove this story</Text>
+              <Pressable onPress={() => onCommit(stories.filter((_, idx) => idx !== i))} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Remove this story</Text>
               </Pressable>
             )}
           </View>
@@ -122,8 +123,8 @@ export function StoriesEditor({ value, onChange, onCommit }: Props) {
             setOpenGuides(stories.length);
             onCommit([...stories, { ...EMPTY }]);
           }}
-          className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">Add another story (up to {MAX_STORIES})</Text>
+          className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Add another story (up to {MAX_STORIES})</Text>
         </Pressable>
       )}
     </View>

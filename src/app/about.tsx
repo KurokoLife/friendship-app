@@ -19,8 +19,8 @@ export default function AboutScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerClassName="gap-6 px-6 pb-14 pt-6">
-          <Pressable onPress={() => goBack({ pathname: '/profile', params: { view: 'settings' } })} className="self-start">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable onPress={() => goBack({ pathname: '/profile', params: { view: 'settings' } })} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
           <Text className="text-display text-stone-900 dark:text-stone-50">About Limen</Text>
           <Text className="text-body leading-relaxed text-stone-700 dark:text-stone-300">
@@ -31,7 +31,7 @@ export default function AboutScreen() {
             <Text className="text-title text-stone-900 dark:text-stone-50">What we hold to</Text>
             {HOLD_TO.map((line) => (
               <View key={line} className="flex-row gap-3">
-                <Text className="text-body text-accent-500">•</Text>
+                <Text className="text-body text-accent-500 dark:text-accent-400">•</Text>
                 <Text className="flex-1 text-body leading-relaxed text-stone-700 dark:text-stone-300">{line}</Text>
               </View>
             ))}

@@ -4,8 +4,9 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'rea
 
 import { CoachMark } from '@/components/coach-mark';
 import { supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type Analysis = {
   sharedTraits: string[];
@@ -27,7 +28,7 @@ function Section({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
   return (
     <View className="gap-2">
-      <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">{title}</Text>
+      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">{title}</Text>
       <View className="gap-2">
         {items.map((item, index) => (
           <Text key={index} className="text-body leading-relaxed text-stone-700 dark:text-stone-300">
@@ -122,7 +123,7 @@ export function ConnectionAnalysisSheet({
             {loading && (
               <View className="items-center gap-3 py-8">
                 <ActivityIndicator color={MUTED_ICON_COLOR} />
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
                   Looking at what you two might have in common.
                 </Text>
               </View>
@@ -168,7 +169,7 @@ export function ConnectionAnalysisSheet({
                   </Pressable>
                   {showUpgrade && (
                     <Pressable onPress={() => router.push('/premium')} className="self-start">
-                      <Text className="text-caption font-semibold text-accent-500">Upgrade to Premium</Text>
+                      <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Upgrade to Premium</Text>
                     </Pressable>
                   )}
                 </View>

@@ -17,6 +17,7 @@ import {
 } from '@/lib/prompt-settings';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { buildRememberExport } from '@/lib/remember';
+import { palette } from '@/theme';
 
 const SHOW_INVITE = false;
 
@@ -65,8 +66,8 @@ function TakeABreak() {
               You&apos;re taking a break until {day}. Nobody new is shown to you, and you aren&apos;t shown to anyone
               new. Your chats carry on as usual.
             </Text>
-            <Pressable onPress={() => set(0)} disabled={busy} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">{busy ? 'Saving...' : 'End my break now'}</Text>
+            <Pressable onPress={() => set(0)} disabled={busy} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">{busy ? 'Saving...' : 'End my break now'}</Text>
             </Pressable>
           </>
         ) : (
@@ -100,7 +101,7 @@ function TakeABreak() {
   );
 }
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type BlockedUser = {
   id: string;
@@ -190,7 +191,7 @@ function ReminderSettings() {
 
 function SectionHeader({ label }: { label: string }) {
   return (
-    <Text className="text-caption font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-600">
+    <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
       {label}
     </Text>
   );
@@ -386,8 +387,8 @@ export function SettingsPanel() {
             <SectionHeader label="Membership" />
             <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
               <Text className="text-body text-stone-900 dark:text-stone-50">Free during the pilot</Text>
-              <Pressable onPress={() => router.push('/premium')}>
-                <Text className="text-caption font-semibold text-accent-500">How Limen is paid for</Text>
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => router.push('/premium')}>
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">How Limen is paid for</Text>
               </Pressable>
             </View>
           </View>
@@ -403,13 +404,13 @@ export function SettingsPanel() {
               <Pressable
                 onPress={shareReferralCode}
                 className="items-center gap-1 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-                <Text className="text-body font-semibold text-accent-500">
+                <Text className="text-body font-semibold text-accent-500 dark:text-accent-400">
                   {Platform.OS === 'web' && referralCopied ? 'Copied!' : 'Share your code'}
                 </Text>
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
                   Your code: {account.referral_code}
                 </Text>
-                <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
+                <Text className="text-center text-caption text-stone-500 dark:text-stone-400">
                   Know someone who could use a new friend? Limen is free during the pilot.
                 </Text>
               </Pressable>
@@ -578,8 +579,8 @@ export function SettingsPanel() {
                   tied to your account. This cannot be undone.
                 </Text>
                 <View className="flex-row gap-3 pt-2">
-                  <Pressable onPress={() => setDeleteModalVisible(false)} className="flex-1 items-center py-3">
-                    <Text className="text-body text-stone-500 dark:text-stone-400">Cancel</Text>
+                  <Pressable onPress={() => setDeleteModalVisible(false)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 flex-1">
+                    <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => setDeleteStep('final')}
@@ -599,8 +600,8 @@ export function SettingsPanel() {
                   <Pressable
                     onPress={() => setDeleteModalVisible(false)}
                     disabled={deleting}
-                    className="flex-1 items-center py-3">
-                    <Text className="text-body text-stone-500 dark:text-stone-400">Cancel</Text>
+                    className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 flex-1">
+                    <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
                   </Pressable>
                   <Pressable
                     onPress={handleDeleteAccount}
@@ -656,8 +657,8 @@ function NotesExportBox() {
         Your private notes live in each chat, under &quot;What I want to remember&quot;. Only you can see them. You can
         download a copy of all of them.
       </Text>
-      <Pressable onPress={download} disabled={state === 'busy'} className="self-start">
-        <Text className={`text-caption font-semibold text-accent-500 ${state === 'busy' ? 'opacity-40' : ''}`}>
+      <Pressable onPress={download} disabled={state === 'busy'} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+        <Text className={`text-caption font-semibold ${state === 'busy' ? 'opacity-40' : ''} text-stone-900 dark:text-stone-50`}>
           {state === 'busy' ? 'Preparing...' : 'Download my notes'}
         </Text>
       </Pressable>

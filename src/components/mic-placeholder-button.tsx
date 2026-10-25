@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // UI-only placeholder for future voice-to-text, positioned and styled to
 // match VoiceTextInput's real mic button exactly (see voice-text-input.tsx),
@@ -24,7 +25,7 @@ export function MicPlaceholderButton() {
         <Ionicons name="mic-outline" size={16} color={MUTED_ICON_COLOR} />
       </Pressable>
       {tapped && (
-        <Text className="mt-1 max-w-[110px] text-right text-caption text-stone-400 dark:text-stone-600">
+        <Text className="mt-1 max-w-[110px] text-right text-caption text-stone-500 dark:text-stone-400">
           Voice input coming soon
         </Text>
       )}

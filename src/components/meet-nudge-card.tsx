@@ -87,8 +87,8 @@ export function MeetNudgeCard({
             setSaidKeep(false);
             setStage(null);
           }}
-          className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">OK</Text>
+          className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">OK</Text>
         </Pressable>
       </View>
     );
@@ -100,8 +100,8 @@ export function MeetNudgeCard({
         <Text className="text-body text-stone-700 dark:text-stone-300">
           Added. {name} will be asked to confirm, and it&apos;s counted once they do.
         </Text>
-        <Pressable onPress={() => setLogged(false)} className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">OK</Text>
+        <Pressable onPress={() => setLogged(false)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">OK</Text>
         </Pressable>
       </View>
     );
@@ -126,8 +126,8 @@ export function MeetNudgeCard({
     );
   }
   const metLink = (
-    <Pressable onPress={() => setLogging(true)} className="self-start">
-      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+    <Pressable onPress={() => setLogging(true)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+      <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
         {met ? "We've met up since then" : "We've already met"}
       </Text>
     </Pressable>
@@ -149,12 +149,12 @@ export function MeetNudgeCard({
       key={label}
       onPress={onPress}
       disabled={busy}
-      className={`rounded-full px-4 py-2 ${
-        primary ? 'bg-stone-900 dark:bg-stone-50' : 'border border-stone-300 dark:border-stone-700'
+      className={`min-h-11 justify-center rounded-full px-4 ${
+        primary ? 'bg-apricot' : 'border border-outline dark:border-stone-600'
       } ${busy ? 'opacity-40' : ''}`}>
       <Text
         className={`text-caption font-semibold ${
-          primary ? 'text-stone-50 dark:text-stone-900' : 'text-stone-700 dark:text-stone-300'
+          primary ? 'text-white' : 'text-stone-900 dark:text-stone-50'
         }`}>
         {label}
       </Text>

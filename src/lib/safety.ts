@@ -93,10 +93,10 @@ export function waitingForInterestCopy(name: string): string {
   return `Sent privately. If ${name} says Interested too, a chat opens for you both. ${name} is only told if that happens. People decide at their own pace, and that's okay. If it doesn't become mutual within 30 days, it closes on its own.`;
 }
 // What shows right after tapping Interested (2026-10-14): the person is
-// always kept in Your people, under Getting to know (Inbox Pending until
+// always kept in Your circle, under Getting to know (Inbox Pending until
 // 2026-10-25), and the line says what happens next.
 export function interestSavedCopy(name: string, r: Extract<InterestResult, { status: 'waiting' }>): string {
-  const where = "You'll find them in Your people, under Getting to know.";
+  const where = "You'll find them in Your circle, under Getting to know.";
   if (r.mutual) {
     if (r.wait === 'my_selfie') return `You and ${name} both said Interested. Your chat opens once your selfie is approved. ${where}`;
     if (r.wait === 'their_selfie') return `You and ${name} both said Interested. Your chat opens once ${name}'s selfie check is done. ${where}`;

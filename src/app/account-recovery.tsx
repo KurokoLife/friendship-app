@@ -16,6 +16,7 @@ import {
 import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
 // Onboarding screen 4 (docs/DECISIONS.md): one optional screen replacing
 // the old Email and Social linking screens. Phone stays the required
@@ -27,8 +28,8 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 // Providers) before these buttons work; until then they show a plain
 // "not available yet" message instead of a raw error.
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
-const ACCENT_COLOR = '#B5643B'; // accent-500
+const MUTED_ICON_COLOR = palette.muted;
+const ACCENT_COLOR = palette.link;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Provider = 'google' | 'apple';
@@ -144,8 +145,8 @@ export default function AccountRecoveryScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1 px-6 py-10">
-        <Pressable onPress={() => (mode === 'choose' ? router.replace(fromSettings ? '/settings' : '/profile-review?from=onboarding') : setMode('choose'))}>
-          <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => (mode === 'choose' ? router.replace(fromSettings ? '/settings' : '/profile-review?from=onboarding') : setMode('choose'))}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
 
         <ScrollView className="flex-1" contentContainerClassName="gap-5 pt-6" showsVerticalScrollIndicator={false}>
@@ -252,12 +253,12 @@ export default function AccountRecoveryScreen() {
           {hasLinked || mode === 'email-sent' ? (
             <Pressable
               onPress={goNext}
-              className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-              <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Continue</Text>
+              className="items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot">
+              <Text className="text-body font-semibold text-white">Continue</Text>
             </Pressable>
           ) : (
-            <Pressable onPress={goNext} className="items-center py-3">
-              <Text className="text-body text-stone-500 dark:text-stone-400">{fromSettings ? 'Back to Settings' : 'Skip for now'}</Text>
+            <Pressable onPress={goNext} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+              <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{fromSettings ? 'Back to Settings' : 'Skip for now'}</Text>
             </Pressable>
           )}
         </View>

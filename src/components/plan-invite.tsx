@@ -12,6 +12,7 @@ import {
   type PlanSlot,
 } from '@/lib/plan-board';
 import { supabase } from '@/lib/supabase';
+import { InlineLink } from '@/components/ui';
 
 // An invite to meet, sent from "Let's plan something" (2026-10-10). It
 // shows in the chat like a message: the sender's own note, then the ideas
@@ -100,7 +101,7 @@ export function PlanInviteBubble({
     const who = invite.accepted_by === myId ? 'You' : name;
     const when = `${dayLabel(invite.accepted_day)}${invite.accepted_part ? `, ${PART_LABELS[invite.accepted_part].toLowerCase()}` : ''}`;
     status = (
-      <Text className="text-caption font-semibold text-accent-500">
+      <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">
         {invite.accepted_confirmed
           ? `✓ ${who} picked ${when}${invite.accepted_idea ? ` · ${invite.accepted_idea}` : ''}. It's in your plan above.`
           : isMine
@@ -122,9 +123,10 @@ export function PlanInviteBubble({
         <Text className="text-caption text-stone-500 dark:text-stone-400">
           {name} can reply in the chat, or pick a time here.
         </Text>
-        <Pressable onPress={() => onSetPlan(invite.ideas[0]?.title ?? '')} className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">Agreed on something in the chat? Set the plan</Text>
-        </Pressable>
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Agreed on something in the chat?{' '}
+          <InlineLink onPress={() => onSetPlan(invite.ideas[0]?.title ?? '')}>Set the plan</InlineLink>
+        </Text>
       </View>
     );
   } else if (!choosing) {
@@ -132,8 +134,8 @@ export function PlanInviteBubble({
       <View className="gap-1">
         <Pressable
           onPress={() => setChoosing(true)}
-          className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-          <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Pick a time that works</Text>
+          className="self-start rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot">
+          <Text className="text-caption font-semibold text-white">Pick a time that works</Text>
         </Pressable>
         <Text className="text-caption text-stone-500 dark:text-stone-400">Or just reply in the chat.</Text>
       </View>
@@ -170,13 +172,13 @@ export function PlanInviteBubble({
                 activity: chosenIdea.title,
               })
             }
-            className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${
+            className={`rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${
               !chosenIdea || !chosenTime ? 'opacity-40' : ''
             }`}>
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Next: exact time and place</Text>
+            <Text className="text-caption font-semibold text-white">Next: exact time and place</Text>
           </Pressable>
-          <Pressable onPress={() => setChoosing(false)}>
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setChoosing(false)}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
         </View>
       </View>
@@ -185,7 +187,7 @@ export function PlanInviteBubble({
 
   return (
     <View className="max-w-[88%] gap-2 rounded-2xl border border-accent-500/50 bg-white px-4 py-3 dark:bg-stone-800">
-      <Text className="text-caption font-semibold text-accent-500">
+      <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">
         {isMine ? 'Your invite to meet' : `${name}'s invite to meet`}
       </Text>
       {invite.note && <Text className="text-body text-stone-800 dark:text-stone-100">{invite.note}</Text>}
@@ -202,7 +204,7 @@ export function PlanInviteBubble({
         {invite.times.map((t) => (
           <Text
             key={slotKey(t)}
-            className={`text-body ${t.day < today ? 'text-stone-400 line-through dark:text-stone-600' : 'text-stone-700 dark:text-stone-200'}`}>
+            className={`text-body ${t.day < today ? 'text-stone-500 line-through dark:text-stone-400' : 'text-stone-700 dark:text-stone-200'}`}>
             • {slotText(t)}
           </Text>
         ))}

@@ -7,8 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatMeetupTime, parseIsoDate } from '@/lib/meetup-format';
 import { supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Meetup history (rebuilt 2026-10-08): every meetup you both said happened,
 // numbered in order (1st, 2nd, ...), with the date, time and place from the
@@ -60,8 +61,8 @@ export default function MeetupHistoryScreen() {
   return (
     <SafeAreaView className="flex-1 bg-stone-50 dark:bg-stone-900">
       <View className="flex-row items-center justify-between border-b border-stone-200 px-6 pb-4 pt-4 dark:border-stone-800">
-        <Pressable onPress={() => goBack(`/thread/${connectionId}`)}>
-          <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack(`/thread/${connectionId}`)}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
         <Text className="text-title text-stone-900 dark:text-stone-50">Meetup history</Text>
         <View style={{ width: 40 }} />
@@ -73,7 +74,7 @@ export default function MeetupHistoryScreen() {
         </View>
       ) : rows.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-center text-body text-stone-400 dark:text-stone-600">
+          <Text className="text-center text-body text-stone-500 dark:text-stone-400">
             No meetups yet. Once you both say a meetup happened, it shows up here.
           </Text>
         </View>

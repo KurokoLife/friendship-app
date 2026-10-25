@@ -25,8 +25,8 @@ export default function SupportLimenScreen() {
   return (
     <SafeAreaView className="flex-1 bg-stone-50 dark:bg-stone-900">
       <ScrollView contentContainerClassName="gap-5 px-6 py-6">
-        <Pressable onPress={() => goBack('/settings')}>
-          <Text className="text-body text-stone-500 dark:text-stone-400">Back</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/settings')}>
+          <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
 
         <Text className="text-title text-stone-900 dark:text-stone-50">How Limen is paid for</Text>

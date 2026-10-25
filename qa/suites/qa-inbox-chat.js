@@ -121,8 +121,8 @@ const { U, check, tap, text, go, q } = L;
   await go(d.page, '/inbox', 3000);
   t = await text(d.page);
   check('Block: chat moves to Past, at the bottom', t.includes('Blocked') && t.indexOf('PAST') < t.indexOf('Blocked'), t.slice(0, 800));
-  await go(d.page, '/people', 3000);
-  check('Block: never shown in Your people', !(await text(d.page)).includes('Mochi'));
+  await go(d.page, '/circle', 3000);
+  check('Block: never shown in Your circle', !(await text(d.page)).includes('Mochi'));
 
   // Back button
   await go(d.page, `/thread/${C2}`, 3000);

@@ -13,8 +13,10 @@ import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { authErrorDetail, friendlySendCodeError, friendlyVerifyCodeError } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
+import { InlineLink } from '@/components/ui';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function VerifyCodeScreen() {
@@ -86,8 +88,8 @@ export default function VerifyCodeScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
-        <Pressable onPress={() => router.replace('/phone-verification')} className="self-start">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+        <Pressable onPress={() => router.replace('/phone-verification')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
 
         <View className="gap-5">
@@ -115,14 +117,12 @@ export default function VerifyCodeScreen() {
             <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>
           )}
           {error && errorDetail && (
-            <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details: {errorDetail}</Text>
+            <Text className="text-[11px] text-stone-500 dark:text-stone-400">Details: {errorDetail}</Text>
           )}
 
-          <Pressable onPress={handleResend} disabled={resending || cooldown > 0}>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={handleResend} disabled={resending || cooldown > 0}>
             <Text
-              className={`text-caption dark:text-stone-400 ${
-                cooldown > 0 ? 'text-stone-300 dark:text-stone-700' : 'text-stone-500'
-              }`}>
+              className={`text-caption font-semibold text-stone-900 dark:text-stone-50 ${cooldown > 0 ? 'opacity-40' : ''}`}>
               {cooldown > 0
                 ? `Resend code in ${cooldown}s`
                 : resending
@@ -131,21 +131,19 @@ export default function VerifyCodeScreen() {
             </Text>
           </Pressable>
 
-          <Pressable onPress={() => router.replace('/phone-verification')}>
-            <Text className="text-caption text-stone-500 underline dark:text-stone-400">
-              Wrong number?
-            </Text>
-          </Pressable>
+          <Text className="text-center text-caption text-stone-500 dark:text-stone-400">
+            Wrong number? <InlineLink onPress={() => router.replace('/phone-verification')}>Change it</InlineLink>
+          </Text>
         </View>
 
         <Pressable
           onPress={handleVerify}
           disabled={verifying || !isSupabaseConfigured}
-          className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+          className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
             verifying || !isSupabaseConfigured ? 'opacity-40' : ''
           }`}>
           {verifying && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-          <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+          <Text className="text-body font-semibold text-white">
             {verifying ? 'Verifying...' : 'Verify'}
           </Text>
         </Pressable>

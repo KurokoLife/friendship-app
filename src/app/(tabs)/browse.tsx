@@ -25,8 +25,9 @@ import {
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Blueprint Section 8: warn when a narrow search radius produces too few
 // eligible profiles, distinct from the existing "no one matches these
@@ -503,7 +504,7 @@ export default function BrowseScreen() {
       case 'radius':
         return (
           <View className="gap-2 py-2">
-            <Text className="text-caption text-stone-400 dark:text-stone-600">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
               Within {radiusMiles} miles (your profile default is {profileDefaultRadius})
             </Text>
             <Slider
@@ -512,7 +513,7 @@ export default function BrowseScreen() {
               step={1}
               value={radiusMiles}
               onSlidingComplete={(value) => setRadiusMiles(Math.round(value))}
-              minimumTrackTintColor="#B5643B"
+              minimumTrackTintColor={palette.link}
             />
           </View>
         );
@@ -678,12 +679,12 @@ export default function BrowseScreen() {
               </Text>
               {radiusMiles < profileDefaultRadius ? (
                 <Pressable onPress={() => setOpenFilter('radius')}>
-                  <Text className="text-caption font-semibold text-accent-500">
+                  <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">
                     Try widening your radius
                   </Text>
                 </Pressable>
               ) : (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
                   You can increase your search radius in your profile to see more people.
                 </Text>
               )}
@@ -717,9 +718,9 @@ export default function BrowseScreen() {
                       {c.display_name ?? 'A member'}
                       {c.age_band ? `, ${c.age_band}` : ''}
                     </Text>
-                    {fragment && <Text className="text-caption text-accent-500">{fragment}</Text>}
+                    {fragment && <Text className="text-caption text-accent-500 dark:text-accent-400">{fragment}</Text>}
                     {distanceLabel && (
-                      <Text className="text-caption text-stone-400 dark:text-stone-600">
+                      <Text className="text-caption text-stone-500 dark:text-stone-400">
                         {distanceLabel}
                       </Text>
                     )}
@@ -732,7 +733,7 @@ export default function BrowseScreen() {
                 </Pressable>
 
                 <Pressable onPress={() => setWhyOpenFor(c.user_id)}>
-                  <Text className="text-caption font-semibold text-accent-500">
+                  <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">
                     Why might we connect?
                   </Text>
                 </Pressable>
@@ -803,16 +804,16 @@ export default function BrowseScreen() {
               {openFilter && openFilter !== 'radius' && (
                 <View className="flex-row gap-4">
                   <Pressable onPress={handleSelectAll}>
-                    <Text className="text-caption font-semibold text-accent-500">Select all</Text>
+                    <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Select all</Text>
                   </Pressable>
                   <Pressable onPress={handleClearAll}>
-                    <Text className="text-caption font-semibold text-accent-500">Clear all</Text>
+                    <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Clear all</Text>
                   </Pressable>
                 </View>
               )}
               {openFilter === 'radius' && (
                 <Pressable onPress={handleResetRadius}>
-                  <Text className="text-caption font-semibold text-accent-500">Reset</Text>
+                  <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Reset</Text>
                 </Pressable>
               )}
             </View>

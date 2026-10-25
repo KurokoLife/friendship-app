@@ -10,8 +10,9 @@ import { resetCoachMarks } from '@/lib/coach-marks';
 import { DEV_SEED_USERS, devSignInAs } from '@/lib/dev-tools';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { returnToMyAccount, useTestTools } from '@/lib/test-mode';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Test tools (rebuilt 2026-10-08). Every tool here drives the system the
 // app actually uses today. The previous version was mostly tools for the
@@ -227,12 +228,12 @@ export default function TestToolsScreen() {
                   <Text
                     key={f}
                     {...({ href: MIGRATION_URL_BASE + f, hrefAttrs: { target: '_blank', rel: 'noopener' } } as object)}
-                    className="text-caption font-semibold text-accent-500 underline">
+                    className="text-caption font-semibold text-accent-500 dark:text-accent-400 underline">
                     {f}
                   </Text>
                 ) : (
                   <Pressable key={f} onPress={() => Linking.openURL(MIGRATION_URL_BASE + f)}>
-                    <Text className="text-caption font-semibold text-accent-500 underline">{f}</Text>
+                    <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400 underline">{f}</Text>
                   </Pressable>
                 ),
               )}

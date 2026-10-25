@@ -10,10 +10,11 @@ import {
   type ConnectionEndReason,
 } from '@/lib/no-ghost';
 import { nameThenPeriod } from '@/lib/names';
+import { palette } from '@/theme';
 
 const END_STARTERS = ["I've enjoyed talking with you, ", "I don't think we're the right fit as friends, ", "Things are busy for me right now, "];
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type Props = {
   visible: boolean;
@@ -100,8 +101,8 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
               <Text className="text-body text-stone-600 dark:text-stone-300">{HONEST_EXIT_SENDER_TEXT}</Text>
               <Pressable
                 onPress={handleClose}
-                className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-                <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Done</Text>
+                className="items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot">
+                <Text className="text-body font-semibold text-white">Done</Text>
               </Pressable>
             </View>
           ) : (
@@ -121,7 +122,7 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                   notifies, {otherName} still sees the real, honest 'ended'
                   banner in the thread either way. */}
               <View className="gap-2">
-                <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
                   How would you like to end this?
                 </Text>
                 <View className="flex-row gap-2">
@@ -160,10 +161,10 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                   {otherName}, structurally, not just by choice, see
                   connection_end_reasons' own own-row-only RLS. */}
               <View className="gap-2">
-                <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
                   Reason (private, optional)
                 </Text>
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
                   Only you can ever see this. It is never shown to {nameThenPeriod(otherName)}
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
@@ -192,10 +193,10 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
                   only. Only shown when sending a message. */}
               {sendMessage && (
                 <View className="gap-2">
-                  <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                  <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
                     Message
                   </Text>
-                  <Text className="text-caption text-stone-400 dark:text-stone-600">
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
                     In your own words. Start with one of these if it helps, and finish it your way.
                   </Text>
                   {/* 2026-10-18: starters the person finishes themselves. */}
@@ -237,8 +238,8 @@ export function EndConnectionModal({ visible, onClose, onEnded, connectionId, ot
               {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
 
               <View className="flex-row gap-3 pt-2">
-                <Pressable onPress={handleClose} disabled={busy} className="flex-1 items-center py-3">
-                  <Text className="text-body text-stone-500 dark:text-stone-400">Cancel</Text>
+                <Pressable onPress={handleClose} disabled={busy} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 flex-1">
+                  <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleEnd}

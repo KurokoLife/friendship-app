@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useState, type ComponentType } from 'react';
 import { Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 export type VoiceTextInputProps = {
   value: string;

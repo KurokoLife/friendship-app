@@ -9,8 +9,9 @@ import {
   type ReportCategory,
 } from '@/lib/report-block';
 import { nameThenPeriod } from '@/lib/names';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type Props = {
   visible: boolean;
@@ -114,8 +115,8 @@ export function ReportModal({ visible, onClose, reportedId, connectionId, otherN
               </Text>
               <Pressable
                 onPress={handleClose}
-                className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-                <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Done</Text>
+                className="items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot">
+                <Text className="text-body font-semibold text-white">Done</Text>
               </Pressable>
             </View>
           ) : (
@@ -189,17 +190,17 @@ export function ReportModal({ visible, onClose, reportedId, connectionId, otherN
               {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
 
               <View className="flex-row gap-3 pt-2">
-                <Pressable onPress={handleClose} disabled={submitting} className="flex-1 items-center py-3">
-                  <Text className="text-body text-stone-500 dark:text-stone-400">Cancel</Text>
+                <Pressable onPress={handleClose} disabled={submitting} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 flex-1">
+                  <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleSubmit}
                   disabled={!category || submitting}
-                  className={`flex-1 flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-3 active:opacity-80 dark:bg-stone-50 ${
+                  className={`flex-1 flex-row items-center justify-center gap-2 rounded-full bg-apricot py-3 active:opacity-80 dark:bg-apricot ${
                     !category || submitting ? 'opacity-40' : ''
                   }`}>
                   {submitting && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-                  <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+                  <Text className="text-body font-semibold text-white">
                     {submitting ? 'Submitting...' : 'Submit report'}
                   </Text>
                 </Pressable>

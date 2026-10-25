@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-// Your people (rebuild stage 1, 2026-10-25, docs/context/05_LIMEN_REBUILD.md).
+// Your circle (rebuild stage 1, 2026-10-25, docs/context/05_LIMEN_REBUILD.md).
 // Four circles. Limen people are placed on their own (my_people), friends
 // from outside Limen are added by hand (outside_friends). Everything here
 // is private to the person: own rows only.
@@ -66,6 +66,7 @@ export type LimenPerson = {
   auto_circle: Circle;
   circle: Circle;
   moved: boolean;
+  photo_url: string | null;
 };
 
 export type OutsideFriend = {
@@ -144,4 +145,31 @@ export async function moveOutsideFriend(friend: OutsideFriend, circle: Circle): 
 export async function moveLimenPerson(otherUserId: string, circle: Circle): Promise<boolean> {
   const { data, error } = await supabase.rpc('set_person_circle', { p_other_user_id: otherUserId, p_circle: circle });
   return !error && data === 'ok';
+}
+
+// The one line under a Limen person's name in Your circle.
+export const LIMEN_STATE_LABELS: Record<LimenPerson['state'], string> = {
+  chat: 'Chatting on Limen',
+  paused: 'Chatting on Limen, paused',
+  waiting: 'Waiting to connect',
+  friend: 'Met on Limen',
+};
+
+function shortDay(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Why someone you said Interested to is still waiting (wording from the
+// old Inbox Pending tab, 2026-10-14). The other person is never told.
+export function waitingLine(p: { display_name: string | null; state: string; closes_at: string }): string {
+  const first = (p.display_name ?? 'They').split(' ')[0];
+  const why =
+    p.state === 'my_selfie'
+      ? 'You both said Interested. Your chat opens once your selfie is approved.'
+      : p.state === 'their_selfie'
+        ? `You both said Interested. Your chat opens once ${first}'s selfie check is done.`
+        : p.state === 'room'
+          ? "You both said Interested. Your chat opens as soon as there's room for a new chat."
+          : `Waiting for ${first}. If ${first} says Interested too, you can say hello.`;
+  return `${why} Closes on its own on ${shortDay(p.closes_at)} if a chat hasn't opened.`;
 }

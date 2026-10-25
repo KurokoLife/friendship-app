@@ -31,8 +31,9 @@ import { TurnOffForChatLink } from '@/components/chat-reminders-sheet';
 import { SafetyTipsLink } from '@/components/safety-tips';
 import { RememberAsksLine } from '@/components/remember-bar';
 import { nameThenPeriod } from '@/lib/names';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type Props = {
   intervention: ActiveIntervention;
@@ -481,8 +482,8 @@ function MeetupStillOn({
             onRequestPlanEditor?.('change');
             onResolved();
           }}
-          className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">Just pick a new day</Text>
+          className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Just pick a new day</Text>
         </Pressable>
       </Card>
     );
@@ -581,7 +582,7 @@ function PreMeetupSupport({
           How are you feeling about meeting {otherName} today?
         </Text>
         {line && <Text className="text-caption text-stone-500 dark:text-stone-400">{line}</Text>}
-        <Text className="text-caption italic text-stone-400 dark:text-stone-500">Only you see this.</Text>
+        <Text className="text-caption italic text-stone-500 dark:text-stone-400">Only you see this.</Text>
         <View className="flex-row flex-wrap gap-2">
           <OptionPill
             label="Looking forward to it"
@@ -633,7 +634,7 @@ function PreMeetupSupport({
           <OptionPill label="Nerves" onPress={() => setMode('nerves')} />
           <OptionPill label="Something came up" onPress={() => setMode('came_up')} />
         </View>
-        <Text className="text-caption text-stone-400 dark:text-stone-500">
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
           If something feels unsafe, use Report or Block at the top of the chat. You don&apos;t need to explain.
         </Text>
       </Card>
@@ -775,7 +776,7 @@ function OccurrenceError({ error, detail }: { error: string | null; detail: stri
   return (
     <View className="gap-0.5">
       <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>
-      {detail ? <Text className="text-caption text-stone-400 dark:text-stone-500">Test account detail: {detail}</Text> : null}
+      {detail ? <Text className="text-caption text-stone-500 dark:text-stone-400">Test account detail: {detail}</Text> : null}
     </View>
   );
 }
@@ -1009,7 +1010,7 @@ function MeetupOccurrenceCheck({
           That&apos;s disappointing. Plans fall through for all kinds of reasons. If you&apos;d like to know what
           happened, you can ask. You can also suggest another day, or end things kindly.
         </Text>
-        <Text className="text-caption italic text-stone-400 dark:text-stone-500">Only you see this.</Text>
+        <Text className="text-caption italic text-stone-500 dark:text-stone-400">Only you see this.</Text>
         <View className="flex-row flex-wrap gap-2">
           {onSuggestAnotherDay && (
             <OptionPill
@@ -1108,21 +1109,21 @@ function MeetupOccurrenceCheck({
           <Pressable
             onPress={sendRescheduleMessage}
             disabled={busy || !draftEdited || !draft.trim()}
-            className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${
+            className={`rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${
               busy || !draftEdited || !draft.trim() ? 'opacity-40' : ''
             }`}>
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Send</Text>
+            <Text className="text-caption font-semibold text-white">Send</Text>
           </Pressable>
           {/* The same real "Let's plan something" handler the always-visible
               compose-footer link already calls, threaded down from
               thread/[id].tsx, not a second, simplified reimplementation. */}
-          <Pressable
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
             onPress={() => {
               setMode('cancelled_done');
               onPlanSomething?.();
             }}
             disabled={busy}>
-            <Text className="text-caption font-semibold text-accent-500">Let&apos;s plan something</Text>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Let&apos;s plan something</Text>
           </Pressable>
         </View>
       </Card>
@@ -1507,7 +1508,7 @@ function PostMeetupReflectionPrompt({
   return (
     <Card>
       <Text className="text-body text-stone-700 dark:text-stone-300">How did it go with {otherName}?</Text>
-      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this answer.</Text>
+      <Text className="text-caption italic text-stone-500 dark:text-stone-400">Only you see this answer.</Text>
       <View className="gap-2">
         {options.map((o) => (
           <Pressable
@@ -1588,7 +1589,7 @@ function CheckInPrompt({
         A message out of the blue is usually more welcome than the person sending it expects.
         {iSentLast ? " If you're wondering about your last message, you can ask." : ''}
       </Text>
-      <Text className="text-caption italic text-stone-400 dark:text-stone-600">Only you see this.</Text>
+      <Text className="text-caption italic text-stone-500 dark:text-stone-400">Only you see this.</Text>
       <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} />
       {errorText}
       {writing ? (
@@ -1735,7 +1736,7 @@ function GraduationCheckpoint({
             : `It's been about six months since you and ${otherName} connected.`}{' '}
           It&apos;s time to decide where this goes next.
         </Text>
-        <Text className="text-caption text-stone-400 dark:text-stone-600">
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
           Private. {otherName} only sees an outcome if you both choose to graduate.
         </Text>
         <View className="gap-2">
@@ -1761,7 +1762,7 @@ function GraduationCheckpoint({
           : `You and ${otherName} have met several times so far and have a good rhythm.`}{' '}
         Would you like to continue your friendship without Limen?
       </Text>
-      <Text className="text-caption text-stone-400 dark:text-stone-600">
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
         Private. Nobody sees your answer. If you both say yes, you graduate together. Your chat and notes stay.
       </Text>
       <View className="gap-2">
@@ -1800,8 +1801,8 @@ function MeetupDateReconciliation({ intervention, onResolved }: { intervention: 
           className="rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
         />
         <View className="flex-row gap-2">
-          <Pressable onPress={propose} disabled={!date} className="rounded-full bg-stone-900 px-4 py-2 dark:bg-stone-50">
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Suggest this date</Text>
+          <Pressable onPress={propose} disabled={!date} className="rounded-full bg-apricot px-4 py-2 dark:bg-apricot">
+            <Text className="text-caption font-semibold text-white">Suggest this date</Text>
           </Pressable>
           <OptionPill label="Not now" onPress={onResolved} />
         </View>

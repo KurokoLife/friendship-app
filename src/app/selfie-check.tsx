@@ -7,8 +7,9 @@ import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { WebCamera } from '@/components/web-camera';
 import { fetchSelfieState, randomSelfiePose, submitSelfieCheck, type SelfieState } from '@/lib/safety';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Selfie check (docs/DECISIONS.md section 3, item 5, option A). Required
 // before saying Interested or sending a first message. The person takes a
@@ -35,7 +36,7 @@ export default function SelfieCheckScreen() {
   }, []);
 
   const leave = () => {
-    if (next === 'home') router.replace('/people');
+    if (next === 'home') router.replace('/circle');
     else if (router.canGoBack()) router.back();
     else router.replace('/home');
   };
@@ -91,8 +92,8 @@ export default function SelfieCheckScreen() {
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <PaddedSafeArea className="flex-1 px-6 py-10">
-        <Pressable onPress={leave}>
-          <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={leave}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
 
         <ScrollView className="flex-1" contentContainerClassName="gap-5 pt-6" showsVerticalScrollIndicator={false}>
@@ -111,7 +112,7 @@ export default function SelfieCheckScreen() {
                 soon as it&apos;s been checked.
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                You only do this once for your account. You can still say Interested while you wait: those people wait in Your people, and chats open once it&apos;s approved. You can keep replying in chats you already have.
+                You only do this once for your account. You can still say Interested while you wait: those people wait in Your circle, and chats open once it&apos;s approved. You can keep replying in chats you already have.
               </Text>
             </View>
           ) : (
@@ -130,8 +131,8 @@ export default function SelfieCheckScreen() {
               <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
                 <Text className="text-caption text-stone-500 dark:text-stone-400">Take a selfie while you</Text>
                 <Text className="text-title text-stone-900 dark:text-stone-50">{pose}</Text>
-                <Pressable onPress={() => setPose(randomSelfiePose())}>
-                  <Text className="text-caption text-accent-500">Give me a different pose</Text>
+                <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setPose(randomSelfiePose())}>
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Give me a different pose</Text>
                 </Pressable>
               </View>
 
@@ -157,7 +158,7 @@ export default function SelfieCheckScreen() {
                       : 'border-stone-400 dark:border-stone-600'
                   }`}>
                   {consented && (
-                    <Ionicons name="checkmark" size={14} color={colorScheme === 'dark' ? '#1c1917' : '#fafaf9'} />
+                    <Ionicons name="checkmark" size={14} color={colorScheme === 'dark' ? palette.ink : palette.cream} />
                   )}
                 </View>
                 <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">
@@ -177,23 +178,23 @@ export default function SelfieCheckScreen() {
               <Pressable
                 onPress={preview ? send : takeSelfie}
                 disabled={sending || (preview !== null && !consented)}
-                className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+                className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
                   sending || (preview !== null && !consented) ? 'opacity-40' : ''
                 }`}>
                 {sending && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-                <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+                <Text className="text-body font-semibold text-white">
                   {sending ? 'Sending...' : preview ? 'Send my selfie' : 'Take my selfie'}
                 </Text>
               </Pressable>
               {preview && (
-                <Pressable onPress={takeSelfie} className="items-center py-2">
-                  <Text className="text-body text-stone-500 dark:text-stone-400">Retake</Text>
+                <Pressable onPress={takeSelfie} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+                  <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Retake</Text>
                 </Pressable>
               )}
             </>
           )}
-          <Pressable onPress={leave} className="items-center py-3">
-            <Text className="text-body text-stone-500 dark:text-stone-400">
+          <Pressable onPress={leave} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+            <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
               {state.verified || state.status === 'pending' ? 'Done' : "I'll do it later"}
             </Text>
           </Pressable>

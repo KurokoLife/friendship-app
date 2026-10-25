@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 export type PlaceValue = {
   name: string;
@@ -298,7 +299,7 @@ export function PlaceField({
               </Pressable>
             ))
           )}
-          <Text className="px-3 py-1 text-[10px] text-stone-400 dark:text-stone-500">
+          <Text className="px-3 py-1 text-[10px] text-stone-500 dark:text-stone-400">
             {source === 'google' ? 'Powered by Google' : 'Place data © OpenStreetMap'}
           </Text>
         </View>

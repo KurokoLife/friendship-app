@@ -6,7 +6,7 @@ Last updated 2026-10-25. The detailed decisions per area are in docs/DECISIONS.m
 
 | Stage | Status |
 |---|---|
-| 1. New home and tabs | Built 2026-10-25 (migration 20261025000000). Waiting: founder OK on the Your people empty-state wording |
+| 1. New home and tabs | Built 2026-10-25 (migration 20261025000000). Waiting: founder OK on the Your circle empty-state wording |
 | 2. Joining | Not started |
 | 3. Suggestions (needs a real phone test) | Not started |
 | 4. Say hi | Not started |

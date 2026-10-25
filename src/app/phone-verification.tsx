@@ -13,8 +13,9 @@ import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { authErrorDetail, friendlySendCodeError } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 function toE164(countryCode: string, number: string) {
   const countryDigits = countryCode.replace(/\D/g, '');
@@ -57,8 +58,8 @@ export default function PhoneVerificationScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
-        <Pressable onPress={() => router.replace('/philosophy-intro')} className="self-start">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+        <Pressable onPress={() => router.replace('/philosophy-intro')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
 
         <View className="gap-5">
@@ -112,18 +113,18 @@ export default function PhoneVerificationScreen() {
             <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>
           )}
           {error && errorDetail && (
-            <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details: {errorDetail}</Text>
+            <Text className="text-[11px] text-stone-500 dark:text-stone-400">Details: {errorDetail}</Text>
           )}
         </View>
 
         <Pressable
           onPress={handleSendCode}
           disabled={sending || !isSupabaseConfigured}
-          className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+          className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
             sending || !isSupabaseConfigured ? 'opacity-40' : ''
           }`}>
           {sending && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-          <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+          <Text className="text-body font-semibold text-white">
             {sending ? 'Sending...' : 'Send code'}
           </Text>
         </Pressable>

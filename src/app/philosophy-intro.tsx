@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { PaddedSafeArea } from '@/components/padded-safe-area';
+import { InlineLink } from '@/components/ui';
 
 // Intro (2026-10-22: one screen, was two). That making friends as an adult
 // is hard and it's not just you, the liking gap (after a first
@@ -30,15 +31,15 @@ export default function PhilosophyIntroScreen() {
         <View className="gap-3">
           <Pressable
             onPress={() => router.push('/phone-verification')}
-            className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Join Limen</Text>
+            className="items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot">
+            <Text className="text-body font-semibold text-white">Join Limen</Text>
           </Pressable>
-          <Pressable onPress={() => router.push('/phone-verification')} className="items-center py-2">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Already a member? Sign in</Text>
-          </Pressable>
+          <Text className="py-2 text-center text-caption text-stone-500 dark:text-stone-400">
+            Already a member? <InlineLink onPress={() => router.push('/phone-verification')}>Sign in</InlineLink>
+          </Text>
           {__DEV__ && (
-            <Pressable onPress={() => router.replace('/home')} className="items-center py-2">
-              <Text className="text-caption text-stone-400 dark:text-stone-600">Skip to home (dev)</Text>
+            <Pressable onPress={() => router.replace('/home')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Skip to home (dev)</Text>
             </Pressable>
           )}
         </View>

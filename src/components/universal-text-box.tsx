@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { InlineLink } from '@/components/ui';
 
 // Limen v2 (2026-10-03), see docs/LIMEN_V2_DECISIONS.md.
 //
@@ -107,19 +108,16 @@ export function UniversalTextBox({
   return (
     <View className="gap-2">
       {tipLine ? (
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          {tipLine}{' '}
+          <InlineLink onPress={() => !disabled && setShowReflect((s) => !s)}>{showReflect ? 'Hide tips' : 'More tips'}</InlineLink>
+        </Text>
+      ) : (
         <Pressable
           onPress={() => setShowReflect((s) => !s)}
           disabled={disabled}
-          accessibilityRole="button"
-          accessibilityLabel={`${tipLine} ${showReflect ? 'Hide tips' : 'More tips'}`}>
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            {tipLine}{' '}
-            <Text className="font-semibold text-accent-500">{showReflect ? 'Hide tips' : 'More tips'}</Text>
-          </Text>
-        </Pressable>
-      ) : (
-        <Pressable onPress={() => setShowReflect((s) => !s)} disabled={disabled} className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">
+          className="min-h-11 flex-row items-center justify-center self-start rounded-full border border-outline px-4 active:opacity-70 dark:border-stone-600">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
             {showReflect ? 'Hide questions' : 'Reflect first'}
           </Text>
         </Pressable>

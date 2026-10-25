@@ -6,9 +6,10 @@ import { ProfileStories } from '@/components/profile-stories';
 import { activityCategoryLabel, activityDetailLines } from '@/lib/activity-categories';
 import { formatDistance } from '@/lib/distance';
 import { lifeTransitionSentences } from '@/lib/life-transition';
+import { palette } from '@/theme';
 
-const ACCENT_COLOR = '#B5643B'; // accent-500
-const MUTED_COLOR = '#a8a29e'; // stone-400
+const ACCENT_COLOR = palette.link;
+const MUTED_COLOR = palette.muted;
 
 // What other people see (docs/DECISIONS.md section 2). One shared view so
 // Other User Profile (candidate/[id].tsx) and your own Public Profile
@@ -84,7 +85,7 @@ function ConnectRow({ label, value }: { label: string; value: string | null | un
   if (!value) return null;
   return (
     <View className="gap-0.5">
-      <Text className="text-caption text-stone-400 dark:text-stone-400">{label}</Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">{label}</Text>
       <Text className="text-body text-stone-700 dark:text-stone-300">{value}</Text>
     </View>
   );
@@ -162,13 +163,13 @@ export function PublicProfileView({
           {profile.selfie_verified && (
             <View className="flex-row items-center gap-1 self-start rounded-full border border-accent-500 px-2 py-0.5">
               <Ionicons name="checkmark-circle" size={12} color={ACCENT_COLOR} />
-              <Text className="text-caption text-accent-500">Photo verified</Text>
+              <Text className="text-caption text-accent-500 dark:text-accent-400">Photo verified</Text>
             </View>
           )}
           {distance && <Text className="text-caption text-stone-500 dark:text-stone-400">{distance}</Text>}
           {photos.length > 0 && (
-            <Pressable onPress={() => setViewerAt(0)} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">
+            <Pressable onPress={() => setViewerAt(0)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                 {photos.length === 1 ? 'See photo' : `See ${photos.length} photos`}
               </Text>
             </Pressable>
@@ -210,7 +211,7 @@ export function PublicProfileView({
       {/* What brings them here, in their own words (2026-10-18). */}
       {profile.life_transitions_other?.trim() && (
         <View className="gap-1 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">What brings them here</Text>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">What brings them here</Text>
           <Text className="text-body text-stone-700 dark:text-stone-300">{profile.life_transitions_other}</Text>
         </View>
       )}
@@ -221,7 +222,7 @@ export function PublicProfileView({
       {/* What they enjoy: their own line first, then any details */}
       {(activityCategories.length > 0 || profile.activity_interests?.other) && (
         <View className="gap-2">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">What they enjoy</Text>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">What they enjoy</Text>
           {activityCategories.map((key) => {
             const detail = profile.activity_interests?.details?.[key];
             const note = typeof detail?.note === 'string' ? detail.note.trim() : '';
@@ -253,7 +254,7 @@ export function PublicProfileView({
       {/* What kind of friendship */}
       {friendshipTypes.length > 0 && (
         <View className="gap-1">
-          <Text className="text-caption text-stone-400 dark:text-stone-400">Looking for</Text>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">Looking for</Text>
           <Text className="text-body text-stone-700 dark:text-stone-300">{friendshipTypes.join(', ')}</Text>
         </View>
       )}

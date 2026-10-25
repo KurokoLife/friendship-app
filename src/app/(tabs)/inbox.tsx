@@ -14,8 +14,9 @@ import { lifeTransitionFragment } from '@/lib/life-transition';
 import { subscribeToMessages } from '@/lib/realtime-messages';
 import { openReadyInterests } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Mutual Interested gate (docs/DECISIONS.md section 3): both people said
 // Interested, the chat is open, but nobody has written yet, so
@@ -118,7 +119,7 @@ export default function InboxScreen() {
       return;
     }
     // A pair that became ready (a selfie approved, room freed) opens first,
-    // so it shows as a chat rather than as waiting in Your people.
+    // so it shows as a chat rather than as waiting in Your circle.
     await openReadyInterests().catch(() => 0);
     const [{ data }, { data: reminderRows }, { data: capacityRows }, { data: mutualRows }, { data: blockRows }, pauseRows] = await Promise.all([
       supabase.from('inbox_conversations').select('*').order('last_message_at', { ascending: false }),
@@ -243,7 +244,7 @@ export default function InboxScreen() {
     if (['blocked', 'ended', 'inactive'].includes(c.connection_status ?? '')) {
       past.push(c);
     } else if (c.connection_status === 'graduated') {
-      // Graduated friends live in Your people, under Friends (2026-10-25).
+      // Graduated friends live in Your circle, under Friends (2026-10-25).
       continue;
     } else if (c.connection_status === 'paused') {
       paused.push(c);
@@ -290,11 +291,11 @@ export default function InboxScreen() {
             </Text>
             {c.has_unread && <View className="h-2 w-2 rounded-full bg-accent-500" />}
           </View>
-          <Text className="text-caption text-stone-400 dark:text-stone-600">
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
             {timeAgo(c.last_message_at)}
           </Text>
         </View>
-        {fragment && <Text className="text-caption text-accent-500">{fragment}</Text>}
+        {fragment && <Text className="text-caption text-accent-500 dark:text-accent-400">{fragment}</Text>}
         <Text
           numberOfLines={1}
           className={`text-body ${
@@ -310,20 +311,20 @@ export default function InboxScreen() {
             zero" convention elsewhere (Remember's People List, the
             thread header's own meetup history line). */}
         {c.meetup_count > 0 && (
-          <Text className="text-caption text-stone-400 dark:text-stone-600">
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
             Met {c.meetup_count} {c.meetup_count === 1 ? 'time' : 'times'}
           </Text>
         )}
         {blockedByThem(c) ? (
-          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Not available</Text>
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Not available</Text>
         ) : c.connection_status === 'blocked' ? (
           <Text className="text-caption font-semibold text-red-500 dark:text-red-400">Blocked</Text>
         ) : c.connection_status === 'ended' ? (
-          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Ended</Text>
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Ended</Text>
         ) : c.connection_status === 'graduated' ? (
-          <Text className="text-caption font-semibold text-accent-500">Graduated</Text>
+          <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Graduated</Text>
         ) : c.connection_status === 'paused' ? (
-          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
             {pauses.get(c.connection_id)
               ? `${pauses.get(c.connection_id)?.paused_by_me ? 'You paused' : 'Paused'} until ${shortDay(
                   pauses.get(c.connection_id)!.paused_until
@@ -345,16 +346,16 @@ export default function InboxScreen() {
           // inactive doesn't get artificially demoted below a week-old
           // still-active one), while still making it visually
           // unmistakable at a glance that it isn't a live conversation.
-          <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Closed</Text>
+          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Closed</Text>
         ) : (
           <>
             {showReplyReminder && (
-              <Text className="text-caption font-semibold text-accent-500">New hello, waiting to hear back</Text>
+              <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">New hello, waiting to hear back</Text>
             )}
             {planTurns[c.connection_id] && (
               <Text
                 className={`text-caption ${
-                  planTurns[c.connection_id].waitingOnMe ? 'font-semibold text-accent-500' : 'text-stone-500 dark:text-stone-400'
+                  planTurns[c.connection_id].waitingOnMe ? 'font-semibold text-accent-500 dark:text-accent-400' : 'text-stone-500 dark:text-stone-400'
                 }`}>
                 {PLAN_STAGE_LABELS[planTurns[c.connection_id].stage]?.[planTurns[c.connection_id].waitingOnMe ? 'mine' : 'theirs'] ??
                   'Planning together'}
@@ -367,8 +368,8 @@ export default function InboxScreen() {
           </>
         )}
         {c.connection_status === 'blocked' && !blockedByThem(c) && (
-          <Pressable onPress={() => hideChat(c.connection_id, !hidden.has(c.connection_id))} hitSlop={6} className="self-start">
-            <Text className="text-caption text-stone-400 dark:text-stone-500">
+          <Pressable onPress={() => hideChat(c.connection_id, !hidden.has(c.connection_id))} hitSlop={6} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
               {hidden.has(c.connection_id) ? 'Show this chat again' : 'Hide this chat'}
             </Text>
           </Pressable>
@@ -386,7 +387,7 @@ export default function InboxScreen() {
           <CoachMark
             markKey="tab_inbox"
             title="Chats"
-            text="Your chats with people from Limen, up to 3 at a time. Chats that ended or closed are at the bottom, under Past, with your notes still there. People you said Interested to wait in Your people until a chat opens."
+            text="Your chats with people from Limen, up to 3 at a time. Chats that ended or closed are at the bottom, under Past, with your notes still there. People you said Interested to wait in Your circle until a chat opens."
           />
 
           {!isSupabaseConfigured && (
@@ -397,9 +398,9 @@ export default function InboxScreen() {
 
           {capacity && (
             <View className="gap-0.5">
-              <Text className="text-caption text-stone-400 dark:text-stone-600">{capacityLine(capacity)}</Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">{capacityLine(capacity)}</Text>
               {capacity.pending_count > 0 && (
-                <Text className="text-caption text-stone-400 dark:text-stone-600">
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
                   {capacity.pending_count} of {capacity.pending_cap} hellos waiting for a reply
                 </Text>
               )}
@@ -418,7 +419,7 @@ export default function InboxScreen() {
 
           {newMutual.length > 0 && (
             <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
                 You both chose to connect
               </Text>
               {newMutual.map((m) => (
@@ -443,7 +444,7 @@ export default function InboxScreen() {
 
           {needsReply.length > 0 && (
             <View className="gap-3">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">New hellos</Text>
+              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">New hellos</Text>
               {needsReply.map(renderConversation)}
             </View>
           )}
@@ -451,7 +452,7 @@ export default function InboxScreen() {
           {rest.length + paused.length > 0 && (
             <View className="gap-3">
               {needsReply.length > 0 && (
-                <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
                   Conversations
                 </Text>
               )}
@@ -462,14 +463,14 @@ export default function InboxScreen() {
 
           {past.length > 0 && (
             <View className="gap-3 pt-4">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">Past</Text>
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
+              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Past</Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
                 Your messages and notes stay here after a chat ends.
               </Text>
               {shownPast.map(renderConversation)}
               {hiddenPast.length > 0 && (
-                <Pressable onPress={() => setShowHidden((v) => !v)} className="self-start">
-                  <Text className="text-caption text-stone-400 dark:text-stone-500">
+                <Pressable onPress={() => setShowHidden((v) => !v)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                     {showHidden ? 'Hide hidden chats' : `Hidden chats (${hiddenPast.length}) · Show`}
                   </Text>
                 </Pressable>

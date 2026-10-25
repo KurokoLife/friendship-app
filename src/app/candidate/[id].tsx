@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,9 +25,14 @@ import {
 import { useTestTools } from '@/lib/test-mode';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
+import { palette } from '@/theme';
+import { CirclePickerSheet } from '@/components/circle-picker';
+import { Face, RowLink } from '@/components/ui';
+import { CIRCLE_LABELS, fetchMyPeople, moveLimenPerson, waitingLine, type LimenPerson } from '@/lib/circle';
+import { fetchMyPending, type PendingPerson } from '@/lib/safety';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
-const ACCENT_COLOR = '#B5643B'; // accent-500
+const MUTED_ICON_COLOR = palette.muted;
+const ACCENT_COLOR = palette.link;
 
 type ConnectionStatus = 'pending' | 'active' | 'passed';
 
@@ -77,6 +82,24 @@ export default function CandidateProfileScreen() {
   // 'inactive', which getOrCreateConnectionId reopens with zero friction.
   const [reinitiateConfirmVisible, setReinitiateConfirmVisible] = useState(false);
   const [reinitiating, setReinitiating] = useState(false);
+  // Your circle (2026-10-25): which circle this person is in for you, and
+  // moving them, live on their own page (design guide v1).
+  const [inCircle, setInCircle] = useState<LimenPerson | null>(null);
+  const [waiting, setWaiting] = useState<PendingPerson | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [moveBusy, setMoveBusy] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
+
+  const loadCircle = useCallback(async () => {
+    if (!isSupabaseConfigured || !id) return;
+    const [people, pending] = await Promise.all([fetchMyPeople(), fetchMyPending()]);
+    setInCircle(people.find((p) => p.other_user_id === id) ?? null);
+    setWaiting(pending.find((p) => p.other_user_id === id && p.state !== 'closed') ?? null);
+  }, [id]);
+
+  useEffect(() => {
+    loadCircle();
+  }, [loadCircle]);
 
   useEffect(() => {
     (async () => {
@@ -243,8 +266,8 @@ export default function CandidateProfileScreen() {
         <Text className="text-center text-body text-stone-500 dark:text-stone-400">
           That profile isn&apos;t available anymore.
         </Text>
-        <Pressable onPress={() => goBack('/home')}>
-          <Text className="text-caption font-semibold text-accent-500">Go back</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/home')}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Go back</Text>
         </Pressable>
       </View>
     );
@@ -254,16 +277,16 @@ export default function CandidateProfileScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="flex-row items-center justify-between px-6 pt-10">
-          <Pressable onPress={() => goBack('/home')}>
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/home')}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
           {/* Report & Block, reachable from the Other User Profile screen
               independent of the primary action row below. */}
           <View className="flex-row gap-4">
-            <Pressable onPress={() => setReportModalVisible(true)}>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">Report</Text>
+            <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setReportModalVisible(true)}>
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Report</Text>
             </Pressable>
-            <Pressable onPress={() => setBlockConfirmVisible(true)}>
+            <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-red-200 dark:border-red-900" onPress={() => setBlockConfirmVisible(true)}>
               <Text className="text-caption font-semibold text-red-600 dark:text-red-400">Block</Text>
             </Pressable>
           </View>
@@ -275,6 +298,41 @@ export default function CandidateProfileScreen() {
             title="Notice something?"
             text="See something you'd like to ask about? Tap Note it privately and write it down. Only you see it, and it'll be there when you start chatting."
           />
+          {inCircle && (
+            <View className="gap-2">
+              <RowLink
+                title={`In your circle: ${CIRCLE_LABELS[inCircle.circle]}`}
+                subtitle="Move to another circle"
+                accessibilityLabel={`In your circle: ${CIRCLE_LABELS[inCircle.circle]}. Move to another circle`}
+                left={<Face name={profile.display_name ?? 'Someone'} photoUrl={profile.photo_url} circle={inCircle.circle} />}
+                onPress={() => {
+                  setMoveError(null);
+                  setMoving(true);
+                }}
+              />
+              {waiting && <Text className="text-caption text-stone-500 dark:text-stone-400">{waitingLine(waiting)}</Text>}
+              <CirclePickerSheet
+                visible={moving}
+                name={profile.display_name ?? 'Someone'}
+                current={inCircle.circle}
+                busy={moveBusy}
+                error={moveError}
+                note="Limen also moves people on its own when something changes, like a friendship you both decide to keep going outside Limen."
+                onClose={() => setMoving(false)}
+                onPick={async (c) => {
+                  setMoveBusy(true);
+                  const ok = await moveLimenPerson(inCircle.other_user_id, c);
+                  setMoveBusy(false);
+                  if (!ok) {
+                    setMoveError("That didn't save. Please try again.");
+                    return;
+                  }
+                  setMoving(false);
+                  loadCircle();
+                }}
+              />
+            </View>
+          )}
           <PublicProfileView
             profile={profile}
             afterHeader={
@@ -332,12 +390,12 @@ export default function CandidateProfileScreen() {
               onPress={handleInterested}
               disabled={(interested && !openConnectionId && !pastChat) || pendingAction === 'interested'}
               className={`flex-1 flex-row items-center justify-center gap-1 rounded-full py-3 active:opacity-80 ${
-                interested && !openConnectionId && !pastChat ? 'border border-accent-500' : 'bg-stone-900 dark:bg-stone-50'
+                interested && !openConnectionId && !pastChat ? 'border border-accent-500' : 'bg-apricot'
               }`}>
               {interested && !openConnectionId && !pastChat && <Ionicons name="checkmark" size={14} color={ACCENT_COLOR} />}
               <Text
                 className={`text-caption font-semibold ${
-                  interested && !openConnectionId && !pastChat ? 'text-accent-500' : 'text-stone-50 dark:text-stone-900'
+                  interested && !openConnectionId && !pastChat ? 'text-accent-500 dark:text-accent-400' : 'text-white'
                 }`}>
                 {openConnectionId ? 'Open chat' : pastChat ? 'Say hello again' : 'Interested'}
               </Text>
@@ -386,22 +444,22 @@ export default function CandidateProfileScreen() {
             </Text>
             {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
             {error && testTools && errorDetail && (
-              <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details (only admins and test accounts see this): {errorDetail}</Text>
+              <Text className="text-[11px] text-stone-500 dark:text-stone-400">Details (only admins and test accounts see this): {errorDetail}</Text>
             )}
             <View className="flex-row justify-end gap-4">
               <Pressable
                 onPress={() => setReinitiateConfirmVisible(false)}
                 disabled={reinitiating}
-                className="items-center py-2">
-                <Text className="text-body font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
+                className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+                <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={handleReinitiate}
                 disabled={reinitiating}
-                className={`rounded-full bg-stone-900 px-5 py-2 active:opacity-80 dark:bg-stone-50 ${
+                className={`rounded-full bg-apricot px-5 py-2 active:opacity-80 dark:bg-apricot ${
                   reinitiating ? 'opacity-40' : ''
                 }`}>
-                <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                <Text className="text-caption font-semibold text-white">
                   {reinitiating ? 'Starting over...' : 'Start over'}
                 </Text>
               </Pressable>

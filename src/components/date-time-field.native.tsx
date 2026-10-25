@@ -28,7 +28,7 @@ function FieldButton({ label, placeholder, onPress, disabled }: { label: string 
       onPress={onPress}
       disabled={disabled}
       className="rounded-xl border border-stone-300 px-3 py-3 dark:border-stone-700">
-      <Text className={`text-body ${label ? 'text-stone-900 dark:text-stone-50' : 'text-stone-400'}`}>
+      <Text className={`text-body ${label ? 'text-stone-900 dark:text-stone-50' : 'text-stone-500'}`}>
         {label ?? placeholder}
       </Text>
     </Pressable>
@@ -61,8 +61,8 @@ function IosPicker({
         display={mode === 'date' ? 'inline' : 'spinner'}
         onChange={(_e: DateTimePickerEvent, d?: Date) => d && onChange(d)}
       />
-      <Pressable onPress={onDone} className="self-end px-2 py-1">
-        <Text className="text-caption font-semibold text-accent-500">Done</Text>
+      <Pressable onPress={onDone} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-end">
+        <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Done</Text>
       </Pressable>
     </View>
   );
@@ -149,13 +149,13 @@ export function TimeField({
           <FieldButton label={formatMeetupTime(value)} placeholder="Choose a time" onPress={show} disabled={disabled} />
         </View>
         {value ? (
-          <Pressable
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
             onPress={() => {
               onChange('');
               setOpen(false);
             }}
             disabled={disabled}>
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Clear</Text>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Clear</Text>
           </Pressable>
         ) : null}
       </View>

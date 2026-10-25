@@ -19,9 +19,10 @@ import { track } from '@/lib/analytics';
 import { publicName, saveProfileName } from '@/lib/names';
 import { FRIENDLY_SAVE_ERROR } from '@/lib/auth-errors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
 const SHOW_CODE_FIELD = false;
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Three plain number boxes, Month / Day / Year (docs/DECISIONS.md,
 // onboarding screen 3): typing 1985-06-15 was unnatural for the 40+
@@ -161,8 +162,8 @@ export default function ProfileBasicsScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
-        <Pressable onPress={() => router.replace('/phone-verification')}>
-          <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => router.replace('/phone-verification')}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
 
         <View className="gap-5">
@@ -208,7 +209,7 @@ export default function ProfileBasicsScreen() {
             </View>
           </View>
           {firstName.trim() && lastName.trim() ? (
-            <Text className="-mt-3 text-caption text-stone-400 dark:text-stone-500">
+            <Text className="-mt-3 text-caption text-stone-500 dark:text-stone-400">
               Others will see: {publicName(firstName, lastName)}
             </Text>
           ) : null}
@@ -263,7 +264,7 @@ export default function ProfileBasicsScreen() {
               placeholderTextColor={MUTED_ICON_COLOR}
             />
             {/* No reward is promised: Premium no longer exists (docs/DECISIONS.md). */}
-            <Text className="text-caption text-stone-400 dark:text-stone-600">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
               If a friend invited you, add their code. It helps us see how people find Limen.
             </Text>
           </View>
@@ -277,16 +278,16 @@ export default function ProfileBasicsScreen() {
                   : 'border-stone-400 dark:border-stone-600'
               }`}>
               {termsAccepted && (
-                <Ionicons name="checkmark" size={14} color={colorScheme === 'dark' ? '#1c1917' : '#fafaf9'} />
+                <Ionicons name="checkmark" size={14} color={colorScheme === 'dark' ? palette.ink : palette.cream} />
               )}
             </View>
             <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">
               I agree to the{' '}
-              <Text className="font-semibold text-accent-500" onPress={() => router.push('/terms')}>
+              <Text className="font-semibold text-accent-500 dark:text-accent-400" onPress={() => router.push('/terms')}>
                 Terms of Service
               </Text>{' '}
               and{' '}
-              <Text className="font-semibold text-accent-500" onPress={() => router.push('/privacy')}>
+              <Text className="font-semibold text-accent-500 dark:text-accent-400" onPress={() => router.push('/privacy')}>
                 Privacy Policy
               </Text>
               .
@@ -299,11 +300,11 @@ export default function ProfileBasicsScreen() {
         <Pressable
           onPress={handleContinue}
           disabled={saving || !isSupabaseConfigured || !termsAccepted}
-          className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+          className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
             saving || !isSupabaseConfigured || !termsAccepted ? 'opacity-40' : ''
           }`}>
           {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-          <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+          <Text className="text-body font-semibold text-white">
             {saving ? 'Saving...' : 'Continue'}
           </Text>
         </Pressable>

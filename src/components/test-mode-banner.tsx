@@ -32,7 +32,7 @@ export function TestModeBanner() {
             router.replace(error ? '/' : '/home');
           }}
           className="rounded-full bg-white px-3 py-1">
-          <Text className="text-caption font-semibold text-accent-500">{busy ? 'Switching...' : 'Back to me'}</Text>
+          <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">{busy ? 'Switching...' : 'Back to me'}</Text>
         </Pressable>
       </View>
     </View>

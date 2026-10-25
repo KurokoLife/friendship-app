@@ -1,4 +1,5 @@
 import { View, useColorScheme } from 'react-native';
+import { palette } from '@/theme';
 
 // Web version of the meetup date and time fields (2026-10-08): the
 // browser's own date and time pickers. The phone app uses
@@ -11,12 +12,12 @@ function webInputStyle(dark: boolean) {
     width: '100%',
     boxSizing: 'border-box' as const,
     borderRadius: 12,
-    border: `1px solid ${dark ? '#44403c' : '#d6d3d1'}`,
+    border: `1px solid ${dark ? palette.darkLine : palette.outline}`,
     padding: '9px 12px',
     fontSize: 16,
     fontFamily: 'inherit',
     background: 'transparent',
-    color: dark ? '#fafaf9' : '#1c1917',
+    color: dark ? palette.cream : palette.ink,
     colorScheme: dark ? 'dark' : 'light',
   };
 }

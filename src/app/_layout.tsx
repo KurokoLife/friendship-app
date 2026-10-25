@@ -5,7 +5,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { AppState, useColorScheme } from 'react-native';
+import { AppState, useColorScheme, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -15,14 +15,30 @@ import { initAnalytics } from '@/lib/analytics';
 import { clearCoachMarksCache } from '@/lib/coach-marks';
 import { recordActiveDayIfSignedIn } from '@/lib/referral';
 import { supabase } from '@/lib/supabase';
+import { layout, palette } from '@/theme';
+import { FIGTREE_FILES, installWebFont } from '@/theme/fonts';
 import '@/global.css';
 
 initAnalytics();
+installWebFont();
+
+// Navigation colors follow the theme (design guide v1): cream and warm ink,
+// warm dark only when the device is set to dark.
+const LIGHT_NAV = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: palette.cream, card: palette.card, border: palette.line, text: palette.ink, primary: palette.apricot },
+};
+const DARK_NAV = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: palette.darkBg, card: palette.darkCard, border: palette.darkLine, text: palette.darkText, primary: palette.darkLink },
+};
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const { width } = useWindowDimensions();
+  const wide = width > layout.wideAt;
 
   // @expo/vector-icons renders nothing until its font has loaded, so
   // preload it here rather than per-screen. Otherwise icons can silently
@@ -30,6 +46,9 @@ export default function RootLayout() {
   const [iconFontsLoaded] = useFonts({
     ...FontAwesome5.font,
     ...Ionicons.font,
+    // Phones: Figtree as one family for now (weights come from the system
+    // until the real phone test in stage 3). The web uses all four weights.
+    Figtree: FIGTREE_FILES[400],
   });
 
   // Referral 14-active-day tracking: this is the one component mounted
@@ -82,9 +101,23 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={colorScheme === 'dark' ? DARK_NAV : LIGHT_NAV}>
         <AnimatedSplashOverlay />
-        <Stack screenOptions={{ headerShown: false }} />
+        {/* Wide screens (over ~720px): every screen outside the tabs sits in a
+            centered column; chats get a little more room. The tabs layout
+            centers its own screens under the top bar. */}
+        <Stack
+          screenOptions={({ route }) => ({
+            headerShown: false,
+            contentStyle: wide && route.name !== '(tabs)'
+              ? {
+                  width: '100%',
+                  maxWidth: route.name.startsWith('thread') ? layout.chatColumn : layout.column,
+                  alignSelf: 'center',
+                }
+              : undefined,
+          })}
+        />
         <SpotlightHost />
         <TestModeBanner />
       </ThemeProvider>

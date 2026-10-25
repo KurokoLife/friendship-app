@@ -8,8 +8,8 @@ export default function PrivacyScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <View className="flex-row items-center px-6 pt-4">
-          <Pressable onPress={() => goBack('/settings')}>
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/settings')}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
         </View>
         <ScrollView contentContainerClassName="gap-4 px-6 pb-10 pt-6">

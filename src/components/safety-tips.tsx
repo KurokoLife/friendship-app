@@ -35,8 +35,8 @@ export function SafetyTipsLink({ label }: { label?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} className="self-start">
-        <Text className="text-caption font-semibold text-stone-500 underline dark:text-stone-400">{label ?? 'Safety tips'}</Text>
+      <Pressable onPress={() => setOpen(true)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+        <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">{label ?? 'Safety tips'}</Text>
       </Pressable>
       <SafetyTipsSheet visible={open} onClose={() => setOpen(false)} />
     </>
@@ -59,8 +59,8 @@ export function SafetyTipsSheet({ visible, onClose }: { visible: boolean; onClos
               <Text className="text-body text-stone-600 dark:text-stone-300">{t.body}</Text>
             </View>
           ))}
-          <Pressable onPress={onClose} className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Close</Text>
+          <Pressable onPress={onClose} className="self-start rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot">
+            <Text className="text-caption font-semibold text-white">Close</Text>
           </Pressable>
         </ScrollView>
       </View>

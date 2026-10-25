@@ -12,8 +12,9 @@ import {
   type FriendshipExperience,
 } from '@/lib/friendship-experience';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // "How you connect" (rebuilt 2026-10-18): six private questions about
 // friendship habits. The four generic personality questions and the
@@ -117,8 +118,8 @@ export default function HowYouConnectScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerClassName="gap-5 px-6 pb-6 pt-10">
-          <Pressable onPress={() => router.replace(isEditMode ? '/profile' : '/gender-identity')} className="self-start">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable onPress={() => router.replace(isEditMode ? '/profile' : '/gender-identity')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
 
           <View className="gap-3">
@@ -170,11 +171,11 @@ export default function HowYouConnectScreen() {
           <Pressable
             onPress={onContinue}
             disabled={!allAnswered || saving || !isSupabaseConfigured}
-            className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+            className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
               !allAnswered || saving || !isSupabaseConfigured ? 'opacity-40' : ''
             }`}>
             {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+            <Text className="text-body font-semibold text-white">
               {allAnswered
                 ? isEditMode
                   ? 'Save'

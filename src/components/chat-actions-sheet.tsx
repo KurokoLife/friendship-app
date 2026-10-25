@@ -39,8 +39,8 @@ export function ChatActionsSheet({ visible, onClose, canPause, canEnd, onPause, 
           {canEnd && <Row label="End" hint="Close this chat honestly." onPress={pick(onEnd)} />}
           <Row label="Report" hint="Tell the Limen team privately if something felt wrong." onPress={pick(onReport)} />
           <Row label="Block" hint="Stop all contact right away." danger onPress={pick(onBlock)} />
-          <Pressable onPress={onClose} className="items-center pt-3">
-            <Text className="text-body text-stone-500 dark:text-stone-400">Cancel</Text>
+          <Pressable onPress={onClose} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+            <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
           </Pressable>
         </View>
       </View>

@@ -14,15 +14,19 @@ import {
   RHYTHM_LABELS,
   RHYTHM_LINES,
   fetchOutsideFriend,
+  moveOutsideFriend,
   removeOutsideFriend,
   rhythmFits,
   saveOutsideFriend,
   type Circle,
   type OutsideFriend,
   type Rhythm,
-} from '@/lib/people';
+} from '@/lib/circle';
+import { palette } from '@/theme';
+import { CirclePickerSheet } from '@/components/circle-picker';
+import { Face, Pill, RowLink } from '@/components/ui';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
@@ -31,7 +35,7 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
       accessibilityRole="radio"
       accessibilityState={{ checked: on }}
       aria-checked={on}
-      className={`rounded-full border px-4 py-2 active:opacity-70 ${
+      className={`min-h-11 justify-center rounded-full border px-4 active:opacity-70 ${
         on ? 'border-stone-900 bg-stone-900 dark:border-stone-50 dark:bg-stone-50' : 'border-stone-300 dark:border-stone-600'
       }`}>
       <Text className={`text-caption font-semibold ${on ? 'text-stone-50 dark:text-stone-900' : 'text-stone-600 dark:text-stone-300'}`}>
@@ -61,6 +65,8 @@ export default function FriendScreen() {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function FriendScreen() {
       return;
     }
     if (isNew) {
-      router.replace('/people');
+      router.replace('/circle');
       return;
     }
     const fresh = await fetchOutsideFriend(result.id);
@@ -121,7 +127,7 @@ export default function FriendScreen() {
       setError("That didn't work. Please try again.");
       return;
     }
-    router.replace('/people');
+    router.replace('/circle');
   };
 
   if (!loaded) {
@@ -133,9 +139,12 @@ export default function FriendScreen() {
   }
 
   const header = (
-    <Pressable onPress={() => (editing && !isNew ? setEditing(false) : goBack('/people'))} className="self-start">
-      <Text className="text-caption text-stone-500 dark:text-stone-400">{editing && !isNew ? 'Cancel' : 'Back'}</Text>
-    </Pressable>
+    <Pill
+      label={editing && !isNew ? 'Cancel' : 'Back'}
+      icon={editing && !isNew ? undefined : 'chevron-back'}
+      className="self-start"
+      onPress={() => (editing && !isNew ? setEditing(false) : goBack('/circle'))}
+    />
   );
 
   if (!isNew && !friend) {
@@ -144,7 +153,7 @@ export default function FriendScreen() {
         <SafeAreaView className="flex-1">
           <View className="gap-4 px-6 pt-6">
             {header}
-            <Text className="text-body text-stone-600 dark:text-stone-300">This person isn&apos;t in Your people anymore.</Text>
+            <Text className="text-body text-stone-600 dark:text-stone-300">This person isn&apos;t in Your circle anymore.</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -222,8 +231,8 @@ export default function FriendScreen() {
               <Pressable
                 onPress={save}
                 disabled={saving}
-                className={`items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${saving ? 'opacity-40' : ''}`}>
-                <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">{isNew ? 'Add' : 'Save'}</Text>
+                className={`min-h-12 items-center justify-center rounded-full bg-apricot py-3 active:opacity-80 ${saving ? 'opacity-40' : ''}`}>
+                <Text className="text-body font-semibold text-white">{isNew ? 'Add' : 'Save'}</Text>
               </Pressable>
 
               {!isNew && friend && (
@@ -231,24 +240,15 @@ export default function FriendScreen() {
                   {confirmRemove ? (
                     <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
                       <Text className="text-body text-stone-700 dark:text-stone-300">
-                        Remove {friend.name} from Your people? Your note goes too.
+                        Remove {friend.name} from Your circle? Your note goes too.
                       </Text>
                       <View className="flex-row gap-3">
-                        <Pressable onPress={() => setConfirmRemove(false)} className="flex-1 items-center py-2">
-                          <Text className="text-body text-stone-500 dark:text-stone-400">Keep</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={remove}
-                          disabled={saving}
-                          className="flex-1 items-center rounded-full border border-red-300 py-2 active:opacity-70 dark:border-red-800">
-                          <Text className="text-body font-semibold text-red-600 dark:text-red-400">Remove</Text>
-                        </Pressable>
+                        <Pill label="Keep" className="flex-1" onPress={() => setConfirmRemove(false)} />
+                        <Pill label="Remove" variant="danger" className="flex-1" disabled={saving} onPress={remove} />
                       </View>
                     </View>
                   ) : (
-                    <Pressable onPress={() => setConfirmRemove(true)} className="items-center py-2">
-                      <Text className="text-body text-red-600 dark:text-red-400">Remove from Your people</Text>
-                    </Pressable>
+                    <Pill label="Remove from Your circle" variant="danger" onPress={() => setConfirmRemove(true)} />
                   )}
                 </View>
               )}
@@ -256,29 +256,51 @@ export default function FriendScreen() {
           ) : (
             friend && (
               <>
-                <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-row items-center gap-4">
+                  <Face name={friend.name} circle={friend.circle} size={64} />
                   <Text className="flex-1 text-display text-stone-900 dark:text-stone-50">{friend.name}</Text>
-                  <Pressable
-                    onPress={() => startEdit(friend)}
-                    className="rounded-full border border-stone-300 px-4 py-2 active:opacity-70 dark:border-stone-700">
-                    <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Edit</Text>
-                  </Pressable>
+                  <Pill label="Edit" onPress={() => startEdit(friend)} />
                 </View>
-                <View className="gap-4 rounded-2xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
+                <RowLink
+                  title={`Circle: ${CIRCLE_LABELS[friend.circle]}`}
+                  subtitle="Move to another circle"
+                  accessibilityLabel={`Circle: ${CIRCLE_LABELS[friend.circle]}. Move to another circle`}
+                  onPress={() => {
+                    setMoveError(null);
+                    setMoving(true);
+                  }}
+                />
+                <View className="gap-4 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
                   <View className="gap-0.5">
-                    <Text className="text-caption text-stone-400 dark:text-stone-400">Circle</Text>
-                    <Text className="text-body text-stone-800 dark:text-stone-200">{CIRCLE_LABELS[friend.circle]}</Text>
-                  </View>
-                  <View className="gap-0.5">
-                    <Text className="text-caption text-stone-400 dark:text-stone-400">How often you&apos;d like to be in touch</Text>
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">How often you&apos;d like to be in touch</Text>
                     <Text className="text-body text-stone-800 dark:text-stone-200">{RHYTHM_LABELS[friend.rhythm]}</Text>
                   </View>
                   <View className="gap-0.5">
-                    <Text className="text-caption text-stone-400 dark:text-stone-400">Note</Text>
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">Note</Text>
                     <Text className="text-body text-stone-800 dark:text-stone-200">{friend.note?.trim() || 'No note yet'}</Text>
                   </View>
                 </View>
                 <Text className="text-caption text-stone-500 dark:text-stone-400">Only you see this.</Text>
+                <CirclePickerSheet
+                  visible={moving}
+                  name={friend.name}
+                  current={friend.circle}
+                  busy={saving}
+                  error={moveError}
+                  note="If how often you'd like to be in touch doesn't fit the new circle, it changes to that circle's usual one. You can change it with Edit."
+                  onClose={() => setMoving(false)}
+                  onPick={async (c) => {
+                    setSaving(true);
+                    const ok = await moveOutsideFriend(friend, c);
+                    setSaving(false);
+                    if (!ok) {
+                      setMoveError("That didn't save. Please try again.");
+                      return;
+                    }
+                    setMoving(false);
+                    setFriend(await fetchOutsideFriend(friend.id));
+                  }}
+                />
               </>
             )
           )}

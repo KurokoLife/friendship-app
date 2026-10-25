@@ -15,8 +15,9 @@ import { PaddedSafeArea } from '@/components/padded-safe-area';
 import { FRIENDLY_SAVE_ERROR } from '@/lib/auth-errors';
 import { MAX_AGE, MIN_AGE } from '@/lib/filter-options';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Identity, two steps (docs/DECISIONS.md, onboarding screen 5).
 //
@@ -192,10 +193,10 @@ export default function GenderIdentityScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1 px-6 py-10">
         <View className="flex-row items-center justify-between">
-          <Pressable onPress={handleBack}>
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={handleBack}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
-          <Text className="text-caption text-stone-400 dark:text-stone-600">Step {step + 1} of 2</Text>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">Step {step + 1} of 2</Text>
         </View>
 
         <ScrollView className="flex-1" contentContainerClassName="gap-5 pt-6" showsVerticalScrollIndicator={false}>
@@ -279,11 +280,11 @@ export default function GenderIdentityScreen() {
           <Pressable
             onPress={handleContinue}
             disabled={!canContinue || saving || !isSupabaseConfigured}
-            className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+            className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
               !canContinue || saving || !isSupabaseConfigured ? 'opacity-40' : ''
             }`}>
             {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+            <Text className="text-body font-semibold text-white">
               {saving ? 'Saving...' : step === 0 ? 'Continue' : 'Done'}
             </Text>
           </Pressable>

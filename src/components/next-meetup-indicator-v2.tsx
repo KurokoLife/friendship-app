@@ -36,8 +36,9 @@ import {
 } from '@/lib/meetup-format';
 import { supabase } from '@/lib/supabase';
 import { nameThenPeriod } from '@/lib/names';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type Props = {
   connectionId: string;
@@ -375,8 +376,8 @@ export function NextMeetupIndicatorV2({
   const paceLine = <PaceLine connectionId={connectionId} meetupCount={meetupCount} refreshKey={refreshKey} />;
   const firstMeetup = meetupCount === 0;
   const hideLink = (
-    <Pressable onPress={() => setExpanded(false)} hitSlop={8}>
-      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Hide</Text>
+    <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setExpanded(false)} hitSlop={8}>
+      <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Hide</Text>
     </Pressable>
   );
   const bar = (summary: string, attention: string | null, action: ReactNode, tone: 'plain' | 'accent' = 'plain') => (
@@ -392,7 +393,7 @@ export function NextMeetupIndicatorV2({
           {summary}
         </Text>
         {attention && (
-          <Text numberOfLines={1} className="text-caption font-semibold text-accent-500">
+          <Text numberOfLines={1} className="text-caption font-semibold text-accent-500 dark:text-accent-400">
             {attention}
           </Text>
         )}
@@ -405,8 +406,8 @@ export function NextMeetupIndicatorV2({
     meetupCount > 0 ? (
       <Pressable
         onPress={() => router.push({ pathname: '/meetup-history/[connectionId]', params: { connectionId } })}
-        className="self-start">
-        <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+        className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+        <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
           Met {meetupCount} {meetupCount === 1 ? 'time' : 'times'} · See history
         </Text>
       </Pressable>
@@ -431,8 +432,8 @@ export function NextMeetupIndicatorV2({
           <View className="gap-1 rounded-xl border border-stone-200 p-3 dark:border-stone-700">
             <Text className="text-caption text-stone-500 dark:text-stone-400">Your note, sent with the plan:</Text>
             <Text className="text-body text-stone-700 dark:text-stone-300">{noteToSend}</Text>
-            <Pressable onPress={() => setNoteToSend(null)} className="self-start">
-              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Remove note</Text>
+            <Pressable onPress={() => setNoteToSend(null)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Remove note</Text>
             </Pressable>
           </View>
         )}
@@ -480,7 +481,7 @@ export function NextMeetupIndicatorV2({
           </View>
         )}
         {editMode === 'new' && (
-          <Text className="text-caption text-stone-400 dark:text-stone-500">
+          <Text className="text-caption text-stone-500 dark:text-stone-400">
             Add a time and place so it&apos;s easy to show up.
           </Text>
         )}
@@ -491,13 +492,13 @@ export function NextMeetupIndicatorV2({
           <Pressable
             onPress={handleSave}
             disabled={busy}
-            className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${busy ? 'opacity-40' : ''}`}>
-            <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+            className={`rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${busy ? 'opacity-40' : ''}`}>
+            <Text className="text-caption font-semibold text-white">
               {busy ? 'Saving...' : editMode === 'details' ? 'Save' : inviteId ? 'Set the plan' : `Send to ${otherName}`}
             </Text>
           </Pressable>
-          <Pressable onPress={() => setEditMode(null)} disabled={busy}>
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setEditMode(null)} disabled={busy}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
           </Pressable>
         </View>
       </View>
@@ -561,19 +562,19 @@ export function NextMeetupIndicatorV2({
       )}
       {plan.place && (
         <View className="flex-row gap-3 pt-0.5">
-          <Pressable
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
             onPress={() => openUrl(mapLinks(plan.place!, plan.place_address, plan.place_lat, plan.place_lng).google)}>
-            <Text className="text-caption font-semibold text-accent-500">Google Maps</Text>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Google Maps</Text>
           </Pressable>
-          <Pressable
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
             onPress={() => openUrl(mapLinks(plan.place!, plan.place_address, plan.place_lat, plan.place_lng).apple)}>
-            <Text className="text-caption font-semibold text-accent-500">Apple Maps</Text>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Apple Maps</Text>
           </Pressable>
         </View>
       )}
       {plan.activity && <Text className="text-caption text-stone-500 dark:text-stone-400">{plan.activity}</Text>}
       {plan.move_count > 0 && (
-        <Text className="text-caption text-stone-400 dark:text-stone-500">
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
           Moved {plan.move_count === 1 ? 'once' : plan.move_count === 2 ? 'twice' : `${plan.move_count} times`}
         </Text>
       )}
@@ -588,24 +589,24 @@ export function NextMeetupIndicatorV2({
           Plans shift, that&apos;s normal. Still want to meet, or would a looser plan help? Only you see this.
         </Text>
         <View className="flex-row flex-wrap gap-3">
-          <Pressable
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
             onPress={() =>
               runAction(() => respondToMeetupPrompt(plan.plan_root_id, 'many_moves', 'keep'), 'Please try again.')
             }>
-            <Text className="text-caption font-semibold text-accent-500">Still want to meet</Text>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Still want to meet</Text>
           </Pressable>
-          <Pressable onPress={() => setPanel('leave_open')}>
-            <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setPanel('leave_open')}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
               Leave the date open for now
             </Text>
           </Pressable>
           {onEndConnection && (
-            <Pressable
+            <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
               onPress={async () => {
                 await respondToMeetupPrompt(plan.plan_root_id, 'many_moves', 'end').catch(() => undefined);
                 onEndConnection();
               }}>
-              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">End kindly</Text>
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">End kindly</Text>
             </Pressable>
           )}
         </View>
@@ -668,7 +669,7 @@ export function NextMeetupIndicatorV2({
             </Pressable>
           )}
         </View>
-        <Text className="text-caption text-stone-400 dark:text-stone-500">
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
           If the plan moves, add it again. Apple and Outlook update the same event. In Google, delete the old one.
         </Text>
       </View>
@@ -683,7 +684,7 @@ export function NextMeetupIndicatorV2({
           plan.place ? ` · ${plan.place}` : ''
         }`,
         iAmProposer ? `Waiting for ${otherName} to confirm` : 'Does it work for you? Tap to answer',
-        <Text className="text-caption font-semibold text-accent-500">Open</Text>
+        <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Open</Text>
       );
     }
     return (
@@ -718,21 +719,21 @@ export function NextMeetupIndicatorV2({
             <Pressable
               onPress={() => runAction(() => confirmMeetup(plan.id), "Couldn't confirm right now. Please try again.")}
               disabled={busy}
-              className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${busy ? 'opacity-40' : ''}`}>
-              <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+              className={`rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${busy ? 'opacity-40' : ''}`}>
+              <Text className="text-caption font-semibold text-white">
                 {busy ? 'Confirming...' : 'Confirm'}
               </Text>
             </Pressable>
           )}
-          <Pressable onPress={() => openEditor('change')} disabled={busy}>
-            <Text className="text-caption font-semibold text-accent-500">
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => openEditor('change')} disabled={busy}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
               {iAmProposer ? 'Edit' : 'Suggest a change'}
             </Text>
           </Pressable>
-          <Pressable
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
             onPress={() => runAction(() => cancelMeetup(plan.id), "Couldn't do that right now. Please try again.")}
             disabled={busy}>
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
               {iAmProposer ? 'Withdraw' : 'Not this time'}
             </Text>
           </Pressable>
@@ -787,8 +788,8 @@ export function NextMeetupIndicatorV2({
             <Text className="text-caption font-semibold text-stone-700 dark:text-stone-300">Apple or Outlook</Text>
           </Pressable>
         )}
-        <Pressable onPress={() => recordCalendar('not_now')} className="px-1 py-1.5">
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Not now</Text>
+        <Pressable onPress={() => recordCalendar('not_now')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Not now</Text>
         </Pressable>
       </View>
     </View>
@@ -804,7 +805,7 @@ export function NextMeetupIndicatorV2({
         : plan.other_still_on
           ? `✓ ${otherName} said it's still on`
           : null,
-      <Text className="text-caption font-semibold text-accent-500">Open</Text>,
+      <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Open</Text>,
       'accent'
     );
   }
@@ -812,7 +813,7 @@ export function NextMeetupIndicatorV2({
   return (
     <View className="mx-6 mt-3 gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
       <View className="flex-row items-center justify-between gap-2">
-        <Text className="text-caption font-semibold text-accent-500">{isToday ? 'Meeting today' : 'Next meetup'}</Text>
+        <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">{isToday ? 'Meeting today' : 'Next meetup'}</Text>
         {hideLink}
       </View>
       {details}
@@ -821,8 +822,8 @@ export function NextMeetupIndicatorV2({
         <Text className="text-caption text-stone-600 dark:text-stone-300">✓ {otherName} said it&apos;s still on</Text>
       )}
       {missingDetails && (
-        <Pressable onPress={() => openEditor('details')} className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">
+        <Pressable onPress={() => openEditor('details')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
             {!plan.start_time && !plan.place ? 'Add a time and place' : !plan.start_time ? 'Add a time' : 'Add a place'}
           </Text>
         </Pressable>
@@ -830,19 +831,19 @@ export function NextMeetupIndicatorV2({
       {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
       {manyMovesNote}
       <View className="flex-row flex-wrap items-center gap-4">
-        <Pressable onPress={() => openEditor('change')} disabled={busy}>
-          <Text className="text-caption font-semibold text-accent-500">Change plan</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => openEditor('change')} disabled={busy}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Change plan</Text>
         </Pressable>
-        <Pressable onPress={() => setPanel(panel === 'calendar' ? 'none' : 'calendar')} disabled={busy}>
-          <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">Add to calendar</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setPanel(panel === 'calendar' ? 'none' : 'calendar')} disabled={busy}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Add to calendar</Text>
         </Pressable>
         {isToday && (
-          <Pressable onPress={() => setPanel(panel === 'late' ? 'none' : 'late')} disabled={busy}>
-            <Text className="text-caption font-semibold text-stone-600 dark:text-stone-300">Running late?</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setPanel(panel === 'late' ? 'none' : 'late')} disabled={busy}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Running late?</Text>
           </Pressable>
         )}
-        <Pressable onPress={() => setPanel(panel === 'cancel' ? 'none' : 'cancel')} disabled={busy}>
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel plan</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setPanel(panel === 'cancel' ? 'none' : 'cancel')} disabled={busy}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Cancel plan</Text>
         </Pressable>
       </View>
       {messagePanel}
@@ -915,8 +916,8 @@ function PaceLine({
             </Pressable>
           ))}
         </View>
-        <Pressable onPress={() => setPicking(false)} className="self-start">
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Close</Text>
+        <Pressable onPress={() => setPicking(false)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Close</Text>
         </Pressable>
       </View>
     );
@@ -931,8 +932,8 @@ function PaceLine({
             ? `You both said: ${PACE_LABELS[pace.mine].toLowerCase()}`
             : `Your pace: ${pace.mine === 'not_sure' ? 'not sure yet' : PACE_LABELS[pace.mine].toLowerCase()} (only you see this)`}
       </Text>
-      <Pressable onPress={() => setPicking(true)}>
-        <Text className="text-caption font-semibold text-accent-500">{pace.mine ? 'Change' : 'Set your pace'}</Text>
+      <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setPicking(true)}>
+        <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">{pace.mine ? 'Change' : 'Set your pace'}</Text>
       </Pressable>
     </View>
   );

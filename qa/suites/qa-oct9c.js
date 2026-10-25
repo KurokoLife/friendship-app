@@ -38,10 +38,10 @@ async function rpcAs(user, sql, params = []) {
   await go(a.page, `/candidate/${PRIYA}`, 3500);
   await tap(a.page, 'Interested', { wait: 2500 });
   let t = await text(a.page);
-  check('Profile explains the selfie is waiting and where the person went', t.includes('waiting for our review') && t.includes('in Your people, under Getting to know'), t.slice(0, 900));
-  await go(a.page, '/people', 3500);
+  check('Profile explains the selfie is waiting and where the person went', t.includes('waiting for our review') && t.includes('in Your circle, under Getting to know'), t.slice(0, 900));
+  await go(a.page, '/circle', 3500);
   t = await text(a.page);
-  check('Your people lists Priya, waiting, with the selfie note', t.includes('Priya') && t.includes('Waiting for Priya') && t.includes('Your selfie is waiting for our review'), t.slice(0, 900));
+  check('Your circle lists Priya, waiting, with the selfie note', t.includes('Priya') && t.includes('Waiting for Priya') && t.includes('Your selfie is waiting for our review'), t.slice(0, 900));
   await q(`delete from interests where from_user_id=$1`, [U.aisha]);
   // A chat that already exists (Priya said Interested, a match from before)
   await q(`insert into interests (from_user_id,to_user_id) values ($1,$2),($2,$1) on conflict do nothing`, [PRIYA, U.aisha]);

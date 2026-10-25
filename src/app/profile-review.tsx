@@ -8,8 +8,9 @@ import { SharedFriendshipAnswers } from '@/components/shared-friendship-answers'
 import { normalizeExperience, SHARED_EXPERIENCE, type FriendshipExperience } from '@/lib/friendship-experience';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Public Profile Review: your own profile exactly as another member sees
 // it. Renders through the same PublicProfileView as candidate/[id].tsx,
@@ -83,8 +84,8 @@ export default function ProfileReviewScreen() {
       <SafeAreaView className="flex-1">
         {onboarding ? (
           <View className="gap-2 px-6 pt-10">
-            <Pressable onPress={() => router.replace('/readiness-commitment')} className="self-start">
-              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            <Pressable onPress={() => router.replace('/readiness-commitment')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
             </Pressable>
             <Text className="text-display text-stone-900 dark:text-stone-50">Here&apos;s what people will see</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
@@ -93,11 +94,11 @@ export default function ProfileReviewScreen() {
           </View>
         ) : (
           <View className="gap-1 px-6 pt-10">
-            <Pressable onPress={() => goBack('/settings')}>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/settings')}>
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
             </Pressable>
-            <Text className="text-caption font-semibold uppercase tracking-wide text-accent-500">Preview</Text>
-            <Text className="text-caption text-stone-400 dark:text-stone-600">
+            <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Preview</Text>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
               This is what another member sees when they open your profile.
             </Text>
           </View>
@@ -107,7 +108,7 @@ export default function ProfileReviewScreen() {
           <PublicProfileView profile={profile} readOnly />
           {(care || shared) && (
             <View className="mt-6 gap-3 border-t border-stone-200 pt-5 dark:border-stone-800">
-              <Text className="text-caption font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
                 Only people you have a chat with also see
               </Text>
               {care && (
@@ -127,11 +128,11 @@ export default function ProfileReviewScreen() {
           <View className="gap-3 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-4 dark:border-stone-800 dark:bg-stone-900">
             <Pressable
               onPress={() => router.replace('/account-recovery')}
-              className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-              <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Looks good</Text>
+              className="items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot">
+              <Text className="text-body font-semibold text-white">Looks good</Text>
             </Pressable>
-            <Pressable onPress={() => router.push('/profile-build?from=profile')} className="items-center py-1">
-              <Text className="text-body text-stone-500 dark:text-stone-400">Edit something</Text>
+            <Pressable onPress={() => router.push('/profile-build?from=profile')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+              <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Edit something</Text>
             </Pressable>
           </View>
         )}

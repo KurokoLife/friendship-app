@@ -50,8 +50,9 @@ import {
   US_STATES,
 } from '@/lib/filter-options';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 // 2026-10-04 (docs/DECISIONS.md section 2): up to 5 of 20.
 const MAX_VALUES = 5;
 // "Right now, I'm..." (stored in personal_statement, docs/DECISIONS.md
@@ -379,10 +380,10 @@ function MatchLine({ use }: { use: { used: boolean; text: string } }) {
       <Ionicons
         name={use.used ? 'people-outline' : 'eye-off-outline'}
         size={13}
-        color={use.used ? '#B5643B' : MUTED_ICON_COLOR}
+        color={use.used ? palette.link : MUTED_ICON_COLOR}
         style={{ marginTop: 2 }}
       />
-      <Text className={`flex-1 text-caption ${use.used ? 'text-accent-500' : 'text-stone-400 dark:text-stone-500'}`}>
+      <Text className={`flex-1 text-caption ${use.used ? 'text-accent-500 dark:text-accent-400' : 'text-stone-500 dark:text-stone-400'}`}>
         {use.text}
       </Text>
     </View>
@@ -950,12 +951,12 @@ export default function ProfileBuildScreen() {
           contentContainerClassName="gap-5 px-6 pb-6 pt-10">
           {isEditMode ? (
             <View className="flex-row items-center justify-between">
-              <Pressable onPress={() => (editSection === null ? router.replace('/profile') : openSection(null))}>
-                <Text className="text-caption text-stone-500 dark:text-stone-400">
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => (editSection === null ? router.replace('/profile') : openSection(null))}>
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                   {editSection === null ? 'Back' : 'All sections'}
                 </Text>
               </Pressable>
-              <Text className="text-caption text-stone-400 dark:text-stone-600">Changes save as you go</Text>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">Changes save as you go</Text>
             </View>
           ) : (
             // Onboarding pagination (2026-07-29): same top-row pattern
@@ -965,8 +966,8 @@ export default function ProfileBuildScreen() {
             // Joining (2026-10-18): Back only. No "Step N of 10" and no
             // completion bar, so people write for a person, not a grader.
             <View className="flex-row items-center justify-between">
-              <Pressable onPress={handleStepBack}>
-                <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={handleStepBack}>
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
               </Pressable>
             </View>
           )}
@@ -1002,7 +1003,7 @@ export default function ProfileBuildScreen() {
                       <Text className="text-body text-stone-900 dark:text-stone-50">{sec.title}</Text>
                       <Text
                         className={`text-caption ${
-                          sec.use === 'no' ? 'text-stone-400 dark:text-stone-500' : 'text-accent-500'
+                          sec.use === 'no' ? 'text-stone-500 dark:text-stone-400' : 'text-accent-500 dark:text-accent-400'
                         }`}>
                         {USE_LABEL[sec.use]}
                         {missing ? ' · Needs an answer' : ''}
@@ -1012,7 +1013,7 @@ export default function ProfileBuildScreen() {
                   </Pressable>
                 );
               })}
-              <Text className="text-caption text-stone-400 dark:text-stone-500">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
                 Matching uses only the parts marked above. Your words (what brings you here, your stories, good to know)
                 are never used to pick who you meet.
               </Text>
@@ -1063,7 +1064,7 @@ export default function ProfileBuildScreen() {
                 <Text className="text-caption text-red-600 dark:text-red-400">{locationError}</Text>
               )}
               {profile.locationLat && profile.locationLng && !locationError && (
-                <Text className="text-caption text-accent-500">
+                <Text className="text-caption text-accent-500 dark:text-accent-400">
                   Found: {[profile.locationCity, profile.locationState].filter(Boolean).join(', ')}
                 </Text>
               )}
@@ -1078,7 +1079,7 @@ export default function ProfileBuildScreen() {
                   step={1}
                   value={profile.searchRadiusMiles}
                   onSlidingComplete={(value) => updateAndSave({ searchRadiusMiles: Math.round(value) })}
-                  minimumTrackTintColor="#B5643B"
+                  minimumTrackTintColor={palette.link}
                 />
               </View>
             </View>
@@ -1158,13 +1159,13 @@ export default function ProfileBuildScreen() {
                 accessibilityLabel={`${category.label} in your own words`}
                 className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-50"
               />
-              <Pressable
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
                 onPress={() =>
                   setOpenActivityDetails((open) =>
                     open.includes(category.key) ? open.filter((k) => k !== category.key) : [...open, category.key]
                   )
                 }>
-                <Text className="text-caption font-semibold text-accent-500">
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                   {openActivityDetails.includes(category.key) ? 'Hide details' : 'Add details (optional)'}
                 </Text>
               </Pressable>
@@ -1252,7 +1253,7 @@ export default function ProfileBuildScreen() {
                     </Text>
                     <Text
                       className={`text-caption ${
-                        selected ? 'text-stone-300 dark:text-stone-600' : 'text-stone-500 dark:text-stone-400'
+                        selected ? 'text-stone-300 dark:text-stone-400' : 'text-stone-500 dark:text-stone-400'
                       }`}>
                       {FRIENDSHIP_TYPE_DESCRIPTIONS[option]}
                     </Text>
@@ -1380,7 +1381,7 @@ export default function ProfileBuildScreen() {
                 <Image source={{ uri: profile.photoUrl }} className="h-16 w-16 rounded-full" />
               ) : (
                 <View className="h-16 w-16 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-700">
-                  <Text className="text-caption text-stone-400 dark:text-stone-500">No photo</Text>
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">No photo</Text>
                 </View>
               )}
               <Pressable
@@ -1429,7 +1430,7 @@ export default function ProfileBuildScreen() {
                       onPress={() => pickPhoto('extra')}
                       disabled={uploadingPhoto}
                       className="h-16 w-16 items-center justify-center rounded-xl border border-dashed border-stone-300 dark:border-stone-600">
-                      <Text className="text-title text-stone-400">+</Text>
+                      <Text className="text-title text-stone-500">+</Text>
                     </Pressable>
                   )}
                 </View>
@@ -1459,8 +1460,8 @@ export default function ProfileBuildScreen() {
           )}
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
           {isEditMode && editSection === null && (
-            <Pressable onPress={handleCancelEdit} disabled={cancelling} className="items-center py-1">
-              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
+            <Pressable onPress={handleCancelEdit} disabled={cancelling} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                 {cancelling ? 'Undoing...' : 'Undo my changes since I opened this'}
               </Text>
             </Pressable>
@@ -1468,8 +1469,8 @@ export default function ProfileBuildScreen() {
           {isEditMode && editSection !== null ? (
             <Pressable
               onPress={() => openSection(null)}
-              className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-              <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Done with this part</Text>
+              className="items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot">
+              <Text className="text-body font-semibold text-white">Done with this part</Text>
             </Pressable>
           ) : (
           <Pressable
@@ -1484,11 +1485,11 @@ export default function ProfileBuildScreen() {
               }
               handleStepNext();
             }}
-            className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+            className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
               (isEditMode ? !canContinue : !canAdvanceStep) ? 'opacity-40' : ''
             }`}>
             {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+            <Text className="text-body font-semibold text-white">
               {isEditMode
                 ? missingRequiredFields.length > 0
                   ? 'Answer the parts marked "Needs an answer"'

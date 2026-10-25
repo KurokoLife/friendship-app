@@ -35,8 +35,10 @@ import {
 } from '@/lib/plan-board';
 import { loadDraft, saveDraft } from '@/lib/held-card';
 import { supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
+import { InlineLink } from '@/components/ui';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 const QUIET_NUDGE_DAYS = 3;
 const HOME_WORDS = /\b(home|house|apartment|my place|your place|backyard)\b/i;
 const NOTE_MAX = 600;
@@ -111,8 +113,8 @@ function Chip({
 
 function LinkButton({ label, onPress, disabled, muted }: { label: string; onPress: () => void; disabled?: boolean; muted?: boolean }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} className={disabled ? 'opacity-40' : ''}>
-      <Text className={`text-caption font-semibold ${muted ? 'text-stone-500 dark:text-stone-400' : 'text-accent-500'}`}>
+    <Pressable onPress={onPress} disabled={disabled} className={`min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 ${disabled ? 'opacity-40' : ''}`}>
+      <Text className={`text-caption font-semibold ${muted ? 'text-stone-500 dark:text-stone-400' : 'text-accent-500 dark:text-accent-400'} text-stone-900 dark:text-stone-50`}>
         {label}
       </Text>
     </Pressable>
@@ -124,8 +126,8 @@ function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className={`self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${disabled ? 'opacity-40' : ''}`}>
-      <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">{label}</Text>
+      className={`self-start rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${disabled ? 'opacity-40' : ''}`}>
+      <Text className="text-caption font-semibold text-white">{label}</Text>
     </Pressable>
   );
 }
@@ -349,24 +351,22 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
                   />
                 </View>
               ) : (
-                <View className="flex-row flex-wrap gap-x-5 gap-y-1">
+                <View className="gap-1">
                   {onSetPlan && (
-                    <Pressable
-                      onPress={() => {
-                        setSheetOpen(false);
-                        onSetPlan();
-                      }}
-                      hitSlop={6}>
-                      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-                        Already agreed on something? Set the plan
-                      </Text>
-                    </Pressable>
-                  )}
-                  <Pressable onPress={() => setLogOpen(true)} hitSlop={6}>
-                    <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
-                      Met up already? Add it
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">
+                      Already agreed on something?{' '}
+                      <InlineLink
+                        onPress={() => {
+                          setSheetOpen(false);
+                          onSetPlan();
+                        }}>
+                        Set the plan
+                      </InlineLink>
                     </Text>
-                  </Pressable>
+                  )}
+                  <Text className="text-caption text-stone-500 dark:text-stone-400">
+                    Met up already? <InlineLink onPress={() => setLogOpen(true)}>Add it</InlineLink>
+                  </Text>
                 </View>
               )}
               <RememberAsksLine connectionId={connectionId} otherName={otherName} notesOn={notesOn} withIdeas />
@@ -559,7 +559,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
           }}
         />
       )}
-      <Text className="text-caption text-stone-400 dark:text-stone-500">
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
         {otherUsual.size > 0
           ? `Filled: you're free. Orange outline: ${name} is usually free. Orange: both.`
           : "Filled: you're free."}
@@ -643,7 +643,7 @@ export function PlanBoardCard({ connectionId, myId, otherName, refreshKey, openR
           disabled={busy || !ready || stemOnly}
           onPress={send}
         />
-        <Text className="text-caption text-stone-400 dark:text-stone-500">
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
           {draft.length === 0
             ? 'Pick at least one idea.'
             : chosenTimes.length === 0
@@ -710,11 +710,11 @@ function IdeaRow({
         {idea.picked_by_me && <Text className="text-caption font-semibold text-white">✓</Text>}
       </View>
       <View className="flex-1 gap-0.5">
-        <Text className="text-caption text-stone-400 dark:text-stone-500">{heading}</Text>
+        <Text className="text-caption text-stone-500 dark:text-stone-400">{heading}</Text>
         <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{idea.title}</Text>
         {idea.description && <Text className="text-caption text-stone-600 dark:text-stone-300">{idea.description}</Text>}
         {tags.length > 0 && <Text className="text-caption text-stone-500 dark:text-stone-400">{tags.join(' · ')}</Text>}
-        {marks && <Text className="text-caption font-semibold text-accent-500">{marks}</Text>}
+        {marks && <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">{marks}</Text>}
       </View>
     </Pressable>
   );
@@ -768,7 +768,7 @@ function PrefsForm({
           disabled={!ready}
           onPress={() => ready && onDone({ budget: budget!, duration: duration!, travel: travel! })}
         />
-        <Text className="flex-1 text-caption text-stone-400 dark:text-stone-500">Change these anytime in My limits.</Text>
+        <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">Change these anytime in My limits.</Text>
       </View>
     </View>
   );

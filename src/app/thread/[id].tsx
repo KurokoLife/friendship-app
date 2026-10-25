@@ -56,8 +56,9 @@ import {
   SCAM_NOTE_COPY,
 } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type Message = {
   id: string;
@@ -634,8 +635,8 @@ export default function ThreadScreen() {
         <Text className="text-center text-body text-stone-500 dark:text-stone-400">
           That conversation isn&apos;t available.
         </Text>
-        <Pressable onPress={() => goBack('/inbox')}>
-          <Text className="text-caption font-semibold text-accent-500">Go back</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/inbox')}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Go back</Text>
         </Pressable>
       </View>
     );
@@ -777,8 +778,8 @@ export default function ThreadScreen() {
       <SafeAreaView className="flex-1">
         <View className="gap-1 border-b border-stone-200 px-6 pb-4 pt-4 dark:border-stone-800">
           <View className="flex-row items-center justify-between">
-            <Pressable onPress={() => goBack('/inbox')}>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/inbox')}>
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
             </Pressable>
             {/* Report & Block: always reachable from Chat regardless of
                 connection state, safety concerns shouldn't depend on
@@ -794,9 +795,8 @@ export default function ThreadScreen() {
               onPress={() => setActionsOpen(true)}
               accessibilityRole="button"
               accessibilityLabel="Chat options: Pause, End, Report, Block"
-              hitSlop={10}
-              className="px-1">
-              <Text className="text-title font-semibold text-stone-500 dark:text-stone-400">⋯</Text>
+              className="h-11 w-11 items-center justify-center rounded-full border border-outline dark:border-stone-600">
+              <Text className="text-title font-semibold text-stone-700 dark:text-stone-300">⋯</Text>
             </Pressable>
             <ChatActionsSheet
               visible={actionsOpen}
@@ -820,7 +820,7 @@ export default function ThreadScreen() {
             onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
             disabled={!otherId}>
             <Text className="text-title text-stone-900 dark:text-stone-50">
-              {other?.display_name ?? 'A member'} <Text className="text-body text-stone-400 dark:text-stone-500">›</Text>
+              {other?.display_name ?? 'A member'} <Text className="text-body text-stone-500 dark:text-stone-400">›</Text>
             </Text>
             {/* S1 (Part 1) subsumes the permanent response-time header
                 for the sender during its own 24-hour window ("X typically
@@ -828,12 +828,12 @@ export default function ThreadScreen() {
                 header line is only shown when S1 isn't already covering
                 the same information, avoiding a redundant duplicate. */}
             {responsePhrase && !statusLine && (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
                 {other?.display_name ?? 'They'} {responsePhrase}.
               </Text>
             )}
             {statusLine && (
-              <Text className="text-caption text-stone-400 dark:text-stone-600">
+              <Text className="text-caption text-stone-500 dark:text-stone-400">
                 {responsePhrase ? `${other?.display_name ?? 'They'} ${responsePhrase}. ` : ''}
                 {statusLine}
               </Text>
@@ -843,9 +843,9 @@ export default function ThreadScreen() {
           </Pressable>
           {rhythmNoteText && (
             <View className="mt-1 flex-row items-start gap-2">
-              <Text className="flex-1 text-caption text-stone-400 dark:text-stone-600">{rhythmNoteText}</Text>
-              <Pressable onPress={handleDismissRhythmNote}>
-                <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Dismiss</Text>
+              <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">{rhythmNoteText}</Text>
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={handleDismissRhythmNote}>
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Dismiss</Text>
               </Pressable>
             </View>
           )}
@@ -952,8 +952,8 @@ export default function ThreadScreen() {
                 {pauseError && <Text className="text-caption text-red-600 dark:text-red-400">{pauseError}</Text>}
                 <Pressable
                   onPress={pause.paused_by_me ? handleResume : () => setEndConnectionVisible(true)}
-                  className="self-start">
-                  <Text className="text-caption font-semibold text-accent-500">
+                  className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                     {pause.paused_by_me ? 'Resume now' : 'End the connection'}
                   </Text>
                 </Pressable>
@@ -1026,7 +1026,7 @@ export default function ThreadScreen() {
               )}
             </View>
           )}
-          <Text className="text-center text-caption text-stone-400 dark:text-stone-600">
+          <Text className="text-center text-caption text-stone-500 dark:text-stone-400">
             Limen is for meeting in person. Chatting is how you get there.
           </Text>
           {/* First-time tips for the chat (2026-10-17), one at a time. Inside the
@@ -1056,7 +1056,7 @@ export default function ThreadScreen() {
               return (
                 <View key={m.id}>
                   {showDivider && (
-                    <Text className="mb-2 mt-1 text-center text-caption text-stone-400 dark:text-stone-600">
+                    <Text className="mb-2 mt-1 text-center text-caption text-stone-500 dark:text-stone-400">
                       {label}
                     </Text>
                   )}
@@ -1076,7 +1076,7 @@ export default function ThreadScreen() {
                         setPlanEditorRequest((r) => ({ mode: 'new', n: (r?.n ?? 0) + 1, prefill: { activity } }))
                       }
                     />
-                    <Text className="mt-1 text-caption text-stone-400 dark:text-stone-600">{timeLabel(m.created_at)}</Text>
+                    <Text className="mt-1 text-caption text-stone-500 dark:text-stone-400">{timeLabel(m.created_at)}</Text>
                   </View>
                 </View>
               );
@@ -1084,7 +1084,7 @@ export default function ThreadScreen() {
             return (
               <View key={m.id}>
                 {showDivider && (
-                  <Text className="mb-2 mt-1 text-center text-caption text-stone-400 dark:text-stone-600">
+                  <Text className="mb-2 mt-1 text-center text-caption text-stone-500 dark:text-stone-400">
                     {label}
                   </Text>
                 )}
@@ -1102,7 +1102,7 @@ export default function ThreadScreen() {
                       {m.content}
                     </Text>
                   </View>
-                  <Text className="mt-1 text-caption text-stone-400 dark:text-stone-600">
+                  <Text className="mt-1 text-caption text-stone-500 dark:text-stone-400">
                     {timeLabel(m.created_at)}
                   </Text>
                   {/* Honest exit (F29, minimal message-level wiring): the
@@ -1116,7 +1116,7 @@ export default function ThreadScreen() {
                     </View>
                   )}
                   {m.type === 'honest_exit' && !isMine && (
-                    <Text className="mt-1 max-w-[80%] text-caption text-stone-400 dark:text-stone-600">
+                    <Text className="mt-1 max-w-[80%] text-caption text-stone-500 dark:text-stone-400">
                       {HONEST_EXIT_RECEIVER_TEXT}
                     </Text>
                   )}
@@ -1200,11 +1200,11 @@ export default function ThreadScreen() {
 
         <View className="gap-2 border-t border-stone-200 bg-stone-50 px-6 pb-6 pt-3 dark:border-stone-800 dark:bg-stone-900">
         {connectionStatus === 'blocked' && isBlocker ? (
-          <Text className="py-3 text-center text-caption text-stone-400 dark:text-stone-600">
+          <Text className="py-3 text-center text-caption text-stone-500 dark:text-stone-400">
             Messaging is unavailable, this connection is blocked.
           </Text>
         ) : connectionStatus === 'blocked' && !isBlocker ? (
-          <Text className="py-3 text-center text-caption text-stone-400 dark:text-stone-600">
+          <Text className="py-3 text-center text-caption text-stone-500 dark:text-stone-400">
             Messaging isn&apos;t available in this conversation.
           </Text>
         ) : connectionStatus === 'inactive' ? (
@@ -1214,8 +1214,8 @@ export default function ThreadScreen() {
             </Text>
             <Pressable
               onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
-              className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">View profile</Text>
+              className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">View profile</Text>
             </Pressable>
           </View>
         ) : connectionStatus === 'ended' ? (
@@ -1233,12 +1233,12 @@ export default function ThreadScreen() {
             </Text>
             <Pressable
               onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
-              className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">View profile</Text>
+              className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">View profile</Text>
             </Pressable>
           </View>
         ) : connectionStatus === 'paused' ? (
-          <Text className="py-3 text-center text-caption text-stone-400 dark:text-stone-600">
+          <Text className="py-3 text-center text-caption text-stone-500 dark:text-stone-400">
             {pause?.paused_by_me
               ? 'Messages are paused. Tap "Resume now" above to open the chat again.'
               : 'Messages are paused for now.'}
@@ -1251,8 +1251,8 @@ export default function ThreadScreen() {
             </Text>
             <Pressable
               onPress={() => otherId && router.push({ pathname: '/candidate/[id]', params: { id: otherId } })}
-              className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">View profile</Text>
+              className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">View profile</Text>
             </Pressable>
           </View>
         ) : needsSelfieForFirstMessage ? (
@@ -1262,8 +1262,8 @@ export default function ThreadScreen() {
                 ? "Your selfie is waiting for our review, usually less than a day. You can send your first message here once it's approved."
                 : "Before you send a first message, finish your selfie check. You only do it once, and it confirms you're the person in your photo."}
             </Text>
-            <Pressable onPress={() => router.push('/selfie-check')} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">
+            <Pressable onPress={() => router.push('/selfie-check')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                 {mySelfiePending ? 'See my selfie check' : 'Do my selfie check'}
               </Text>
             </Pressable>
@@ -1281,8 +1281,8 @@ export default function ThreadScreen() {
               Add a profile photo before sending your first message here. This only applies to starting a
               new conversation, once you&apos;ve exchanged a first message, replying never needs one.
             </Text>
-            <Pressable onPress={() => router.push('/profile-build?from=profile')} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">Add a photo</Text>
+            <Pressable onPress={() => router.push('/profile-build?from=profile')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Add a photo</Text>
             </Pressable>
           </View>
         ) : blockedByPreference ? (
@@ -1315,12 +1315,12 @@ export default function ThreadScreen() {
             {hasPlan ? (
               <View />
             ) : (
-              <Pressable onPress={handlePlanSomething}>
-                <Text className="text-caption font-semibold text-accent-500">Let&apos;s plan something</Text>
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={handlePlanSomething}>
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Let&apos;s plan something</Text>
               </Pressable>
             )}
-            <Pressable onPress={() => setRemindersVisible(true)} hitSlop={6}>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">Reminders</Text>
+            <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setRemindersVisible(true)} hitSlop={6}>
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Reminders</Text>
             </Pressable>
           </View>
           {planNotice && <Text className="text-caption text-stone-500 dark:text-stone-400">{planNotice}</Text>}
@@ -1344,10 +1344,10 @@ export default function ThreadScreen() {
             <Pressable
               onPress={handleSend}
               disabled={!draft.trim() || sending}
-              className={`items-center rounded-full bg-stone-900 px-5 py-3 active:opacity-80 dark:bg-stone-50 ${
+              className={`items-center rounded-full bg-apricot px-5 py-3 active:opacity-80 dark:bg-apricot ${
                 !draft.trim() || sending ? 'opacity-40' : ''
               }`}>
-              <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+              <Text className="text-caption font-semibold text-white">
                 Send
               </Text>
             </Pressable>

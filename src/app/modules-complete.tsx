@@ -12,8 +12,8 @@ export default function ModulesCompleteScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         <View className="gap-4">
-          <Pressable onPress={() => router.replace('/account-recovery')} className="self-start">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable onPress={() => router.replace('/account-recovery')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
           <Text className="text-display text-stone-900 dark:text-stone-50">You&apos;re all set</Text>
           <Text className="text-body text-stone-600 dark:text-stone-300">
@@ -29,11 +29,11 @@ export default function ModulesCompleteScreen() {
         <View className="gap-2">
           <Pressable
             onPress={() => router.replace({ pathname: '/selfie-check', params: { next: 'home' } })}
-            className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
-            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Do my selfie check now</Text>
+            className="items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot">
+            <Text className="text-body font-semibold text-white">Do my selfie check now</Text>
           </Pressable>
-          <Pressable onPress={() => router.replace('/people')} className="items-center py-3">
-            <Text className="text-body text-stone-500 dark:text-stone-400">I&apos;ll do it later</Text>
+          <Pressable onPress={() => router.replace('/circle')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600">
+            <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">I&apos;ll do it later</Text>
           </Pressable>
         </View>
       </PaddedSafeArea>

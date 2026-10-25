@@ -4,8 +4,9 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { MicPlaceholderButton } from '@/components/mic-placeholder-button';
 import { loadDraft, saveDraft } from '@/lib/held-card';
 import { noteIsEmpty, type NoteFields } from '@/lib/remember';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 const FIELD_MAX = 1000;
 
 // One note about a friend, in the person's own words. Three short,
@@ -94,7 +95,7 @@ export function RememberNoteEditor({
 
   return (
     <View className="gap-3 rounded-3xl border border-accent-500/40 bg-white p-5 dark:bg-stone-800">
-      <Text className="text-caption font-semibold text-accent-500">{heading}</Text>
+      <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">{heading}</Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">
         Answer any or none. Only you can see this.
       </Text>
@@ -107,20 +108,20 @@ export function RememberNoteEditor({
         <Pressable
           onPress={save}
           disabled={empty || saving}
-          className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${
+          className={`rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${
             empty || saving ? 'opacity-40' : ''
           }`}>
-          <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+          <Text className="text-caption font-semibold text-white">
             {saving ? 'Saving...' : 'Save'}
           </Text>
         </Pressable>
-        <Pressable
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
           onPress={() => {
             if (draftKey) saveDraft(draftKey, null);
             onCancel();
           }}
           disabled={saving}>
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
         </Pressable>
       </View>
     </View>

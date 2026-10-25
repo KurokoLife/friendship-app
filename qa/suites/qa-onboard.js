@@ -1,6 +1,6 @@
 // 2026-10-17: joining from the very first screen to the app as a brand-new
-// phone number (lands in Your people since 2026-10-25), then Save,
-// Interested, waiting in Your people, the chat opening, and the
+// phone number (lands in Your circle since 2026-10-25), then Save,
+// Interested, waiting in Your circle, the chat opening, and the
 // first-time tips (cards in the page that never cover a button). Also checks
 // the side margins on joining screens (they were missing on the web).
 const L = require('../qa-lib'); const { check, text, q } = L;
@@ -141,9 +141,9 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('All set has side margins', (await margin("You're all set")) >= 16);
   check('All set says Interested works while the selfie is checked', /You can say Interested while it's checked/.test(await t()));
   await tap("I'll do it later", true, 4000);
-  check('lands in Your people', page.url().endsWith('/people'), page.url());
-  check('Your people tip shows', /Tip · Your people/i.test(await t()));
-  check('Your people: empty state invites adding someone', /Who would you like to keep up with\?/.test(await t()) && /Add someone/.test(await t()), (await t()).slice(0, 600));
+  check('lands in Your circle', page.url().endsWith('/circle'), page.url());
+  check('Your circle tip shows', /Tip · Your circle/i.test(await t()));
+  check('Your circle: empty state invites adding someone', /Who would you like to keep up with\?/.test(await t()) && /Add someone/.test(await t()), (await t()).slice(0, 600));
   const me = (await q('select id from auth.users where phone = $1', ['+1' + PHONE]))[0].id;
 
   // Tips: a card in the page, and it never covers a button.
@@ -161,9 +161,9 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   await tap('Aisha', false, 3000);
   check('profile page tip shows', /Tip · Notice something\?/i.test(await t()));
   await tap('Interested', true, 3000);
-  check('Interested: kept in Your people', /in Your people, under Getting to know/.test(await t()));
-  await page.goto('http://localhost:8099/people'); await page.waitForTimeout(3500);
-  check('Your people: Aisha, waiting to connect', /Aisha/.test(await t()) && /Waiting to connect/.test(await t()), (await t()).slice(0, 600));
+  check('Interested: kept in Your circle', /in Your circle, under Getting to know/.test(await t()));
+  await page.goto('http://localhost:8099/circle'); await page.waitForTimeout(3500);
+  check('Your circle: Aisha, waiting to connect', /Aisha/.test(await t()) && /Waiting to connect/.test(await t()), (await t()).slice(0, 600));
   await page.goto('http://localhost:8099/inbox'); await page.waitForTimeout(3500);
   check('Chats tip explains Chats', /Tip · Chats/i.test(await t()) && /under Past/.test(await t()));
   // Aisha says Interested back, the selfie is approved: the chat opens.

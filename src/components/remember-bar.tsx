@@ -5,8 +5,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { fetchIdeaNotes, fetchOpenAsks, markMeetupAsked, meetupToAskAbout, type OpenAsk, type RememberMeetup } from '@/lib/remember';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Slim bar at the top of a chat (2026-10-10): "What I want to remember
 // about X". Opens the private notes page. After a meetup counts it asks
@@ -75,20 +76,20 @@ export function RememberBar({
           What I want to remember about {first}
         </Text>
         {attention && (
-          <Text numberOfLines={2} className="text-caption font-semibold text-accent-500">
+          <Text numberOfLines={2} className="text-caption font-semibold text-accent-500 dark:text-accent-400">
             {attention}
           </Text>
         )}
       </View>
       {askMeetup ? (
-        <Pressable
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
           onPress={async () => {
             const m = askMeetup;
             setAskMeetup(null);
             await markMeetupAsked(m.id, myId);
           }}
           hitSlop={8}>
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Not now</Text>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Not now</Text>
         </Pressable>
       ) : (
         <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Open</Text>
@@ -162,7 +163,7 @@ export function RememberAsksLine({
           ))}
         </View>
       )}
-      <Text className="text-caption italic text-stone-400 dark:text-stone-500">Only you see this.</Text>
+      <Text className="text-caption italic text-stone-500 dark:text-stone-400">Only you see this.</Text>
     </View>
   );
 }

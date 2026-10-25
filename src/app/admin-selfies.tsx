@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type PendingCheck = {
   userId: string;
@@ -60,8 +61,8 @@ export default function AdminSelfiesScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerClassName="gap-5 px-6 pb-10 pt-10">
-          <Pressable onPress={() => goBack('/dev')}>
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => goBack('/dev')}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
           <Text className="text-display text-stone-900 dark:text-stone-50">Selfie checks</Text>
           <Text className="text-caption text-stone-500 dark:text-stone-400">
@@ -86,7 +87,7 @@ export default function AdminSelfiesScreen() {
                 <Text className="text-caption text-stone-500 dark:text-stone-400">Pose asked: {item.pose}</Text>
                 <View className="flex-row gap-3">
                   <View className="flex-1 gap-1">
-                    <Text className="text-caption text-stone-400 dark:text-stone-600">Profile photo</Text>
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">Profile photo</Text>
                     {item.profilePhotoUrl ? (
                       <Image source={{ uri: item.profilePhotoUrl }} className="aspect-square w-full rounded-xl bg-stone-200" />
                     ) : (
@@ -94,7 +95,7 @@ export default function AdminSelfiesScreen() {
                     )}
                   </View>
                   <View className="flex-1 gap-1">
-                    <Text className="text-caption text-stone-400 dark:text-stone-600">Selfie</Text>
+                    <Text className="text-caption text-stone-500 dark:text-stone-400">Selfie</Text>
                     {item.selfieUrl ? (
                       <Image source={{ uri: item.selfieUrl }} className="aspect-square w-full rounded-xl bg-stone-200" />
                     ) : (
@@ -112,8 +113,8 @@ export default function AdminSelfiesScreen() {
                   <Pressable
                     onPress={() => decide(item.userId, true)}
                     disabled={deciding === item.userId}
-                    className="flex-1 items-center rounded-full bg-stone-900 py-3 dark:bg-stone-50">
-                    <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+                    className="flex-1 items-center rounded-full bg-apricot py-3 dark:bg-apricot">
+                    <Text className="text-caption font-semibold text-white">
                       {deciding === item.userId ? 'Saving...' : 'Approve'}
                     </Text>
                   </Pressable>

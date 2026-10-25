@@ -45,8 +45,8 @@ export function BlockConfirmModal({ visible, onClose, onBlocked, blockedId, othe
           </Text>
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
           <View className="flex-row gap-3 pt-2">
-            <Pressable onPress={onClose} disabled={busy} className="flex-1 items-center py-3">
-              <Text className="text-body text-stone-500 dark:text-stone-400">Cancel</Text>
+            <Pressable onPress={onClose} disabled={busy} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 flex-1">
+              <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
             </Pressable>
             <Pressable
               onPress={handleConfirm}

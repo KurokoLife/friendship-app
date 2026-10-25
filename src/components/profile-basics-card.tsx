@@ -6,8 +6,9 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 
 import { loadProfileName, publicName, saveProfileName } from '@/lib/names';
 import { supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 const GENDER_LABELS: Record<string, string> = { woman: 'Woman', man: 'Man', non_binary: 'Non-binary' };
 const MEET_LABELS: Record<string, string> = {
@@ -182,7 +183,7 @@ export function ProfileBasicsCard() {
           <Text className="text-body text-stone-900 dark:text-stone-50">{ageRangeText}</Text>
         </View>
         <View className="flex-row items-center gap-1">
-          <Text className="text-caption font-semibold text-accent-500">Change</Text>
+          <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Change</Text>
           <Ionicons name="chevron-forward" size={16} color={MUTED_ICON_COLOR} />
         </View>
       </Pressable>

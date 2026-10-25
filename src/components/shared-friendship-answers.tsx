@@ -18,7 +18,7 @@ export function SharedFriendshipAnswers({ answers, name }: { answers: Friendship
       </View>
       {rows.map((s) => (
         <View key={s.key} className="gap-0.5">
-          <Text className="text-caption text-stone-400 dark:text-stone-500">{s.label(name)}</Text>
+          <Text className="text-caption text-stone-500 dark:text-stone-400">{s.label(name)}</Text>
           <Text className="text-body text-stone-700 dark:text-stone-300">{answers[s.key].join(' · ')}</Text>
         </View>
       ))}

@@ -98,8 +98,8 @@ export function WebCamera({
           <Pressable
             onPress={capture}
             disabled={!ready}
-            className={`flex-1 items-center rounded-full bg-stone-900 py-3 dark:bg-stone-50 ${ready ? '' : 'opacity-40'}`}>
-            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+            className={`flex-1 items-center rounded-full bg-apricot py-3 dark:bg-apricot ${ready ? '' : 'opacity-40'}`}>
+            <Text className="text-body font-semibold text-white">
               {ready ? 'Take photo' : 'Opening camera...'}
             </Text>
           </Pressable>

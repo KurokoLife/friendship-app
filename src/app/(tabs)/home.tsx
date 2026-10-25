@@ -12,8 +12,9 @@ import { useTestTools } from '@/lib/test-mode';
 import { fetchProfileStories } from '@/lib/stories';
 import { expressInterest, lastActionErrorDetail, interestSavedCopy, SAVED_FULL_COPY, saveForLater } from '@/lib/safety';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Fix 7: shown while a first-time (or post-invalidation) generation is in
 // flight, same card shape as a real suggestion so the layout doesn't jump
@@ -33,7 +34,7 @@ function SuggestionSkeletonCard() {
     </View>
   );
 }
-const ACCENT_COLOR = '#B5643B'; // accent-500
+const ACCENT_COLOR = palette.link;
 
 type Suggestion = {
   userId: string;
@@ -92,7 +93,7 @@ const DEV_FALLBACK_SUGGESTIONS: Suggestion[] = [
 // Discover (rebuilt 2026-10-10, docs/DECISIONS.md section 4). One new
 // person a day, at most 3 waiting, nobody while you have 3 active chats
 // (paused ones count). Never anyone you've had a chat with. Saving moves
-// the person to Saved, Interested to Your people. The database decides all
+// the person to Saved, Interested to Your circle. The database decides all
 // of this (get_discover); generate-match-suggestions only adds today's
 // person when get_discover says there's room for one. Saved people are
 // listed below today's person (2026-10-25, the Saved tab is gone).
@@ -360,7 +361,7 @@ export default function HomeScreen() {
           )}
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
           {testTools && errorDetail && (
-            <Text className="text-[11px] text-stone-400 dark:text-stone-500">Details (only admins and test accounts see this): {errorDetail}</Text>
+            <Text className="text-[11px] text-stone-500 dark:text-stone-400">Details (only admins and test accounts see this): {errorDetail}</Text>
           )}
           {capacityNotice && (
             <Text className="text-caption text-stone-500 dark:text-stone-400">{capacityNotice}</Text>
@@ -381,8 +382,8 @@ export default function HomeScreen() {
                 {new Date(breakUntil).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}.
                 New people will show here again after that.
               </Text>
-              <Pressable onPress={() => router.push('/settings')} className="self-start">
-                <Text className="text-caption font-semibold text-accent-500">End my break in Settings</Text>
+              <Pressable onPress={() => router.push('/settings')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">End my break in Settings</Text>
               </Pressable>
             </View>
           )}
@@ -421,8 +422,8 @@ export default function HomeScreen() {
                       </Text>
                       {s.selfieVerified && (
                         <View className="flex-row items-center gap-1 rounded-full border border-accent-500 px-2 py-0.5">
-                          <Ionicons name="checkmark-circle" size={12} color="#B5643B" />
-                          <Text className="text-caption text-accent-500">Photo verified</Text>
+                          <Ionicons name="checkmark-circle" size={12} color={palette.link} />
+                          <Text className="text-caption text-accent-500 dark:text-accent-400">Photo verified</Text>
                         </View>
                       )}
                     </View>
@@ -473,12 +474,12 @@ export default function HomeScreen() {
                     onPress={() => handleInterested(s.userId)}
                     disabled={isInterested || pendingAction === s.userId + 'interested'}
                     className={`flex-1 flex-row items-center justify-center gap-1 rounded-full py-3 active:opacity-80 ${
-                      isInterested ? 'border border-accent-500' : 'bg-stone-900 dark:bg-stone-50'
+                      isInterested ? 'border border-accent-500' : 'bg-apricot'
                     }`}>
                     {isInterested && <Ionicons name="checkmark" size={14} color={ACCENT_COLOR} />}
                     <Text
                       className={`text-caption font-semibold ${
-                        isInterested ? 'text-accent-500' : 'text-stone-50 dark:text-stone-900'
+                        isInterested ? 'text-accent-500 dark:text-accent-400' : 'text-white'
                       }`}>
                       Interested
                     </Text>
@@ -491,7 +492,7 @@ export default function HomeScreen() {
           {/* Saved, below today's person (2026-10-25). */}
           {isSupabaseConfigured && !usingDevFallback && (
             <View className="gap-3 pt-2">
-              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+              <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">
                 Saved{saved.length > 0 ? ` · ${saved.length} of ${SAVE_MAX}` : ''}
               </Text>
               {saved.length === 0 ? (
@@ -518,7 +519,7 @@ export default function HomeScreen() {
                             {detail}
                           </Text>
                         )}
-                        <Text className="text-caption text-stone-400 dark:text-stone-500">Saved until {shortDay(until)}</Text>
+                        <Text className="text-caption text-stone-500 dark:text-stone-400">Saved until {shortDay(until)}</Text>
                       </Pressable>
                       <Pressable
                         onPress={() => removeSaved(p.user_id)}

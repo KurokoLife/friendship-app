@@ -6,8 +6,9 @@ import { PaddedSafeArea } from '@/components/padded-safe-area';
 import { track } from '@/lib/analytics';
 import { getDeviceId } from '@/lib/device-id';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 type Step = 'question' | 'pause-options' | 'paused-confirmation';
 
@@ -152,8 +153,8 @@ export default function ReadinessCommitmentScreen() {
       <PaddedSafeArea className="flex-1 justify-between px-6 py-10">
         {step === 'pause-options' ? (
           <View className="gap-5 pt-16">
-            <Pressable onPress={() => setStep('question')}>
-              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setStep('question')}>
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
             </Pressable>
             <Text className="text-display text-stone-900 dark:text-stone-50">
               How long do you need?
@@ -181,8 +182,8 @@ export default function ReadinessCommitmentScreen() {
           </View>
         ) : (
           <ScrollView contentContainerClassName="gap-5" showsVerticalScrollIndicator={false}>
-            <Pressable onPress={() => router.replace('/profile-build?from=photo')} className="self-start">
-              <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+            <Pressable onPress={() => router.replace('/profile-build?from=photo')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
             </Pressable>
             {/* 2026-10-18: replaces the two onboarding videos and their quiz.
                 Their messages now show as single lines at the moment they
@@ -201,8 +202,8 @@ export default function ReadinessCommitmentScreen() {
                   <Text className="text-body text-stone-600 dark:text-stone-300">{a.text}</Text>
                 </View>
               ))}
-              <Pressable onPress={() => setExpanded((v) => !v)}>
-                <Text className="text-body font-semibold text-accent-500">
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setExpanded((v) => !v)}>
+                <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
                   {expanded ? 'Show less' : 'More about quiet chats'}
                 </Text>
               </Pressable>
@@ -237,16 +238,16 @@ export default function ReadinessCommitmentScreen() {
               <Pressable
                 onPress={handleReady}
                 disabled={saving || !isSupabaseConfigured}
-                className={`flex-row items-center justify-center gap-2 rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${
+                className={`flex-row items-center justify-center gap-2 rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${
                   saving || !isSupabaseConfigured ? 'opacity-40' : ''
                 }`}>
                 {saving && <ActivityIndicator color={MUTED_ICON_COLOR} />}
-                <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">
+                <Text className="text-body font-semibold text-white">
                   {saving ? 'Saving...' : 'Sounds good'}
                 </Text>
               </Pressable>
-              <Pressable onPress={() => setStep('pause-options')} disabled={saving}>
-                <Text className="text-center text-body text-stone-500 dark:text-stone-400">
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setStep('pause-options')} disabled={saving}>
+                <Text className="text-center text-body font-semibold text-stone-900 dark:text-stone-50">
                   I need more time
                 </Text>
               </Pressable>

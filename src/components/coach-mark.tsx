@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { getSeenCoachMarks, markCoachMarkSeen, type CoachMarkKey } from '@/lib/coach-marks';
+import { Pill } from '@/components/ui';
 
 type Props = {
   markKey: CoachMarkKey;
@@ -55,25 +56,22 @@ export function CoachMark({ markKey, title, text, actionLabel, onAction, after }
   return (
     <View
       accessibilityRole="summary"
-      className="gap-2 rounded-2xl border border-accent-500/40 bg-accent-500/5 p-4">
-      <Text className="text-caption font-semibold uppercase tracking-wide text-accent-500">
+      className="gap-2 rounded-2xl border border-honey-line bg-honey p-4 dark:border-stone-700 dark:bg-stone-800">
+      <Text className="text-caption font-semibold text-accent-600 dark:text-accent-400">
         {title ? `Tip · ${title}` : 'Tip'}
       </Text>
       <Text className="text-body text-stone-700 dark:text-stone-300">{text}</Text>
-      <View className="flex-row items-center justify-end gap-5">
+      <View className="flex-row flex-wrap items-center justify-end gap-2">
         {actionLabel && onAction && (
-          <Pressable
+          <Pill
+            label={actionLabel}
             onPress={() => {
               onAction();
               dismiss();
             }}
-            hitSlop={8}>
-            <Text className="text-caption font-semibold text-accent-500">{actionLabel}</Text>
-          </Pressable>
+          />
         )}
-        <Pressable onPress={dismiss} hitSlop={8} accessibilityRole="button">
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Got it</Text>
-        </Pressable>
+        <Pill label="Got it" onPress={dismiss} />
       </View>
     </View>
   );

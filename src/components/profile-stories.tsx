@@ -11,8 +11,10 @@ import {
   type Story,
 } from '@/lib/stories';
 import { supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
+import { InlineLink } from '@/components/ui';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Limen v2 (2026-10-03): a member's Stories, plus the reader's private
 // "I wonder..." notes. See docs/LIMEN_V2_DECISIONS.md.
@@ -75,21 +77,21 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
         maxLength={300}
         className="min-h-16 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
       />
-      <Text className="text-caption text-stone-400 dark:text-stone-400">
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
         Is this about a fact, or about {name}? What would the answer tell you about who they are?
       </Text>
       <View className="flex-row gap-3">
-        <Pressable onPress={save} disabled={saving || !draft.trim()}>
-          <Text className={`text-caption font-semibold text-accent-500 ${saving || !draft.trim() ? 'opacity-40' : ''}`}>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={save} disabled={saving || !draft.trim()}>
+          <Text className={`text-caption font-semibold ${saving || !draft.trim() ? 'opacity-40' : ''} text-stone-900 dark:text-stone-50`}>
             Save privately
           </Text>
         </Pressable>
-        <Pressable
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
           onPress={() => {
             setOpenIndex(null);
             setDraft('');
           }}>
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
         </Pressable>
       </View>
     </View>
@@ -105,17 +107,17 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
           {readOnly ? null : openIndex === index ? (
             noteInput
           ) : (
-            <Pressable onPress={() => setOpenIndex(index)} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">Note it privately</Text>
+            <Pressable onPress={() => setOpenIndex(index)} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Note it privately</Text>
             </Pressable>
           )}
         </View>
       ))}
 
       {!readOnly && stories.length === 0 && openIndex !== 'general' && (
-        <Pressable onPress={() => setOpenIndex('general')} className="self-start">
-          <Text className="text-caption font-semibold text-accent-500">Something you&apos;d like to ask about? Note it privately</Text>
-        </Pressable>
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          Something you&apos;d like to ask about? <InlineLink onPress={() => setOpenIndex('general')}>Note it privately</InlineLink>
+        </Text>
       )}
       {openIndex === 'general' && noteInput}
 
@@ -127,12 +129,12 @@ export function ProfileStories({ subjectUserId, subjectName, readOnly = false }:
           {notes.map((n) => (
             <View key={n.id} className="flex-row items-start justify-between gap-3">
               <Text className="flex-1 text-caption text-stone-600 dark:text-stone-300">• {n.note}</Text>
-              <Pressable
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
                 onPress={async () => {
                   await deleteCuriosityNote(n.id);
                   setNotes((prev) => prev.filter((x) => x.id !== n.id));
                 }}>
-                <Text className="text-caption text-stone-400 dark:text-stone-400">Remove</Text>
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Remove</Text>
               </Pressable>
             </View>
           ))}

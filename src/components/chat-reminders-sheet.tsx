@@ -89,8 +89,8 @@ export function ChatRemindersSheet({
           </Text>
           {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
           <View className="flex-row flex-wrap items-center gap-4">
-            <Pressable onPress={onClose} className="rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-              <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Done</Text>
+            <Pressable onPress={onClose} className="rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot">
+              <Text className="text-caption font-semibold text-white">Done</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -121,8 +121,8 @@ export function TurnOffForChatLink({
         setBusy(false);
         onDone();
       }}
-      className="self-start">
-      <Text className="text-caption text-stone-400 underline dark:text-stone-500">{label ?? 'Turn these off for this chat'}</Text>
+      className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+      <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">{label ?? 'Turn these off for this chat'}</Text>
     </Pressable>
   );
 }

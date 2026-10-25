@@ -141,7 +141,7 @@ export function UpcomingMeetupsStrip({
 
   return (
     <View className="gap-3">
-      <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">Coming up</Text>
+      <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Coming up</Text>
       {rows.map((r) => (
         <Pressable
           key={`${r.connectionId}-${r.order}`}

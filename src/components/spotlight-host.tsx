@@ -7,8 +7,9 @@ import {
   type ActiveCoachMark,
   type SpotlightRect,
 } from '@/lib/spotlight';
+import { palette } from '@/theme';
 
-const ACCENT_COLOR = '#B5643B'; // accent-500
+const ACCENT_COLOR = palette.link;
 const RING_PADDING = 6;
 
 function padRect(rect: SpotlightRect, pad: number): SpotlightRect {
@@ -128,11 +129,11 @@ export function SpotlightHost() {
                         mark.onAction?.();
                         mark.onDismiss();
                       }}>
-                      <Text className="text-caption font-semibold text-accent-500">{mark.actionLabel}</Text>
+                      <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">{mark.actionLabel}</Text>
                     </Pressable>
                   )}
                   <Pressable onPress={mark.onDismiss}>
-                    <Text className="text-caption font-semibold text-stone-400 dark:text-stone-600">Got it</Text>
+                    <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Got it</Text>
                   </Pressable>
                 </View>
               </View>

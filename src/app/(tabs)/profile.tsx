@@ -12,8 +12,9 @@ import { EXPERIENCE_QUESTIONS, normalizeExperience, type FriendshipExperience } 
 import { loadProfileName } from '@/lib/names';
 import { completionPct, type CompletionInput } from '@/lib/profile-completion';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // The private, own-row fields this tab needs beyond the public view.
 type OwnProfile = {
@@ -45,7 +46,7 @@ const MEET_LABELS: Record<string, string> = {
 function PrivateRow({ label, value, note }: { label: string; value: string; note: string }) {
   return (
     <View className="gap-0.5">
-      <Text className="text-caption text-stone-400 dark:text-stone-400">{label}</Text>
+      <Text className="text-caption text-stone-500 dark:text-stone-400">{label}</Text>
       <Text className="text-body text-stone-700 dark:text-stone-300">{value}</Text>
       <Text className="text-caption text-stone-500 dark:text-stone-400">{note}</Text>
     </View>
@@ -294,8 +295,8 @@ export default function ProfileScreen() {
             <View className="gap-3 pt-1">
               <View className="flex-row items-center justify-between">
                 <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">You as a friend</Text>
-                <Pressable onPress={() => router.push('/big-five-assessment?from=profile')} hitSlop={8}>
-                  <Text className="text-caption font-semibold text-accent-500">
+                <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => router.push('/big-five-assessment?from=profile')} hitSlop={8}>
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">
                     {profile.friendship_experience ? 'Edit' : 'Answer'}
                   </Text>
                 </Pressable>
@@ -312,7 +313,7 @@ export default function ProfileScreen() {
                   const answer = normalizeExperience(profile.friendship_experience)[q.key].join(', ');
                   return (
                     <View key={q.key} className="gap-0.5">
-                      <Text className="text-caption text-stone-400 dark:text-stone-400">{q.prompt}</Text>
+                      <Text className="text-caption text-stone-500 dark:text-stone-400">{q.prompt}</Text>
                       <Text className="text-body text-stone-700 dark:text-stone-300">{answer || 'Not answered yet'}</Text>
                     </View>
                   );
@@ -328,7 +329,7 @@ export default function ProfileScreen() {
           <Pressable
             onPress={() => router.push('/profile-review')}
             className="items-center rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-            <Text className="text-body font-semibold text-accent-500">See exactly what others see</Text>
+            <Text className="text-body font-semibold text-accent-500 dark:text-accent-400">See exactly what others see</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

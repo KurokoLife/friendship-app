@@ -4,8 +4,9 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { normalizeStories } from '@/lib/stories';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Root-caused as part of the email-verification infinite-loop bug: this
 // screen used to be an unconditional <Redirect href="/philosophy-intro" />
@@ -27,7 +28,7 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 // further along than profile-basics lands on /home rather than exactly
 // where they left off, a deliberate, smaller scope than modeling every
 // later onboarding stage would require.
-type ResumeTarget = '/philosophy-intro' | '/people' | '/profile-basics' | '/start-with-you' | '/profile-build';
+type ResumeTarget = '/philosophy-intro' | '/circle' | '/profile-basics' | '/start-with-you' | '/profile-build';
 
 export default function Index() {
   const [target, setTarget] = useState<ResumeTarget | null>(null);
@@ -93,8 +94,8 @@ export default function Index() {
       }
 
       // 2026-10-25 (rebuild stage 1): every member who finished joining
-      // lands in Your people, the home tab.
-      setTarget('/people');
+      // lands in Your circle, the home tab.
+      setTarget('/circle');
     })();
   }, []);
 

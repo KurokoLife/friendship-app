@@ -4,8 +4,9 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { DateField, FieldLabel } from '@/components/date-time-field';
 import { logPastMeetup } from '@/lib/friendship-journey';
 import { isValidIsoDate, toIsoDate } from '@/lib/meetup-format';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // "We met up" (2026-10-10): adds a meetup two people made outside the app,
 // so every time they meet is counted, not only plans made here. The other
@@ -71,13 +72,13 @@ export function LogMeetupForm({
         <Pressable
           onPress={save}
           disabled={busy}
-          className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${busy ? 'opacity-40' : ''}`}>
-          <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+          className={`rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${busy ? 'opacity-40' : ''}`}>
+          <Text className="text-caption font-semibold text-white">
             {busy ? 'Saving...' : 'Add this meetup'}
           </Text>
         </Pressable>
-        <Pressable onPress={onCancel} disabled={busy}>
-          <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Cancel</Text>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={onCancel} disabled={busy}>
+          <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
         </Pressable>
       </View>
     </View>

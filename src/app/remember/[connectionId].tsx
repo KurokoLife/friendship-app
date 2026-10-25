@@ -36,8 +36,9 @@ import {
   type RememberNote,
 } from '@/lib/remember';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 const CLOSED_STATUSES = ['ended', 'inactive', 'graduated', 'blocked'];
 
 function firstName(name: string) {
@@ -253,7 +254,7 @@ export default function RememberNotesScreen() {
       .filter(([, v]) => v && v.trim())
       .map(([label, v]) => (
         <View key={label} className="gap-0.5">
-          {label ? <Text className="text-caption text-stone-400 dark:text-stone-500">{label}</Text> : null}
+          {label ? <Text className="text-caption text-stone-500 dark:text-stone-400">{label}</Text> : null}
           <Text className="text-body text-stone-800 dark:text-stone-200">{v}</Text>
         </View>
       ));
@@ -261,14 +262,12 @@ export default function RememberNotesScreen() {
 
   const noteActions = (n: RememberNote, onEdit: () => void) => (
     <View className="mt-1 flex-row items-center gap-4">
-      <Pressable onPress={onEdit}>
-        <Text className="text-caption font-semibold text-accent-500">Edit</Text>
+      <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={onEdit}>
+        <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Edit</Text>
       </Pressable>
-      <Pressable onPress={() => remove(n.id)}>
+      <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-red-200 dark:border-red-900" onPress={() => remove(n.id)}>
         <Text
-          className={`text-caption ${
-            confirmDelete === n.id ? 'font-semibold text-red-600 dark:text-red-400' : 'text-stone-400 dark:text-stone-500'
-          }`}>
+          className={`text-caption ${ confirmDelete === n.id ? 'font-semibold text-red-600 dark:text-red-400' : 'text-stone-500 dark:text-stone-400' }`}>
           {confirmDelete === n.id ? 'Tap again to delete' : 'Delete'}
         </Text>
       </Pressable>
@@ -323,7 +322,7 @@ export default function RememberNotesScreen() {
       <View
         key={n.id}
         className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
-        <Text className="text-caption text-stone-400 dark:text-stone-500">{formatDay(noteDay(n))}</Text>
+        <Text className="text-caption text-stone-500 dark:text-stone-400">{formatDay(noteDay(n))}</Text>
         {isFreeNote(n) ? freeNoteBody(n) : answers(n)}
         {noteActions(n, () => setEditing({ kind: 'free', note: n }))}
       </View>
@@ -368,16 +367,16 @@ export default function RememberNotesScreen() {
         <View
           key={m.id}
           className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
-          <Text className="text-caption font-semibold text-accent-500">{title}</Text>
-          {m.place ? <Text className="text-caption text-stone-400 dark:text-stone-500">{m.place}</Text> : null}
+          <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">{title}</Text>
+          {m.place ? <Text className="text-caption text-stone-500 dark:text-stone-400">{m.place}</Text> : null}
           {note ? (
             <>
               {answers(note)}
               {noteActions(note, () => setEditing({ kind: 'meetup', meetup: m }))}
             </>
           ) : (
-            <Pressable onPress={() => setEditing({ kind: 'meetup', meetup: m })} className="self-start">
-              <Text className="text-caption font-semibold text-accent-500">Write something down</Text>
+            <Pressable onPress={() => setEditing({ kind: 'meetup', meetup: m })} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+              <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Write something down</Text>
             </Pressable>
           )}
         </View>
@@ -417,12 +416,12 @@ export default function RememberNotesScreen() {
 
           {asks.length > 0 && (
             <View className="gap-2 rounded-3xl border border-accent-500/40 bg-accent-500/5 p-5">
-              <Text className="text-caption font-semibold text-accent-500">Next time, ask {first} about...</Text>
+              <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">Next time, ask {first} about...</Text>
               {asks.map((a) => (
                 <View key={a.noteId} className="flex-row items-start gap-3">
                   <Text className="flex-1 text-body text-stone-800 dark:text-stone-200">{a.text}</Text>
-                  <Pressable onPress={() => toggleAsked(a.noteId, true)} hitSlop={6}>
-                    <Text className="text-caption font-semibold text-accent-500">Asked</Text>
+                  <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => toggleAsked(a.noteId, true)} hitSlop={6}>
+                    <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Asked</Text>
                   </Pressable>
                 </View>
               ))}
@@ -453,7 +452,7 @@ export default function RememberNotesScreen() {
                         on ? 'border-accent-500 bg-accent-500/10' : 'border-stone-300 dark:border-stone-600'
                       }`}>
                       <Text
-                        className={`text-caption ${on ? 'font-semibold text-accent-500' : 'text-stone-600 dark:text-stone-300'}`}>
+                        className={`text-caption ${on ? 'font-semibold text-accent-500 dark:text-accent-400' : 'text-stone-600 dark:text-stone-300'}`}>
                         {t.label}
                       </Text>
                     </Pressable>
@@ -496,13 +495,13 @@ export default function RememberNotesScreen() {
                     ? 'No notes match.'
                     : `${matches.length} ${matches.length === 1 ? 'note' : 'notes'}`}
                 </Text>
-                <Pressable
+                <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
                   onPress={() => {
                     setQuery('');
                     setTopicFilter(null);
                   }}
                   hitSlop={6}>
-                  <Text className="text-caption font-semibold text-accent-500">Show all</Text>
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Show all</Text>
                 </Pressable>
               </View>
               {matches.map((n) => {
@@ -525,7 +524,7 @@ export default function RememberNotesScreen() {
                   <View
                     key={n.id}
                     className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
-                    <Text className="text-caption font-semibold text-accent-500">{meetupTitle(m)}</Text>
+                    <Text className="text-caption font-semibold text-accent-500 dark:text-accent-400">{meetupTitle(m)}</Text>
                     {answers(n)}
                     {noteActions(n, () => setEditing({ kind: 'meetup', meetup: m }))}
                   </View>
@@ -547,8 +546,8 @@ export default function RememberNotesScreen() {
                 {doneAsks.map((n) => (
                   <View key={n.id} className="flex-row items-start gap-3">
                     <Text className="flex-1 text-caption text-stone-500 dark:text-stone-400">{n.ask_next}</Text>
-                    <Pressable onPress={() => toggleAsked(n.id, false)} hitSlop={6}>
-                      <Text className="text-caption text-stone-400 dark:text-stone-500">Undo</Text>
+                    <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => toggleAsked(n.id, false)} hitSlop={6}>
+                      <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Undo</Text>
                     </Pressable>
                   </View>
                 ))}
@@ -570,8 +569,8 @@ export default function RememberNotesScreen() {
               ) : (
                 <Pressable
                   onPress={() => setEditing({ kind: 'free', note: null })}
-                  className="self-start rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50">
-                  <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">Write something down</Text>
+                  className="self-start rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot">
+                  <Text className="text-caption font-semibold text-white">Write something down</Text>
                 </Pressable>
               )}
               {freeNotes.length === 0 && profileNotes.length === 0 && (
@@ -598,7 +597,7 @@ export default function RememberNotesScreen() {
                           className="min-h-16 rounded-xl border border-stone-300 px-3 py-2 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
                         />
                         <View className="flex-row gap-4">
-                          <Pressable
+                          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
                             onPress={async () => {
                               if (!editingProfileNote.text.trim()) return;
                               const ok = await updateCuriosityNote(pn.id, editingProfileNote.text);
@@ -606,10 +605,10 @@ export default function RememberNotesScreen() {
                               setEditingProfileNote(null);
                               await load();
                             }}>
-                            <Text className="text-caption font-semibold text-accent-500">Save</Text>
+                            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Save</Text>
                           </Pressable>
-                          <Pressable onPress={() => setEditingProfileNote(null)}>
-                            <Text className="text-caption text-stone-500 dark:text-stone-400">Cancel</Text>
+                          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setEditingProfileNote(null)}>
+                            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
                           </Pressable>
                         </View>
                       </View>
@@ -617,13 +616,13 @@ export default function RememberNotesScreen() {
                       <View
                         key={pn.id}
                         className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
-                        <Text className="text-caption text-stone-400 dark:text-stone-500">{formatDay(pn.created_at.slice(0, 10))}</Text>
+                        <Text className="text-caption text-stone-500 dark:text-stone-400">{formatDay(pn.created_at.slice(0, 10))}</Text>
                         <Text className="text-body text-stone-800 dark:text-stone-200">{pn.note}</Text>
                         <View className="flex-row gap-4">
-                          <Pressable onPress={() => setEditingProfileNote({ id: pn.id, text: pn.note })}>
-                            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Edit</Text>
+                          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setEditingProfileNote({ id: pn.id, text: pn.note })}>
+                            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Edit</Text>
                           </Pressable>
-                          <Pressable
+                          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-red-200 dark:border-red-900"
                             onPress={async () => {
                               if (confirmDelete !== pn.id) {
                                 setConfirmDelete(pn.id);
@@ -634,9 +633,7 @@ export default function RememberNotesScreen() {
                               await load();
                             }}>
                             <Text
-                              className={`text-caption font-semibold ${
-                                confirmDelete === pn.id ? 'text-red-600 dark:text-red-400' : 'text-stone-400 dark:text-stone-500'
-                              }`}>
+                              className={`text-caption font-semibold ${ confirmDelete === pn.id ? 'text-red-600 dark:text-red-400' : 'text-stone-500 dark:text-stone-400' }`}>
                               {confirmDelete === pn.id ? 'Tap again to delete' : 'Delete'}
                             </Text>
                           </Pressable>
@@ -651,17 +648,15 @@ export default function RememberNotesScreen() {
 
           {(notes.length > 0 || profileNotes.length > 0) && (
             <View className="flex-row items-center gap-4 pt-2">
-              <Pressable onPress={removeAll}>
+              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-red-200 dark:border-red-900" onPress={removeAll}>
                 <Text
-                  className={`text-caption font-semibold ${
-                    confirmDeleteAll ? 'text-red-600 dark:text-red-400' : 'text-stone-400 dark:text-stone-500'
-                  }`}>
+                  className={`text-caption font-semibold ${ confirmDeleteAll ? 'text-red-600 dark:text-red-400' : 'text-stone-500 dark:text-stone-400' }`}>
                   {confirmDeleteAll ? `Tap again to delete everything about ${first}` : `Delete everything about ${first}`}
                 </Text>
               </Pressable>
               {confirmDeleteAll && (
-                <Pressable onPress={() => setConfirmDeleteAll(false)}>
-                  <Text className="text-caption text-stone-400 dark:text-stone-500">Cancel</Text>
+                <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setConfirmDeleteAll(false)}>
+                  <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Cancel</Text>
                 </Pressable>
               )}
             </View>

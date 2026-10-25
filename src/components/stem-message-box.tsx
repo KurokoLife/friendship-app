@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // A short message the person finishes in their own words (2026-10-08).
 // Tapping a starter puts the opening words in the box; Send only turns on
@@ -89,7 +90,7 @@ export function StemMessageBox({
         multiline
         className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
       />
-      <Text className="text-caption text-stone-400 dark:text-stone-500">
+      <Text className="text-caption text-stone-500 dark:text-stone-400">
         {stem ? 'Finish it in your own words before sending.' : 'Pick a starter or write your own.'}
       </Text>
       {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
@@ -97,16 +98,16 @@ export function StemMessageBox({
         <Pressable
           onPress={send}
           disabled={busy || !addedOwnWords}
-          className={`rounded-full bg-stone-900 px-4 py-2 active:opacity-80 dark:bg-stone-50 ${
+          className={`rounded-full bg-apricot px-4 py-2 active:opacity-80 dark:bg-apricot ${
             busy || !addedOwnWords ? 'opacity-40' : ''
           }`}>
-          <Text className="text-caption font-semibold text-stone-50 dark:text-stone-900">
+          <Text className="text-caption font-semibold text-white">
             {busy ? 'Sending...' : sendLabel}
           </Text>
         </Pressable>
         {onCancel && (
-          <Pressable onPress={onCancel} disabled={busy}>
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">{cancelLabel}</Text>
+          <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={onCancel} disabled={busy}>
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">{cancelLabel}</Text>
           </Pressable>
         )}
       </View>

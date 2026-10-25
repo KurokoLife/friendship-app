@@ -13,8 +13,9 @@ import {
   saveStartDraft,
   type StartDraft,
 } from '@/lib/start-draft';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // Light grey examples inside the box, a different one each visit, so
 // nobody copies one model answer.
@@ -129,8 +130,8 @@ export default function StartWithYouScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1">
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-7 px-6 pb-6 pt-10">
-          <Pressable onPress={() => router.replace('/profile-basics')} className="self-start">
-            <Text className="text-caption text-stone-500 dark:text-stone-400">Back</Text>
+          <Pressable onPress={() => router.replace('/profile-basics')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
 
           <View className="gap-2">
@@ -155,7 +156,7 @@ export default function StartWithYouScreen() {
               accessibilityLabel="What brings you to Limen?"
               className="min-h-20 rounded-xl border border-stone-300 px-3 py-3 text-body text-stone-900 dark:border-stone-700 dark:text-stone-50"
             />
-            <Text className="text-caption text-stone-400 dark:text-stone-500">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
               Shown on your profile so people can get to know you.
             </Text>
           </View>
@@ -176,7 +177,7 @@ export default function StartWithYouScreen() {
                 onCommit={(stories) => update({ stories }, true)}
               />
             )}
-            <Text className="text-caption text-stone-400 dark:text-stone-500">
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
               Shown on your profile. You can share up to three.
             </Text>
           </View>
@@ -200,8 +201,8 @@ export default function StartWithYouScreen() {
           <Pressable
             onPress={onContinue}
             disabled={saving}
-            className={`items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50 ${ready ? '' : 'opacity-60'}`}>
-            <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Continue</Text>
+            className={`items-center rounded-full bg-apricot py-4 active:opacity-80 dark:bg-apricot ${ready ? '' : 'opacity-60'}`}>
+            <Text className="text-body font-semibold text-white">Continue</Text>
           </Pressable>
         </View>
       </PaddedSafeArea>

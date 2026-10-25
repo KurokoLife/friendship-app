@@ -4,8 +4,9 @@ import { useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import type { VoiceTextInputProps } from './voice-text-input';
+import { palette } from '@/theme';
 
-const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
+const MUTED_ICON_COLOR = palette.muted;
 
 // The real, native-capable implementation. Split out of voice-text-input.tsx
 // (2026-08-25) because expo-speech-recognition throws synchronously at
