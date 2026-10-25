@@ -70,7 +70,8 @@ async function chatAction(page, label) {
 // inside the Let's plan something window.
 async function setPlanDirect(page) {
   await tap(page, "Let's plan something", { wait: 3000 });
-  await tap(page, 'Already agreed on something? Set the plan', { wait: 1500 });
+  await page.getByText('Already agreed on something?', { exact: false }).getByText('Set the plan', { exact: true }).last().click();
+  await page.waitForTimeout(1500);
 }
 async function q(sql, params = []) { return (await pool.query(sql, params)).rows; }
 async function makeChat(a, b, messages = []) {

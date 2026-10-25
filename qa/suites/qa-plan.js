@@ -226,7 +226,8 @@ function nextDow(dow, from = 1) {
   await rpcAs(U.robert, `select plan_set_times($1, $2::jsonb)`, [b4, JSON.stringify([{ day: iso(sun), part: 'morning' }])]);
   await rpcAs(U.robert, `select send_plan_invite($1, 'Up for this?')`, [b4]);
   await go(rb.page, `/thread/${c2}`, 3500);
-  await tap(rb.page, 'Agreed on something in the chat? Set the plan', { wait: 1500 });
+  await rb.page.getByText('Agreed on something in the chat?', { exact: false }).getByText('Set the plan', { exact: true }).last().click();
+  await rb.page.waitForTimeout(1500);
   t = await text(rb.page);
   const act4 = await rb.page.locator('input[placeholder="e.g. Coffee, then a walk"]').inputValue();
   check('Sender can set the plan after agreeing in the chat', t.includes('Plan your 1st meetup') && act4 === i4[0].title, t.slice(0, 600));
