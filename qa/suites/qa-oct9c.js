@@ -104,7 +104,8 @@ async function rpcAs(user, sql, params = []) {
   const mariaNames = ['David C.', 'Robert K.'];
   // Only the Chats part of the page (Discover can stay in the page behind it).
   const tabsAt = early.search(/Chats (\d of 3|When you)/);
-  const earlyInbox = tabsAt >= 0 ? early.slice(tabsAt) : early;
+  const afterTabs = tabsAt >= 0 ? early.slice(tabsAt) : early;
+  const earlyInbox = afterTabs.split('People for you')[0];
   check('Right after switching, Inbox does not show the previous account\'s chats', !mariaNames.some((n) => earlyInbox.includes(n)), earlyInbox.slice(0, 300));
   check('Then shows the new account\'s own chats', later.includes('Priya N.') && !later.includes('3 of 3'), later.slice(0, 300));
 
