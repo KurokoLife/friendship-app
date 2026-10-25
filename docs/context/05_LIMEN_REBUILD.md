@@ -77,13 +77,25 @@ Before launch, re-read the intro against what's actually built; say less if the 
   - Friends: every two weeks / every month / every few months. Line: "Most people catch up with good friends about once a month."
   - Want to reconnect: any, including no suggestions.
   - Why line for check-ins: "A check-in tells someone they matter to you."
-  Optional: link a phone contact (Limen stores which contact, never numbers or emails; phone app only), a note.
+  Optional: link a phone contact (Limen stores which contact, never numbers or emails; phone app only), a note, a photo.
+- Photo for a friend outside Limen (decided Oct 25): the linked contact's photo, or one picked from the photo library. Private to the user, never shown to anyone else, used for nothing else. Without one, a colored initial.
+- Person page (decided Oct 25): tapping a person's face in the circles picture or their row opens their page (Limen people: their chat, as before; friends outside Limen: this page). It shows face, name, circle, rhythm, the next check-in date, the private note, the reach-out buttons (stage 3) and an Edit button. Tapping an empty part of a ring jumps to that section of the list.
+- Next check-in date (decided Oct 25): next date = the last time they reached out to that person (or the date the person was added) plus the chosen rhythm. Shown on the person page and right under the rhythm choice when adding or editing: "Limen will bring Momo up again around Nov 8." Not shown on the list (no dates on the list). Stage 3 suggestions use exactly this date.
+- Desktop (decided Oct 25, option A): Limen still stores no phone numbers or emails. On a computer there are no Text / Call / Email buttons; the suggestion shows "Reach out however you usually do" and an "I reached out" button. Phone app: Text / Call / Email from the linked contact.
 - Limen people move on their own (chat -> Getting to know; hi sent -> "waiting to hear back"; graduated -> Friends); anyone can be moved by hand (from the person's own page, not a "Move" word on the list).
 - No "last talked" dates on the list (guilt list).
 - One suggestion system: Your circle suggestions cover Limen people too; the chat's own "It's been quiet" check-in is retired. One person at a time. User chooses overall frequency: a couple of times a week / once a week (default) / every two weeks.
 - After Text/Call: optional "Did you reach out?"
 - Skip: "Not now" (comes back) and "Fewer suggestions for this person".
 - Pattern noticing: after a few "Not now"s over weeks, one optional question "You've put off a few check-ins lately. What usually gets in the way?" (A busy stretch / Not sure what to say / Worried it'll feel awkward / The friendship feels different now / Something else). Each answer gets one helpful line. You tab privately shows the pattern back; the person draws the conclusion.
+
+## Notifications (decided Oct 25)
+Today Limen sends nothing outside the app; everything shows only when it's opened. Before the pilot:
+- Channels: push notifications on the phone app (main channel) and email (also works for web users). SMS only for sign-in codes, never reminders (cost per message, carrier registration, feels intrusive).
+- Settings: people choose per type (a new hi, new messages, plans and meetups, suggestions) and per channel, plus quiet hours. Every type can be turned off.
+- Gentle defaults: hellos, messages and plans on; suggestions follow the user's chosen frequency; nothing at night.
+- Privacy: a message notification says "New message from Tom", never the message text. Suggestions say only the person's name and the plain line (for example "You and Maya haven't been in touch for a while.").
+- Wording follows the voice guide; never "your turn", no guilt, no counts.
 
 ## Suggestions (decided; notice first, action optional; timing + own notes only; no streaks or scores; never say "habit")
 - Staying in touch: "You and Maya haven't been in touch for a while." Why: people enjoy hearing from a friend more than we expect (Liu 2022).
@@ -177,12 +189,14 @@ Taps (one rule across the whole app)
 Stages, one Claude Code session each (repo KurokoLife/friendship-app, branch limen-v2-ethics-alignment). Each leaves the app working and tested before the next starts.
 1. New home and tabs: four tabs (Your circle, Chats, Discover, You with Profile | Settings switch). Inbox -> Chats, Saved -> inside Discover, Guide removed, About Limen page. Your circle with circles, adding outside friends (name, circle, rhythm, note), Limen people placed automatically. (Built Oct 25.)
 1b. Design pass: rename "Your people" to "Your circle" everywhere; apply the design guide to the whole app shell (theme colors, Figtree, centered column and top bar on wide screens, buttons and links rule) and fully to the Your circle screen (circles picture, faces, rows with chevrons, Move inside the person's page, tip with a "Got it" button). Other screens get the shell now and the full design when their stage rebuilds them.
+1c. Your circle fixes: tapping a face in the circles opens that person (an empty part of a ring jumps to the list); the person page (face, name, circle, rhythm, next check-in date, note, Edit); the next-date line under the rhythm choice; photos for friends outside Limen (from the linked contact or the photo library, private).
 2. Joining: two intro screens, What's hardest, Who would you call (fills Your circle), Here's where Limen can help, meet-someone-new branch.
-3. Suggestions: suggestion card, rhythms by circle, overall frequency, Text/Call/Email with phone contacts, Did you reach out, skipping, pattern noticing, why lines; retire the chat check-in. Needs a real phone test (only web tested so far).
+3. Suggestions: suggestion card, rhythms by circle, overall frequency, Text/Call/Email with phone contacts, Did you reach out, skipping, pattern noticing, why lines; retire the chat check-in. Needs a real phone test (only web tested so far). Uses the next check-in date rule from Your circle; desktop shows "Reach out however you usually do" plus "I reached out".
+3b. Notifications: push (phone app) and email, per-type and per-channel settings, quiet hours, private message previews (see Notifications). Needed before the pilot.
 4. Say hi: replace Interested; Let's chat / No thanks; 7-day close and its note; hi starters drawn from what the person wrote; "Not now" wording on Discover.
 5. Planning: shared idea and time picks, budget rules with the 8 checks as automatic tests; update the plan-ideas function.
 6. Finishing pass: meet-sooner timing, the ending question, voice and design pass on all remaining screens, a check of every screen against "Every profile is a person" (no scores or counts, always by name), interests text box decision (option A own step vs B pointer line), then update project docs 01 to 04 to match what's built.
 Rules for every stage: build only what the stage lists; follow the voice guide, the design guide and "Every profile is a person"; never change decided wording without asking the founder; follow 02 (migrations safe to run twice, bump limen_db_version, npx tsc --noEmit, qa suites); add qa tests for every new rule; end with the exact migrations to run (raw GitHub links) and functions to deploy, in plain words.
 This file lives in the repo as docs/context/05_LIMEN_REBUILD.md and CLAUDE.md loads it, so every session reads it. When this file changes, replace the repo copy.
 
-Status: Stage 1 built Oct 25. Stage 1b (design pass) built Oct 25. Next: 2 (joining).
+Status: Stage 1 and 1b built Oct 25. Next: 1c (Your circle fixes).
