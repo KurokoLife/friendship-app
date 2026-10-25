@@ -21,8 +21,11 @@ const L = require('../qa-lib'); const { U, check, tap, text, go, q } = L;
   check('A: told it is saved in Your circle, and the selfie is waiting', t.includes("You'll find them in Your circle, under Getting to know.") && t.includes('waiting for our review'), t.slice(0, 900));
   await go(a.page, '/circle', 3500);
   t = await text(a.page);
-  check('A: David is in Your circle, waiting to connect', t.includes('Waiting to connect') && t.includes('David') && t.includes('Waiting for David. If David says Interested too, you can say hello.'), t.slice(0, 900));
+  check('A: David is in Your circle, waiting to connect', t.includes('Waiting to connect') && t.includes('David'), t.slice(0, 900));
   check('A: selfie note with the waiting people', t.includes('Your selfie is waiting for our review'), t.slice(0, 600));
+  await go(a.page, `/candidate/${U.david}`, 3500);
+  t = await text(a.page);
+  check("A: David's page says why it waits", t.includes('In your circle: Getting to know') && t.includes('Waiting for David. If David says Interested too, you can say hello.'), t.slice(0, 900));
 
   // B doesn't know yet
   const d = await L.as(U.david);
@@ -38,12 +41,12 @@ const L = require('../qa-lib'); const { U, check, tap, text, go, q } = L;
   t = await text(d.page);
   check("B: both interested, opens once Aisha's selfie check is done", t.includes("You and Aisha both said Interested. Your chat opens once Aisha's selfie check is done."), t.slice(0, 900));
   check('No chat yet', (await q(`select count(*)::int n from connections where (user_a_id=$1 and user_b_id=$2) or (user_a_id=$2 and user_b_id=$1)`, [U.aisha, U.david]))[0].n === 0);
-  await go(d.page, '/circle', 3500);
+  await go(d.page, `/candidate/${U.aisha}`, 3500);
   t = await text(d.page);
-  check("B's Your circle: waiting on Aisha's selfie", t.includes("Your chat opens once Aisha's selfie check is done."), t.slice(0, 900));
-  await go(a.page, '/circle', 3500);
+  check("B, on Aisha's page: waiting on Aisha's selfie", t.includes("Your chat opens once Aisha's selfie check is done."), t.slice(0, 900));
+  await go(a.page, `/candidate/${U.david}`, 3500);
   t = await text(a.page);
-  check("A's Your circle: opens once your selfie is approved", t.includes('You both said Interested. Your chat opens once your selfie is approved.'), t.slice(0, 900));
+  check("A, on David's page: opens once your selfie is approved", t.includes('You both said Interested. Your chat opens once your selfie is approved.'), t.slice(0, 900));
 
   // A's selfie approved: the chat opens on the next Inbox visit
   await q(`update selfie_checks set status='approved' where user_id=$1`, [U.aisha]);
@@ -54,7 +57,7 @@ const L = require('../qa-lib'); const { U, check, tap, text, go, q } = L;
   check('A: shows under "You both chose to connect"', t.toLowerCase().includes('you both chose to connect') && t.includes('David'), t.slice(0, 900));
   await go(a.page, '/circle', 3500);
   t = await text(a.page);
-  check('A: David is now a chat in Getting to know, no longer waiting', t.includes('David') && t.includes('Chat on Limen') && !t.includes('Waiting to connect'), t.slice(0, 900));
+  check('A: David is now a chat in Getting to know, no longer waiting', t.includes('David') && t.includes('Chatting on Limen') && !t.includes('Waiting to connect'), t.slice(0, 900));
   await go(d.page, '/inbox', 3500);
   t = await text(d.page);
   check('B: the chat shows for David too', t.toLowerCase().includes('you both chose to connect') && t.includes('Aisha'), t.slice(0, 900));

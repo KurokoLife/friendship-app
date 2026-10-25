@@ -46,7 +46,7 @@ async function tool(page, label) {
   check('David sees the suggestion with details', t.includes('Maria S. suggested a meetup') && t.includes('Blue Bottle on 3rd') && t.includes('Does this work for you?'));
   await go(d.page, '/inbox', 3000);
   t = await text(d.page);
-  check('David Inbox: Coming up · Waiting for you', t.includes('COMING UP') && t.includes('Waiting for you') && t.includes('Coffee, then a walk at Blue Bottle on 3rd'));
+  check('David Inbox: Coming up · Waiting for you', /coming up/i.test(t) && t.includes('Waiting for you') && t.includes('Coffee, then a walk at Blue Bottle on 3rd'));
   await go(d.page, `/thread/${C}`, 3500);
   await tap(d.page, 'Confirm');
   t = await text(d.page);

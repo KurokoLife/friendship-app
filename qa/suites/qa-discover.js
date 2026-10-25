@@ -50,7 +50,7 @@ const { U, check, tap, text, go, q } = L;
     (await exact('Saved')) === 0 && (await exact('Inbox')) === 0 && (await exact('Profile')) === 0);
   await go(a.page, '/circle', 3000);
   t = await text(a.page);
-  check('Your circle: the person you said Interested to, waiting to connect', [first, second].some((n) => t.includes(`Waiting for ${n}. If ${n} says Interested too, you can say hello.`)) && t.includes('Waiting to connect') && t.includes('Closes on its own on'), t.slice(0, 900));
+  check('Your circle: the person you said Interested to, waiting to connect', [first, second].some((n) => t.includes(n)) && t.includes('Waiting to connect'), t.slice(0, 900));
 
   // After 30 days the interest closes, shown once
   await q(`update interests set created_at = now() - interval '31 days' where from_user_id=$1`, [U.aisha]);
@@ -81,7 +81,7 @@ const { U, check, tap, text, go, q } = L;
   await q(`insert into blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, [U.aisha, '10000000-0000-0000-0000-000000000006']);
   await go(a.page, '/inbox', 3000);
   t = await text(a.page);
-  check('Past is at the bottom, after active chats', t.indexOf('PAST') > t.indexOf('active conversations'), t.slice(0, 900));
+  check('Past is at the bottom, after active chats', t.indexOf('Past Your messages') > t.indexOf('active conversations'), t.slice(0, 900));
   check('Past shows ended and blocked chats', t.includes('Ended') && t.includes('Blocked') && t.includes('Hide this chat'), t.slice(0, 900));
   await tap(a.page, 'Hide this chat', { wait: 1500 });
   t = await text(a.page);
@@ -91,7 +91,7 @@ const { U, check, tap, text, go, q } = L;
   await go(a.page, '/circle', 3000);
   t = await text(a.page);
   check('Ended and blocked people never show in Your circle', !t.includes('Robert') && !t.includes(((await q('select display_name from profiles where user_id=$1', ['10000000-0000-0000-0000-000000000006']))[0].display_name || 'zz').split(' ')[0]), t.slice(0, 900));
-  check('Paused chat is in Getting to know', t.includes('Chat on Limen, paused'), t.slice(0, 900));
+  check('Paused chat is in Getting to know', t.includes('Chatting on Limen, paused'), t.slice(0, 900));
 
   // The other side of the block only sees "Not available"
   const m = await L.as('10000000-0000-0000-0000-000000000006');

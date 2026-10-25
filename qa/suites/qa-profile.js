@@ -59,7 +59,7 @@ const SHOTS = process.env.SHOTS || '';
   await tap(m.page, 'Settings', { nth: 0, wait: 2500 });
   t = await text(m.page);
   check('Switch opens Settings in the You tab', m.page.url().includes('view=settings') && t.includes('Sign-in and recovery') && t.includes('About Limen'), m.page.url());
-  check('Reminders: no "Short guides" switch', t.includes('Reminders and nudges'.toUpperCase()) && !t.includes('Short guides'), t.slice(0, 1600));
+  check('Reminders: no "Short guides" switch', t.includes('Reminders and nudges') && !t.includes('Short guides'), t.slice(0, 1600));
   check('No Guide in Settings', !/\bGuide\b/.test(t));
   await tap(m.page, 'About Limen', { wait: 2000 });
   t = await text(m.page);
@@ -77,7 +77,7 @@ const SHOTS = process.env.SHOTS || '';
   await go(m.page, '/settings', 4000);
   t = await text(m.page);
   check('Old /settings link opens Settings in the You tab', m.page.url().includes('view=settings') && t.includes('Sign-in and recovery'), m.page.url());
-  check('Settings: no preview, no invite, has sign-in and take a break', !t.includes('Preview my public profile') && !t.includes('Invite a friend'.toUpperCase()) && !t.toLowerCase().includes('share your code') && t.includes('Sign-in and recovery') && t.toLowerCase().includes('take a break'), t.slice(0, 1500));
+  check('Settings: no preview, no invite, has sign-in and take a break', !t.includes('Preview my public profile') && !t.includes('Invite a friend') && !t.toLowerCase().includes('share your code') && t.includes('Sign-in and recovery') && t.toLowerCase().includes('take a break'), t.slice(0, 1500));
   await tap(m.page, '2 weeks', { wait: 1500 });
   t = await text(m.page);
   const until = (await q(`select paused_until from users where id=$1`, [U.maria]))[0].paused_until;
@@ -94,7 +94,7 @@ const SHOTS = process.env.SHOTS || '';
   t = await text(m.page);
   check('Sign-in page from Settings', t.includes('Sign-in and recovery') && t.includes('You sign in with your phone number.') && t.includes('Back to Settings'), t.slice(0, 600));
   await tap(m.page, 'Back to Settings', { wait: 2000 });
-  check('Back goes to Settings', m.page.url().includes('view=settings') && (await text(m.page)).includes('Take a break'.toUpperCase()), m.page.url());
+  check('Back goes to Settings', m.page.url().includes('view=settings') && (await text(m.page)).includes('Take a break'), m.page.url());
 
   // Selfie and privacy wording
   await q(`update users set selfie_verified_at = null where id=$1`, [U.maria]);
