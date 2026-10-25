@@ -44,13 +44,6 @@ type Props = {
   connectionId: string;
   otherName: string;
   onResolved: () => void;
-  // 2026-08-12 correction: at most one Limen video guidance offer may be
-  // visible at once. Only PreMeetupSupport ever shows an inline video
-  // (Video 6); every other case here ignores this prop. See the matching
-  // note on NextMeetupIndicatorV2's own onVideoOfferChange -- same
-  // mechanism, not a new priority system, just a one-way "something is
-  // showing" signal up to thread/[id].tsx.
-  onVideoOfferChange?: (active: boolean) => void;
   // Part 3 of tonight's consolidated build: threaded down from
   // thread/[id].tsx's own real handlePlanSomething, so the redesigned
   // post-meetup flow's "Let's plan something" link does the exact same
@@ -89,7 +82,6 @@ export function PrimaryInterventionCard({
   connectionId,
   otherName,
   onResolved,
-  onVideoOfferChange,
   onPlanSomething,
   onEndConnection,
   onRequestPlanEditor,
@@ -144,7 +136,6 @@ export function PrimaryInterventionCard({
           intervention={intervention}
           otherName={otherName}
           onResolved={onResolved}
-          onVideoOfferChange={onVideoOfferChange}
           onRequestPlanEditor={onRequestPlanEditor}
           onPlanChanged={onPlanChanged}
           onPromptsChanged={onPromptsChanged}
@@ -551,7 +542,6 @@ function PreMeetupSupport({
   intervention,
   otherName,
   onResolved,
-  onVideoOfferChange,
   onRequestPlanEditor,
   onPlanChanged,
   onPromptsChanged,
@@ -560,7 +550,6 @@ function PreMeetupSupport({
   intervention: ActiveIntervention;
   otherName: string;
   onResolved: () => void;
-  onVideoOfferChange?: (active: boolean) => void;
   onRequestPlanEditor?: (mode: 'change' | 'details') => void;
   onPlanChanged?: () => void;
   onPromptsChanged?: () => void;
@@ -572,12 +561,6 @@ function PreMeetupSupport({
   const firstMeetup = intervention.payload.first_meetup === true;
   const line = planLine(intervention.payload);
   const [mode, setMode] = useState<DayOfMode>(initialStep === 'nervous' ? 'nervous' : 'ask');
-
-  const showsGuide = mode === 'nervous' || mode === 'nerves';
-  useEffect(() => {
-    onVideoOfferChange?.(showsGuide);
-  }, [showsGuide, onVideoOfferChange]);
-  useEffect(() => () => onVideoOfferChange?.(false), [onVideoOfferChange]);
 
   const answer = (value: string) => respondToMeetupPrompt(meetupId, 'feeling', value).catch(() => undefined);
 

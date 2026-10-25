@@ -20,7 +20,9 @@ async function start() {
   const fs = require('fs');
   const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   const dir = fs.readdirSync(base).filter((d) => /^chromium-\d+$/.test(d)).sort().pop();
-  browser = await chromium.launch({ executablePath: `${base}/${dir}/chrome-linux/chrome` });
+  // Newer browser builds keep chrome in chrome-linux64/.
+  const exe = ['chrome-linux', 'chrome-linux64'].map((d2) => `${base}/${dir}/${d2}/chrome`).find((p) => fs.existsSync(p));
+  browser = await chromium.launch({ executablePath: exe });
 }
 async function as(userId, opts = {}) {
   const ctx = await browser.newContext({ viewport: { width: 430, height: 1100 }, colorScheme: 'dark', timezoneId: 'America/Los_Angeles', ...opts });

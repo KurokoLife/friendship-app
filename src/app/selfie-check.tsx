@@ -35,7 +35,7 @@ export default function SelfieCheckScreen() {
   }, []);
 
   const leave = () => {
-    if (next === 'home') router.replace('/home');
+    if (next === 'home') router.replace('/people');
     else if (router.canGoBack()) router.back();
     else router.replace('/home');
   };
@@ -111,7 +111,7 @@ export default function SelfieCheckScreen() {
                 soon as it&apos;s been checked.
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">
-                You only do this once for your account. You can still say Interested while you wait: those people stay in Inbox, under Pending, and chats open once it&apos;s approved. You can keep replying in chats you already have.
+                You only do this once for your account. You can still say Interested while you wait: those people wait in Your people, and chats open once it&apos;s approved. You can keep replying in chats you already have.
               </Text>
             </View>
           ) : (

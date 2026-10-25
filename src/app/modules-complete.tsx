@@ -32,7 +32,7 @@ export default function ModulesCompleteScreen() {
             className="items-center rounded-full bg-stone-900 py-4 active:opacity-80 dark:bg-stone-50">
             <Text className="text-body font-semibold text-stone-50 dark:text-stone-900">Do my selfie check now</Text>
           </Pressable>
-          <Pressable onPress={() => router.replace('/home')} className="items-center py-3">
+          <Pressable onPress={() => router.replace('/people')} className="items-center py-3">
             <Text className="text-body text-stone-500 dark:text-stone-400">I&apos;ll do it later</Text>
           </Pressable>
         </View>

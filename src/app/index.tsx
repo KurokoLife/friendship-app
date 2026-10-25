@@ -27,7 +27,7 @@ const MUTED_ICON_COLOR = '#a8a29e'; // stone-400
 // further along than profile-basics lands on /home rather than exactly
 // where they left off, a deliberate, smaller scope than modeling every
 // later onboarding stage would require.
-type ResumeTarget = '/philosophy-intro' | '/home' | '/inbox' | '/profile-basics' | '/start-with-you' | '/profile-build';
+type ResumeTarget = '/philosophy-intro' | '/people' | '/profile-basics' | '/start-with-you' | '/profile-build';
 
 export default function Index() {
   const [target, setTarget] = useState<ResumeTarget | null>(null);
@@ -92,26 +92,9 @@ export default function Index() {
         return;
       }
 
-      // Landing-tab default: a fully onboarded user with a real conversation
-      // already going should land on Inbox, not Discover. Reusing
-      // my_connection_capacity() (Capacity System, already the app's one
-      // tested definition of "a real, live connection") rather than the raw
-      // connections.status column: literal status = 'active' is barely used
-      // live (only ever set by pause-resume/dev-reactivation, not by
-      // ordinary connection creation, which defaults to null/'pending'), so
-      // checking it alone would miss most genuinely ongoing conversations.
-      // active_count requires real bidirectional message exchange;
-      // pending_count is a real Say Hi sent (or received) with no reply yet,
-      // still something the user would want to see in their Inbox, not a
-      // blank slate. Either one being nonzero counts as "has an ongoing
-      // conversation" for this decision; a brand-new user with neither
-      // lands on Discover instead.
-      const { data: capacityRows } = await supabase.rpc('my_connection_capacity');
-      const capacity = capacityRows?.[0] as
-        | { active_count: number; pending_count: number }
-        | undefined;
-      const hasOngoingConversation = ((capacity?.active_count ?? 0) + (capacity?.pending_count ?? 0)) > 0;
-      setTarget(hasOngoingConversation ? '/inbox' : '/home');
+      // 2026-10-25 (rebuild stage 1): every member who finished joining
+      // lands in Your people, the home tab.
+      setTarget('/people');
     })();
   }, []);
 

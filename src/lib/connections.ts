@@ -16,7 +16,7 @@ export type ConnectionResult =
 // what to do, never a warning (2026-10-09).
 export const CAPACITY_ERROR_MESSAGES: Record<CapacityErrorReason, string> = {
   active_cap_reached:
-    "You already have 3 active conversations, the most Limen keeps at once so each one gets real attention. To make room, pause or end one of them in your Inbox, then come back here.",
+    "You already have 3 active conversations, the most Limen keeps at once so each one gets real attention. To make room, pause or end one of them in Chats, then come back here.",
   pending_cap_reached:
     "You have 5 hellos still waiting for a reply. Give them a little time, or end one you've stopped waiting on, before saying hello to someone new.",
   blocked: "You can't start a conversation with this person.",

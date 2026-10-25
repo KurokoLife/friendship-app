@@ -1,5 +1,6 @@
-// 2026-10-17: joining from the very first screen to Discover as a brand-new
-// phone number, then Save, Interested, Pending, the chat opening, and the
+// 2026-10-17: joining from the very first screen to the app as a brand-new
+// phone number (lands in Your people since 2026-10-25), then Save,
+// Interested, waiting in Your people, the chat opening, and the
 // first-time tips (cards in the page that never cover a button). Also checks
 // the side margins on joining screens (they were missing on the web).
 const L = require('../qa-lib'); const { check, text, q } = L;
@@ -140,10 +141,13 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('All set has side margins', (await margin("You're all set")) >= 16);
   check('All set says Interested works while the selfie is checked', /You can say Interested while it's checked/.test(await t()));
   await tap("I'll do it later", true, 4000);
-  check('lands on Discover', page.url().endsWith('/home'));
+  check('lands in Your people', page.url().endsWith('/people'), page.url());
+  check('Your people tip shows', /Tip · Your people/i.test(await t()));
+  check('Your people: empty state invites adding someone', /Who would you like to keep up with\?/.test(await t()) && /Add someone/.test(await t()), (await t()).slice(0, 600));
   const me = (await q('select id from auth.users where phone = $1', ['+1' + PHONE]))[0].id;
 
   // Tips: a card in the page, and it never covers a button.
+  await page.goto('http://localhost:8099/home'); await page.waitForTimeout(3500);
   check('Discover tip is a card with a heading', /Tip · One new person a day/i.test(await t()));
   // Someone on Discover today, then Save.
   await q("delete from match_suggestions where user_id = $1", [me]);
@@ -151,20 +155,17 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   await page.reload(); await page.waitForTimeout(3500);
   check('Discover card shows their own words, no app-written lines', !/You might enjoy getting to know each other|You'll likely connect/.test(await t()));
   await tap('Save', true, 2500);
-  check('Save says saved', /Saved\. Aisha is in Saved/.test(await t()));
-  await page.goto('http://localhost:8099/saved'); await page.waitForTimeout(3000);
-  check('Saved lists the person', /Aisha/.test(await t()) && /SAVED · 1 OF 5/i.test(await t()));
+  check('Save says saved', /Saved\. Aisha is below, under Saved/.test(await t()));
+  await page.reload(); await page.waitForTimeout(3000);
+  check('Saved lists the person, inside Discover', /Aisha/.test(await t()) && /SAVED · 1 OF 5/i.test(await t()));
   await tap('Aisha', false, 3000);
   check('profile page tip shows', /Tip · Notice something\?/i.test(await t()));
   await tap('Interested', true, 3000);
-  check('Interested is saved to Pending', /under Pending/.test(await t()));
+  check('Interested: kept in Your people', /in Your people, under Getting to know/.test(await t()));
+  await page.goto('http://localhost:8099/people'); await page.waitForTimeout(3500);
+  check('Your people: Aisha, waiting to connect', /Aisha/.test(await t()) && /Waiting to connect/.test(await t()), (await t()).slice(0, 600));
   await page.goto('http://localhost:8099/inbox'); await page.waitForTimeout(3500);
-  check('Inbox tip explains the tabs', /Tip · Your Inbox/i.test(await t()) && /Pending is people you said Interested to/.test(await t()));
-  // The Pending tip waits until the Inbox tip is closed (2026-10-22).
-  await tap('Pending (1)', true, 2000);
-  check('Pending tip waits for the Inbox tip', !/Tip · Pending/i.test(await t()));
-  await tap('Got it', true, 1500);
-  check('Pending tip shows', /Tip · Pending/i.test(await t()));
+  check('Chats tip explains Chats', /Tip · Chats/i.test(await t()) && /under Past/.test(await t()));
   // Aisha says Interested back, the selfie is approved: the chat opens.
   await q("insert into interests (from_user_id,to_user_id) values ('10000000-0000-0000-0000-000000000003',$1) on conflict do nothing", [me]);
   await q("insert into selfie_checks (user_id,pose,status,consent_at,reviewed_at) values ($1,'three fingers','approved',now(),now()) on conflict (user_id) do update set status='approved'", [me]);
@@ -194,20 +195,17 @@ const PHONE = '555555' + String(Date.now()).slice(-4);
   check('second chat tip follows', /Tip · Plan and remember/i.test(await t()));
   check('one line under the box: a stage tip', /Asking one question back keeps things going\./.test(await t()) && !/Not sure what they meant/.test(await t()));
 
-  // Profile tab: with its tip showing, Settings and Guide still open.
+  // You tab: with its tip showing, the Settings switch still works.
   await page.goto('http://localhost:8099/profile'); await page.waitForTimeout(3000);
   check('Profile tip shows', /Tip · Your profile/i.test(await t()));
   check('own profile lists How you connect answers (no summary)', /You as a friend/.test(await t()) && /They're probably just busy/.test(await t()) && !/connection summary/i.test(await t()));
-  await tap('Settings', true, 2500);
-  check('Settings opens while the Profile tip is showing', page.url().includes('/settings'));
+  await page.getByText('Settings', { exact: true }).filter({ visible: true }).first().click(); await page.waitForTimeout(2500);
+  check('Settings opens while the Profile tip is showing', page.url().includes('view=settings'), page.url());
   check('Settings tip shows', /Tip · Settings/i.test(await t()));
-  await page.goto('http://localhost:8099/profile'); await page.waitForTimeout(3000);
-  await tap('Guide', true, 2500);
-  check('Guide opens while the Profile tip is showing', page.url().includes('/guides'));
-  check('Guide tip shows', /Tip · Guide/i.test(await t()));
+  check('no Guide anywhere', !/\bGuide\b/.test(await t()));
   await tap('Got it', true, 1500);
   await page.reload(); await page.waitForTimeout(3000);
-  check('a closed tip stays closed', !/Tip · Guide/i.test(await t()));
+  check('a closed tip stays closed', !/Tip · Settings/i.test(await t()));
   check('no "AI" and no em dash anywhere in tips', !/\bAI\b|—/.test(await t()));
   await L.finish();
 })().catch(async (e) => { console.log('FAIL  crashed:', e.message.split('\n')[0]); await L.finish(); });

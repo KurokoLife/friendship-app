@@ -1,4 +1,6 @@
-// 2026-10-10: Discover one a day, Saved and Interested for 30 days, Inbox tabs.
+// 2026-10-10: Discover one a day, Saved and Interested for 30 days.
+// 2026-10-25: Saved is below today's person in Discover, people you said
+// Interested to are in Your people (Getting to know), Chats has Past at the bottom.
 const L = require('../qa-lib');
 const { U, check, tap, text, go, q } = L;
 (async () => {
@@ -8,7 +10,7 @@ const { U, check, tap, text, go, q } = L;
   await q(`delete from interests where from_user_id = any($1) or to_user_id = any($1)`, [all]);
   await q(`delete from match_suggestions where user_id = any($1)`, [all]);
   await q(`update users set selfie_verified_at = now(), paused_until = null`);
-  await q(`insert into coach_marks_seen (user_id, mark_key) select $1, k from unnest(array['tab_discover','tab_saved','tab_inbox']) k on conflict do nothing`, [U.aisha]).catch(() => {});
+  await q(`insert into coach_marks_seen (user_id, mark_key) select $1, k from unnest(array['tab_discover','tab_saved','tab_inbox','tab_people']) k on conflict do nothing`, [U.aisha]).catch(() => {});
 
   const a = await L.as(U.aisha);
   await go(a.page, '/home', 4000);
@@ -33,34 +35,32 @@ const { U, check, tap, text, go, q } = L;
   await a.page.getByText('Interested', { exact: true }).first().click();
   await a.page.waitForTimeout(2000);
   t = await text(a.page);
-  check('Interested: the founder\'s wording with 30 days', t.includes('Sent privately. If') && t.includes('is only told if that happens') && t.includes("If it doesn't become mutual within 30 days, it closes on its own.") && t.includes("You'll find them in Inbox, under Pending."), t.slice(0, 700));
+  check('Interested: the founder\'s wording with 30 days', t.includes('Sent privately. If') && t.includes('is only told if that happens') && t.includes("If it doesn't become mutual within 30 days, it closes on its own.") && t.includes("You'll find them in Your people, under Getting to know."), t.slice(0, 700));
   check('Interested: card leaves Discover', (await a.page.getByText('Not for me', { exact: true }).count()) === 1);
   await tap(a.page, 'Save', { wait: 2000 });
   t = await text(a.page);
-  check('Save: card leaves Discover, note about 30 days', t.includes('is in Saved for the next 30 days') && (await a.page.getByText('Not for me', { exact: true }).count()) === 0, t.slice(0, 600));
+  check('Save: card leaves Discover, note about 30 days', t.includes('is below, under Saved, for the next 30 days') && (await a.page.getByText('Not for me', { exact: true }).count()) === 0, t.slice(0, 600));
 
-  await go(a.page, '/saved', 3000);
+  await go(a.page, '/home', 3000);
   t = await text(a.page);
-  check('Saved points to Pending, no Interested list here', t.includes('People you said Interested to are in Inbox, under Pending.') && !t.includes('Waiting for '), t.slice(0, 700));
-  check('Saved shows the saved person, 1 of 5', t.toLowerCase().includes('saved · 1 of 5') && t.includes('Saved until'), t.slice(0, 700));
-
-  await go(a.page, '/inbox', 3000);
-  await a.page.getByText('Pending (1)', { exact: true }).waitFor({ timeout: 10000 }).catch(async () => console.log('INBOX NOW', (await text(a.page)).slice(0, 600)));
-  await tap(a.page, 'Pending (1)', { wait: 1500 });
+  check('Saved is in Discover, below, 1 of 5, no Interested list there', t.toLowerCase().includes('saved · 1 of 5') && t.includes('Saved until') && !t.includes('Waiting for '), t.slice(0, 900));
+  const exact = async (label) => a.page.getByText(label, { exact: true }).count();
+  check('Tabs: Your people, Chats, Discover, You; no Saved, Inbox or Profile tab',
+    (await exact('Your people')) > 0 && (await exact('Chats')) > 0 && (await exact('Discover')) > 0 && (await exact('You')) > 0 &&
+    (await exact('Saved')) === 0 && (await exact('Inbox')) === 0 && (await exact('Profile')) === 0);
+  await go(a.page, '/people', 3000);
   t = await text(a.page);
-  check('Inbox Pending shows the person you said Interested to', [first, second].some((n) => t.includes(`Waiting for ${n}. If ${n} says Interested too, you can say hello.`)) && t.includes('Closes on its own on') && t.includes('Only you see this list.'), t.slice(0, 900));
+  check('Your people: the person you said Interested to, waiting to connect', [first, second].some((n) => t.includes(`Waiting for ${n}. If ${n} says Interested too, you can say hello.`)) && t.includes('Waiting to connect') && t.includes('Closes on its own on'), t.slice(0, 900));
 
   // After 30 days the interest closes, shown once
   await q(`update interests set created_at = now() - interval '31 days' where from_user_id=$1`, [U.aisha]);
-  await go(a.page, '/inbox', 4500);
-  await tap(a.page, 'Pending', { wait: 1500 });
+  await go(a.page, '/people', 4500);
   t = await text(a.page);
-  check('Closed interest: calm note shown in Pending', t.includes('has come to a close') && t.includes('New people are on the way.') && !t.includes('Waiting for '), t.slice(0, 700));
-  await go(a.page, '/inbox', 4500);
-  await tap(a.page, 'Pending', { wait: 1500 });
+  check('Closed interest: calm note shown in Your people', t.includes('has come to a close') && t.includes('New people are on the way.') && !t.includes('Waiting for '), t.slice(0, 700));
+  await go(a.page, '/people', 4500);
   check('Closed note shows only once', !(await text(a.page)).includes('has come to a close'));
 
-  // A chat with someone: they never show in Discover; Inbox tabs
+  // A chat with someone: they never show in Discover; Chats
   const C1 = await L.makeChat(U.aisha, U.robert, [[U.aisha, 'Hi', 30], [U.robert, 'Hello', 29]]);
   const C2 = await L.makeChat(U.aisha, U.marcus || '10000000-0000-0000-0000-000000000006', [[U.aisha, 'Hi', 30], ['10000000-0000-0000-0000-000000000006', 'Hey', 29]]);
   const C3 = await L.makeChat(U.aisha, '10000000-0000-0000-0000-000000000007', [[U.aisha, 'Hi', 30], ['10000000-0000-0000-0000-000000000007', 'Hey', 29]]);
@@ -72,7 +72,7 @@ const { U, check, tap, text, go, q } = L;
 
   await go(a.page, '/inbox', 3000);
   t = await text(a.page);
-  check('Inbox opens on Active with tabs', t.includes('Active') && t.includes('Friends') && t.includes('Past') && t.includes('3 of 3 active conversations, paused ones included'), t.slice(0, 500));
+  check('Chats: active chats, no Pending or Friends tabs', t.includes('Chats') && !t.includes('Pending') && !t.includes('Friends') && t.includes('3 of 3 active conversations, paused ones included'), t.slice(0, 500));
   check('Paused chat is in Active', t.includes('Paused'), t.slice(0, 900));
 
   // End one, block another: both go to Past; the blocked one can be hidden
@@ -80,21 +80,22 @@ const { U, check, tap, text, go, q } = L;
   await q(`update connections set status='blocked' where id=$1`, [C2]);
   await q(`insert into blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, [U.aisha, '10000000-0000-0000-0000-000000000006']);
   await go(a.page, '/inbox', 3000);
-  await tap(a.page, 'Past', { wait: 1200 });
   t = await text(a.page);
+  check('Past is at the bottom, after active chats', t.indexOf('PAST') > t.indexOf('active conversations'), t.slice(0, 900));
   check('Past shows ended and blocked chats', t.includes('Ended') && t.includes('Blocked') && t.includes('Hide this chat'), t.slice(0, 900));
   await tap(a.page, 'Hide this chat', { wait: 1500 });
   t = await text(a.page);
   check('Hidden: chat leaves the list, can be shown', !t.includes('Blocked') && t.includes('Hidden chats (1)'), t.slice(0, 900));
   const hid = await q(`select count(*)::int n from hidden_chats where user_id=$1`, [U.aisha]);
   check('Hide is saved', hid[0].n === 1);
-  await tap(a.page, 'Friends', { wait: 800 });
-  check('Friends tab, calm empty note', (await text(a.page)).includes('keep your friendship going outside Limen'));
+  await go(a.page, '/people', 3000);
+  t = await text(a.page);
+  check('Ended and blocked people never show in Your people', !t.includes('Robert') && !t.includes(((await q('select display_name from profiles where user_id=$1', ['10000000-0000-0000-0000-000000000006']))[0].display_name || 'zz').split(' ')[0]), t.slice(0, 900));
+  check('Paused chat is in Getting to know', t.includes('Chat on Limen, paused'), t.slice(0, 900));
 
   // The other side of the block only sees "Not available"
   const m = await L.as('10000000-0000-0000-0000-000000000006');
   await go(m.page, '/inbox', 3000);
-  await tap(m.page, 'Past', { wait: 1000 });
   t = await text(m.page);
   check('Blocked person sees "Not available", never "Blocked"', t.includes('Not available') && !t.includes('Blocked'), t.slice(0, 600));
 

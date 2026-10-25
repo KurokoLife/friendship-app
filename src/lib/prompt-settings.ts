@@ -6,9 +6,11 @@ import { supabase } from '@/lib/supabase';
 // heard back yet can't be turned off: it protects the person waiting, and
 // it only ever shows once.
 
-export type PromptKind = 'check_in' | 'meet_nudge' | 'morning_of' | 'calendar' | 'guides' | 'notes';
+// 'guides' (Short guides) was removed with the Guide on 2026-10-25. The
+// database still accepts it, so old rows do no harm.
+export type PromptKind = 'check_in' | 'meet_nudge' | 'morning_of' | 'calendar' | 'notes';
 
-export const PROMPT_KINDS: PromptKind[] = ['check_in', 'meet_nudge', 'morning_of', 'calendar', 'guides', 'notes'];
+export const PROMPT_KINDS: PromptKind[] = ['check_in', 'meet_nudge', 'morning_of', 'calendar', 'notes'];
 
 export const PROMPT_LABELS: Record<PromptKind, { title: string; detail: string }> = {
   check_in: {
@@ -27,10 +29,6 @@ export const PROMPT_LABELS: Record<PromptKind, { title: string; detail: string }
     title: 'Calendar question',
     detail: 'When a plan is agreed or changes, asks if you want to add it to your calendar.',
   },
-  guides: {
-    title: 'Short guides',
-    detail: 'Now and then, an offer to watch a short video guide.',
-  },
   notes: {
     title: 'Your notes coming back',
     detail: 'After a meetup, asks once if there\'s anything you\'d like to remember. Shows what you wanted to ask next time when you plan or check in.',
@@ -45,7 +43,6 @@ export const ALL_ON: PromptSettings = {
   meet_nudge: { all: true, chat: true },
   morning_of: { all: true, chat: true },
   calendar: { all: true, chat: true },
-  guides: { all: true, chat: true },
   notes: { all: true, chat: true },
 };
 

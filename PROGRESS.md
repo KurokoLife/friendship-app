@@ -264,3 +264,13 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 ## 2026-10-24: Care question removed
 
 - Founder: "How I like care" is not gender neutral and a weird question. Removed everywhere it showed. Popo P not in Discover: sent a check (SQL) to find which rule. Interests own-words boxes below the fold: proposal sent.
+
+
+## 2026-10-25: Rebuild stage 1 of 6, new home and tabs
+
+- Founder shared docs/context/05_LIMEN_REBUILD.md (after a user test said Limen felt like Bumble BFF); saved and loaded from CLAUDE.md. Built stage 1 only.
+- Tabs: Your people (home) · Chats · Discover · You. Chats = Active + Past at the bottom. Saved inside Discover. You = Profile | Settings switch, About Limen added. Guide removed completely. Members land in Your people after joining.
+- Your people: four circles, Limen people placed on their own (chat / waiting to connect → Getting to know, graduated → Friends), Move by hand, Add someone (name, circle, rhythm per circle, note; no phone or email), outside friend page with Edit and Remove. No "last talked" dates. Empty-state wording is a draft for the founder.
+- Fixed on the way: radio chips now tell screen readers which is selected on the web (aria-checked); qa-lib finds the newer Chromium folder.
+- Migration 20261025000000. No server functions changed. qa-people 60/60, qa-discover 22/22, qa-pending 23/23, qa-inbox-chat 34/34, qa-profile 31/31, qa-onboard 81/81.
+

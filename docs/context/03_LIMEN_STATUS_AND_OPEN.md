@@ -1,6 +1,17 @@
 # Limen: status, open decisions and to-dos
 
-Last updated 2026-10-14. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
+Last updated 2026-10-25. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
+
+## Rebuild (docs/context/05_LIMEN_REBUILD.md)
+
+| Stage | Status |
+|---|---|
+| 1. New home and tabs | Built 2026-10-25 (migration 20261025000000). Waiting: founder OK on the Your people empty-state wording |
+| 2. Joining | Not started |
+| 3. Suggestions (needs a real phone test) | Not started |
+| 4. Say hi | Not started |
+| 5. Planning | Not started |
+| 6. Finishing pass | Not started |
 
 ## Review status by area
 
@@ -15,12 +26,14 @@ Last updated 2026-10-14. The detailed decisions per area are in docs/DECISIONS.m
 | 7. Meetups and planning | Decided and built (Oct 8 to 13; Plan something on one screen Oct 13). Morning-of video waits (see below) |
 | 8. Graduation | Decided (Oct 13): 6 meetups over 8+ weeks, each planned 2+, no pace needed; decision at 10 meetups or 6 months; supportive question wording |
 | 9. Remember | Decided and built (Oct 10): in the chat, no AI, no tab |
-| 9b. Guide | Draft only (claude/Guide_Draft_Plan.md) |
+| 9b. Guide | Removed 2026-10-25 (rebuild stage 1) |
 | 10. Money and settings | Settings reviewed Oct 14. Money: free during the pilot; decided after the Guide ("Limen: Money decision page" doc). Promo/invite codes hidden for now |
 
 Suggested next: Guide (9b, founder working on videos separately; includes the "reply within 48 hours" guide text and the Short guides switch), then Money and settings (10). Later: changing your phone number.
 
 ## Open founder decisions
+
+(Oct 25: the Guide is removed, so items 1 and 2 no longer apply.)
 
 1. Guide: are 3 videos (two at joining, one before the first meetup) enough for launch? Should the other reads move to the moments they help? Guide offers were removed from inside chats on Oct 10 ("A short guide on showing up for a new connection" and "Friendship tends to grow a little at a time"); decide where those belong now.
 2. Morning-of video "The First Meetup Does Not Need to Be Perfect" is also offered before later meetups. Update its title or content to fit any meetup (waiting; a reminder is set for Oct 17).

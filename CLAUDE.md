@@ -5,3 +5,4 @@
 @docs/context/02_LIMEN_HOW_WE_WORK.md
 @docs/context/03_LIMEN_STATUS_AND_OPEN.md
 @docs/context/04_LIMEN_WHY.md
+@docs/context/05_LIMEN_REBUILD.md

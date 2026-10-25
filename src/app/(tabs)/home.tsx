@@ -91,10 +91,28 @@ const DEV_FALLBACK_SUGGESTIONS: Suggestion[] = [
 
 // Discover (rebuilt 2026-10-10, docs/DECISIONS.md section 4). One new
 // person a day, at most 3 waiting, nobody while you have 3 active chats
-// (paused ones count). Never anyone you've had a chat with. Saving or
-// saying Interested moves the person to Saved. The database decides all
+// (paused ones count). Never anyone you've had a chat with. Saving moves
+// the person to Saved, Interested to Your people. The database decides all
 // of this (get_discover); generate-match-suggestions only adds today's
-// person when get_discover says there's room for one.
+// person when get_discover says there's room for one. Saved people are
+// listed below today's person (2026-10-25, the Saved tab is gone).
+// Saved (2026-10-10, inside Discover since 2026-10-25): up to 5, each for
+// 30 days. Anyone you start a chat with leaves Saved.
+type SavedProfile = {
+  connection_id: string;
+  user_id: string;
+  saved_at: string;
+  display_name: string | null;
+  age_band: string | null;
+  personal_statement: string | null;
+};
+const SAVE_DAYS = 30;
+const SAVE_MAX = 5;
+
+function shortDay(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 type DiscoverState = {
   full: boolean;
   can_add: boolean;
@@ -136,6 +154,25 @@ export default function HomeScreen() {
   // Today's person couldn't be found: nobody new fits right now, or the
   // picker didn't answer. Said plainly instead of "check back tomorrow".
   const [noneToday, setNoneToday] = useState<'nobody' | 'failed' | null>(null);
+  const [saved, setSaved] = useState<SavedProfile[]>([]);
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  const loadSaved = useCallback(async () => {
+    const { data } = await supabase.from('saved_profiles').select('*').order('saved_at', { ascending: false });
+    setSaved((data ?? []) as SavedProfile[]);
+  }, []);
+
+  const removeSaved = async (userId: string) => {
+    setRemoving(userId);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('connections').update({ saved: false }).eq('user_a_id', user.id).eq('user_b_id', userId);
+    }
+    setSaved((prev) => prev.filter((p) => p.user_id !== userId));
+    setRemoving(null);
+  };
 
   const toSuggestions = async (items: DiscoverState['items']): Promise<Suggestion[]> => {
     if (items.length === 0) return [];
@@ -184,6 +221,7 @@ export default function HomeScreen() {
       return;
     }
     setUsingDevFallback(false);
+    loadSaved();
     const tz = deviceTimeZone();
     const read = async () => {
       const { data, error: rpcError } = await supabase.rpc('get_discover', { p_tz: tz });
@@ -215,7 +253,7 @@ export default function HomeScreen() {
       setLoaded(true);
       setError("We couldn't load Discover. Pull to refresh in a moment.");
     }
-  }, []);
+  }, [loadSaved]);
 
   useFocusEffect(
     useCallback(() => {
@@ -243,8 +281,9 @@ export default function HomeScreen() {
       return;
     }
     setError(null);
-    setCapacityNotice(`Saved. ${firstName(candidateId)} is in Saved for the next 30 days.`);
+    setCapacityNotice(`Saved. ${firstName(candidateId)} is below, under Saved, for the next 30 days.`);
     removeCard(candidateId);
+    loadSaved();
   };
 
   const handlePass = async (candidateId: string) => {
@@ -306,7 +345,7 @@ export default function HomeScreen() {
           <CoachMark
             markKey="tab_discover"
             title="One new person a day"
-            text="Each day you meet one new person here. Read their profile, then choose. Interested is private: they only find out if they say Interested too. Save keeps them in Saved for 30 days while you think. Not for me takes them away, and nobody is told."
+            text="Each day you meet one new person here. Read their profile, then choose. Interested is private: they only find out if they say Interested too. Save keeps them below, under Saved, for 30 days while you think. Not for me takes them away, and nobody is told."
           />
 
           {!isSupabaseConfigured && (
@@ -448,6 +487,53 @@ export default function HomeScreen() {
               </View>
             );
           })}
+
+          {/* Saved, below today's person (2026-10-25). */}
+          {isSupabaseConfigured && !usingDevFallback && (
+            <View className="gap-3 pt-2">
+              <Text className="text-caption font-semibold uppercase text-stone-400 dark:text-stone-600">
+                Saved{saved.length > 0 ? ` · ${saved.length} of ${SAVE_MAX}` : ''}
+              </Text>
+              {saved.length === 0 ? (
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  When you save someone, they stay here for 30 days.
+                </Text>
+              ) : (
+                saved.map((p) => {
+                  const detail = p.personal_statement?.split(/(?<=[.!?])\s+/)[0] || null;
+                  const until = new Date(new Date(p.saved_at).getTime() + SAVE_DAYS * 86400000).toISOString();
+                  return (
+                    <View
+                      key={p.connection_id}
+                      className="flex-row items-center gap-3 rounded-2xl border border-stone-100 bg-white px-4 py-3 dark:border-stone-700/60 dark:bg-stone-800">
+                      <Pressable
+                        onPress={() => router.push({ pathname: '/candidate/[id]', params: { id: p.user_id } })}
+                        className="flex-1 gap-0.5 active:opacity-70">
+                        <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
+                          {p.display_name ?? 'A member'}
+                          {p.age_band ? `, ${p.age_band}` : ''}
+                        </Text>
+                        {detail && (
+                          <Text numberOfLines={2} className="text-caption text-stone-600 dark:text-stone-300">
+                            {detail}
+                          </Text>
+                        )}
+                        <Text className="text-caption text-stone-400 dark:text-stone-500">Saved until {shortDay(until)}</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => removeSaved(p.user_id)}
+                        disabled={removing === p.user_id}
+                        hitSlop={8}
+                        accessibilityLabel={`Remove ${p.display_name ?? 'this person'} from Saved`}
+                        className="rounded-full px-2 py-1 active:opacity-70">
+                        <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Remove</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>

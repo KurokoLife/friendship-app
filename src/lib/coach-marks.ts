@@ -29,7 +29,9 @@ export type CoachMarkKey =
   | 'guide_intro'
   | 'chat_actions'
   | 'chat_bars'
-  | 'profile_view';
+  | 'profile_view'
+  // Rebuild stage 1 (2026-10-25, migration 20261025000000).
+  | 'tab_people';
 
 // Shared, module-level cache: every CoachMark instance across the whole
 // app reads the same in-memory set, so marking one seen (e.g. the

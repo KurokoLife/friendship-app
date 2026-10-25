@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
+import { SettingsPanel } from '@/components/settings-panel';
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
 import { EXPERIENCE_QUESTIONS, normalizeExperience, type FriendshipExperience } from '@/lib/friendship-experience';
 import { loadProfileName } from '@/lib/names';
@@ -56,7 +57,15 @@ function PrivateRow({ label, value, note }: { label: string; value: string; note
 // the preview page). Anything you chose to hide is shown in place, dimmed,
 // with a lock label. Everything that is always private sits in one
 // "Only you can see this" box underneath. Edit reuses profile-build.tsx.
+//
+// You (2026-10-25, rebuild stage 1): a Profile | Settings switch at the top.
+// /settings and /profile?view=settings open it on Settings.
 export default function ProfileScreen() {
+  const params = useLocalSearchParams<{ view?: string }>();
+  const [view, setView] = useState<'profile' | 'settings'>(params.view === 'settings' ? 'settings' : 'profile');
+  useEffect(() => {
+    if (params.view === 'settings' || params.view === 'profile') setView(params.view);
+  }, [params.view]);
   const [loaded, setLoaded] = useState(false);
   const [profile, setProfile] = useState<OwnProfile | null>(null);
   const [publicProfile, setPublicProfile] = useState<PublicProfile | null>(null);
@@ -116,6 +125,48 @@ export default function ProfileScreen() {
     }, [load])
   );
 
+  const switcher = (
+    <View className="gap-4">
+      <Text className="text-display text-stone-900 dark:text-stone-50">You</Text>
+      <View className="flex-row rounded-full border border-stone-300 p-1 dark:border-stone-600">
+        {([
+          ['profile', 'Profile'],
+          ['settings', 'Settings'],
+        ] as const).map(([key, label]) => (
+          <Pressable
+            key={key}
+            onPress={() => {
+              setView(key);
+              router.setParams({ view: key });
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: view === key }}
+            className={`flex-1 items-center rounded-full py-2 ${view === key ? 'bg-stone-900 dark:bg-stone-50' : ''}`}>
+            <Text
+              className={`text-caption font-semibold ${
+                view === key ? 'text-stone-50 dark:text-stone-900' : 'text-stone-600 dark:text-stone-300'
+              }`}>
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+
+  if (view === 'settings') {
+    return (
+      <View className="flex-1 bg-stone-50 dark:bg-stone-900">
+        <SafeAreaView className="flex-1">
+          <ScrollView contentContainerClassName="gap-6 px-6 pb-14 pt-10">
+            {switcher}
+            <SettingsPanel />
+          </ScrollView>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   if (!loaded) {
     return (
       <View className="flex-1 items-center justify-center bg-stone-50 dark:bg-stone-900">
@@ -126,10 +177,15 @@ export default function ProfileScreen() {
 
   if (!profile) {
     return (
-      <View className="flex-1 items-center justify-center bg-stone-50 dark:bg-stone-900 px-6">
-        <Text className="text-center text-body text-stone-500 dark:text-stone-400">
-          {isSupabaseConfigured ? 'Sign in to see your profile.' : "Supabase isn't configured yet."}
-        </Text>
+      <View className="flex-1 bg-stone-50 dark:bg-stone-900">
+        <SafeAreaView className="flex-1">
+          <ScrollView contentContainerClassName="gap-6 px-6 pb-10 pt-10">
+            {switcher}
+            <Text className="text-center text-body text-stone-500 dark:text-stone-400">
+              {isSupabaseConfigured ? 'Sign in to see your profile.' : "Supabase isn't configured yet."}
+            </Text>
+          </ScrollView>
+        </SafeAreaView>
       </View>
     );
   }
@@ -140,9 +196,10 @@ export default function ProfileScreen() {
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerClassName="gap-5 px-6 pb-10 pt-10">
+          {switcher}
           <View className="flex-row items-start justify-between">
             <View className="gap-2">
-              <Text className="text-display text-stone-900 dark:text-stone-50">Your profile</Text>
+              <Text className="text-title text-stone-900 dark:text-stone-50">Your profile</Text>
               <View className="h-2 w-40 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700">
                 <View className="h-2 rounded-full bg-accent-500" style={{ width: `${profile.completion_pct}%` }} />
               </View>
@@ -161,7 +218,7 @@ export default function ProfileScreen() {
           <CoachMark
             markKey="tab_profile"
             title="Your profile"
-            text="This is how other people see you. Anything with a lock is only for you. Tap Edit to change any part: each part says whether it's used to suggest people. Settings and the Guide are at the bottom."
+            text="This is how other people see you. Anything with a lock is only for you. Tap Edit to change any part: each part says whether it's used to suggest people. Settings is at the top, next to Profile."
           />
 
           {publicProfile ? (
@@ -272,16 +329,6 @@ export default function ProfileScreen() {
             onPress={() => router.push('/profile-review')}
             className="items-center rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
             <Text className="text-body font-semibold text-accent-500">See exactly what others see</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/settings')}
-            className="items-center rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-            <Text className="text-body font-semibold text-accent-500">Settings</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/guides')}
-            className="items-center rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
-            <Text className="text-body font-semibold text-accent-500">Guide</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

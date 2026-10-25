@@ -27,6 +27,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       key={accountKey}
+      initialRouteName="people"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: ACCENT_COLOR,
@@ -37,6 +38,29 @@ export default function TabsLayout() {
           borderTopWidth: 1,
         },
       }}>
+      {/* Rebuild stage 1 (2026-10-25, docs/context/05_LIMEN_REBUILD.md):
+          four tabs, Your people (home) · Chats · Discover · You. Route
+          names stay as they were (/inbox is Chats, /home is Discover,
+          /profile is You) so every existing link keeps working. Saved is
+          inside Discover now, Pending and Friends inside Your people. */}
+      <Tabs.Screen
+        name="people"
+        options={{
+          title: 'Your people',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          title: 'Chats',
+          tabBarIcon: ({ color, size }) => (
+            <SpotlightTarget markKey="tab_inbox">
+              <Ionicons name="chatbubble-outline" size={size} color={color} />
+            </SpotlightTarget>
+          ),
+        }}
+      />
       <Tabs.Screen
         name="home"
         options={{
@@ -48,39 +72,10 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {/* Limen v2 (2026-10-03): Browse is removed from the tab bar.
-          Endless browsing works against commitment (choice overload,
-          D'Angelo & Toma 2017); discovery is a small weekly set in
-          Discover instead. The route file stays so nothing deep-linking
-          to it crashes, but href: null removes it from navigation.
-          See docs/LIMEN_V2_DECISIONS.md. */}
-      <Tabs.Screen name="browse" options={{ href: null }} />
-      <Tabs.Screen
-        name="saved"
-        options={{
-          title: 'Saved',
-          tabBarIcon: ({ color, size }) => (
-            <SpotlightTarget markKey="tab_saved">
-              <Ionicons name="bookmark-outline" size={size} color={color} />
-            </SpotlightTarget>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="inbox"
-        options={{
-          title: 'Inbox',
-          tabBarIcon: ({ color, size }) => (
-            <SpotlightTarget markKey="tab_inbox">
-              <Ionicons name="chatbubble-outline" size={size} color={color} />
-            </SpotlightTarget>
-          ),
-        }}
-      />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'You',
           tabBarIcon: ({ color, size }) => (
             <SpotlightTarget markKey="tab_profile">
               <Ionicons name="person-outline" size={size} color={color} />
@@ -88,6 +83,12 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* Limen v2 (2026-10-03): Browse is removed from the tab bar.
+          Endless browsing works against commitment (choice overload,
+          D'Angelo & Toma 2017). The route file stays so nothing
+          deep-linking to it crashes, but href: null removes it from
+          navigation. See docs/LIMEN_V2_DECISIONS.md. */}
+      <Tabs.Screen name="browse" options={{ href: null }} />
       {/* __DEV__-only account switcher. Always declared (Expo Router needs
           a Tabs.Screen per route file to control its tab bar presence),
           but href: null in production fully excludes it from the tab bar

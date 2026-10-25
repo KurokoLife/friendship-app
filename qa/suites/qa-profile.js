@@ -1,10 +1,11 @@
 // 2026-10-14: Profile tab and everything linked from it.
+// 2026-10-25: the You tab (Profile | Settings switch), About Limen, no Guide.
 const L = require('../qa-lib'); const { U, check, tap, text, go, q } = L;
 const SHOTS = process.env.SHOTS || '';
 (async () => {
   await L.start();
   const seedAll = (await q(`select id from users where _is_seed_account(id)`)).map((r) => r.id);
-  await q(`insert into coach_marks_seen (user_id, mark_key) select u, k from unnest($1::uuid[]) u, unnest(array['tab_discover','tab_saved','tab_inbox','tab_profile']) k on conflict do nothing`, [seedAll]).catch(() => {});
+  await q(`insert into coach_marks_seen (user_id, mark_key) select u, k from unnest($1::uuid[]) u, unnest(array['tab_discover','tab_saved','tab_inbox','tab_profile','tab_people']) k on conflict do nothing`, [seedAll]).catch(() => {});
   await q(`update profiles set values = array['Honesty','Humor'], personal_statement = 'Learning to cook for one', extra_photo_urls = array[photo_url, photo_url],
              connection_summary = '{"connectionStyle":"You warm up slowly.","whatHelped":"Small plans.","whenUncertain":"You ask.","created_at":"2026-10-14T00:00:00Z"}'::jsonb,
              big_five_scores = '{"responses":{"1":"a"}}'::jsonb
@@ -28,6 +29,9 @@ const SHOTS = process.env.SHOTS || '';
   check('One completion number, same as Edit', /\d+% complete/.test(t));
   const tabPct = (await text(m.page)).match(/(\d+)% complete/)[1];
   check('Only one preview button, Settings has none', (await text(m.page)).includes('See exactly what others see'));
+  t = await text(m.page);
+  check('You tab: Profile | Settings switch at the top', t.startsWith('You Profile Settings'), t.slice(0, 120));
+  check('No Guide anywhere on the You tab', !/\bGuide\b/.test(t), t.slice(-400));
   check('Full name note has one period', (await text(m.page)).includes('last initial: Maria S.') && !(await text(m.page)).includes('Maria S..'));
   t = await text(m.page);
   // 2026-10-18: the summary is gone; your own How you connect answers show instead.
@@ -50,9 +54,29 @@ const SHOTS = process.env.SHOTS || '';
   await tap(m.page, 'All sections', { wait: 800 });
   check('Back to the list', (await text(m.page)).includes('Undo my changes since I opened this'));
 
-  // Settings
+  // Settings, from the switch
+  await go(m.page, '/profile', 3500);
+  await tap(m.page, 'Settings', { nth: 0, wait: 2500 });
+  t = await text(m.page);
+  check('Switch opens Settings in the You tab', m.page.url().includes('view=settings') && t.includes('Sign-in and recovery') && t.includes('About Limen'), m.page.url());
+  check('Reminders: no "Short guides" switch', t.includes('Reminders and nudges'.toUpperCase()) && !t.includes('Short guides'), t.slice(0, 1600));
+  check('No Guide in Settings', !/\bGuide\b/.test(t));
+  await tap(m.page, 'About Limen', { wait: 2000 });
+  t = await text(m.page);
+  check('About Limen: exact text', t.includes("Most friendships don't end. They drift. Limen helps you keep up with the friends you have, reconnect with people you've lost touch with, and meet someone new, in person.") &&
+    t.includes('What we hold to') &&
+    t.includes("Friendships are made of small moments, so that's what Limen helps with.") &&
+    t.includes('Your messages are yours. Limen may offer a few words to start; the rest is you.') &&
+    t.includes('Meeting in person is the point. Chatting is how you get there.') &&
+    t.includes('You decide. Every reminder can be turned off.') &&
+    t.includes('Limen is paid for by members, never by ads or by selling your information.'), t.slice(0, 900));
+  await tap(m.page, 'Back', { nth: 0, wait: 2000 });
+  check('Back from About goes to Settings', m.page.url().includes('view=settings'), m.page.url());
+  await go(m.page, '/guides', 3000);
+  check('The Guide page is gone', !(await text(m.page)).includes('Friendship Grows a Little at a Time'));
   await go(m.page, '/settings', 4000);
   t = await text(m.page);
+  check('Old /settings link opens Settings in the You tab', m.page.url().includes('view=settings') && t.includes('Sign-in and recovery'), m.page.url());
   check('Settings: no preview, no invite, has sign-in and take a break', !t.includes('Preview my public profile') && !t.includes('Invite a friend'.toUpperCase()) && !t.toLowerCase().includes('share your code') && t.includes('Sign-in and recovery') && t.toLowerCase().includes('take a break'), t.slice(0, 1500));
   await tap(m.page, '2 weeks', { wait: 1500 });
   t = await text(m.page);
@@ -70,7 +94,7 @@ const SHOTS = process.env.SHOTS || '';
   t = await text(m.page);
   check('Sign-in page from Settings', t.includes('Sign-in and recovery') && t.includes('You sign in with your phone number.') && t.includes('Back to Settings'), t.slice(0, 600));
   await tap(m.page, 'Back to Settings', { wait: 2000 });
-  check('Back goes to Settings', m.page.url().includes('/settings'), m.page.url());
+  check('Back goes to Settings', m.page.url().includes('view=settings') && (await text(m.page)).includes('Take a break'.toUpperCase()), m.page.url());
 
   // Selfie and privacy wording
   await q(`update users set selfie_verified_at = null where id=$1`, [U.maria]);

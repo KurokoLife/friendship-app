@@ -16,6 +16,7 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 8. Graduation | Not reviewed yet |
 | 9. Remember and Guide | Remember decided and built 2026-10-10. Guide: a draft plan is below, founder still deciding which videos |
 | 10. Money and settings | Not reviewed yet |
+| Rebuild (docs/context/05_LIMEN_REBUILD.md) | Stage 1 of 6 built 2026-10-25: four tabs, Your people, Guide removed, About Limen (section 11 below). Stages 2 to 6 not started |
 
 ---
 
@@ -96,6 +97,8 @@ The 15 points that came from personality similarity move to life situation (+5, 
 
 ## 4. Discover, Saved and Inbox (decided and built 2026-10-10)
 
+(2026-10-25: Saved now sits inside Discover, below today's person; Inbox is called Chats and keeps only Active and Past; Pending and Friends moved to Your people. See section 11. Points 5, 7 and 8 below describe where things were before that.)
+
 1. **One new person a day**, in the person's own time zone. Up to 3 wait at a time; when a 4th arrives the oldest gives way. Research: people grow pickier the longer they browse in one sitting (Pronk and Denissen), and more options lead to worse choices (Wu and Chiou). Hinge's one-a-day pick led to 8 times more dates.
 2. **Nobody while you have 3 active chats**, and people with 3 active chats never appear in anyone's Discover. Paused chats count as active.
 3. **Never anyone you've had a chat with**, in any state (active, paused, ended, graduated, closed, blocked). Starting over after an ended chat goes through that chat's "View profile", not Discover.
@@ -138,7 +141,9 @@ Remember moves into the chat. It helps in the moment and keeps a light record of
 - Matching: shared language required; meeting pace 40, interests 40, friendship type 20.
 - Moment lines (14): one true line inside existing cards at moments people guess or hesitate; no new cards; never a guess about the other person; no Guide links.
 
-## 9b. Guide (draft for the founder to come back to, not decided)
+## 9b. Guide (removed 2026-10-25)
+
+The Guide is removed from the app (rebuild stage 1, docs/context/05_LIMEN_REBUILD.md): no Guide screens, no videos or reads, no first-meetup guide offer, no "Short guides" reminder switch. A one-line "why" at the moment it helps replaces it. The draft below is history only.
 
 Founder's thinking so far (2026-10-10): no Guide tab. Each piece should show up at the moment it helps; the full list stays in Profile for anyone who wants to browse. The founder isn't sure how many videos are needed. Suggested rule: video only where feelings run high, everything else a 30-second read.
 
@@ -153,6 +158,25 @@ Founder's thinking so far (2026-10-10): no Guide tab. Each piece should show up 
 | The other 6 reads | Curiosity and care, What friendship actually looks like, Early friendship fragility, How to write an honest profile, Understanding your social patterns, Everyday friendship | Mostly repeat the above. Fold useful lines into those; move "honest profile" into the profile setup screens. |
 
 That would leave 3 videos and about 4 short reads. Open question for the founder: are 3 videos (joining x2, first meetup) enough for launch?
+
+## 11. Rebuild stage 1: new home and tabs (decided and built 2026-10-25)
+
+Guideline: docs/context/05_LIMEN_REBUILD.md (wins over docs/context/01 on direction).
+
+1. **Four tabs:** Your people (home, first) · Chats · Discover · You. The Test tab stays for admins and test accounts. Route names are unchanged (`/people` new; `/inbox` is Chats, `/home` is Discover, `/profile` is You) so every old link still works. Everyone who finished joining lands in Your people (also right after joining).
+2. **Chats** = the old Inbox Active list, then **Past** at the bottom (ended, closed, blocked; hide a blocked chat as before). No Pending or Friends tabs. Graduated chats are reached from Your people, under Friends.
+3. **Discover:** today's person on top, **Saved** below (up to 5, 30 days, Remove). No Saved tab. "Saved. X is below, under Saved, for the next 30 days."
+4. **You:** a Profile | Settings switch at the top. Profile is the old Profile tab. Settings is the old Settings page plus **About Limen** (exact text from 05, in Help). `/settings` opens You on Settings.
+5. **Guide removed** completely (see 9b). The guide videos were only in Supabase Storage (bucket `guide-videos`), never in the repo.
+6. **Your people:** circles Close, Friends, Getting to know, Want to reconnect. Limen people are placed on their own (`my_people()`): an open or paused chat → Getting to know ("Chat on Limen" / "Chat on Limen, paused"); someone you said Interested to → Getting to know, "Waiting to connect" plus why (the old Pending lines, and when it closes); graduated → Friends ("Met on Limen"). Ended, closed, passed and blocked people never appear; a saved-only profile isn't listed. Tap a Limen person → their chat; someone waiting → their profile. The selfie note and the one-time "interest has come to a close" note moved here from Pending.
+7. **Moving by hand:** "Move" on any row opens the four circles. For Limen people the move is stored privately (`people_circle_choices`, with where Limen had placed them); it holds until Limen's own placement changes (for example the chat graduates), then Limen moves them again. Moving someone back to where Limen placed them clears the hand move.
+8. **Add someone** (a friend outside Limen, `outside_friends`, own rows only): name (a first name is enough, up to 60 characters), circle, how often you'd like to be in touch, optional note (up to 1000). No phone or email fields. Choices per circle, each with its line from 05: Getting to know: every few days / every week / every two weeks; Close: every week / every two weeks / every month; Friends: every two weeks / every month / every few months; Want to reconnect: any of these, a few times a year, or no suggestions ("A check-in tells someone they matter to you."). Each circle starts at its usual rhythm (Getting to know and Close: every week; Friends: every month; Want to reconnect: a few times a year) until the person picks one; a picked rhythm is kept when it fits a new circle. The database refuses a rhythm that doesn't fit the circle (`rhythm_fits_circle`). Moving an outside friend to a circle their rhythm doesn't fit sets that circle's usual one.
+9. **Outside friend page:** name, circle, how often, note, Edit, "Remove from Your people" (asks first). No Text / Call / Email and no suggestions yet (stage 3).
+10. **No "last talked" dates** anywhere in Your people.
+11. **Empty state** (draft, waiting for the founder's OK): "Who would you like to keep up with?" / "Add a friend you'd like to see more of, or someone you've lost touch with. A first name is enough, and only you see this list." / Add someone / "People you meet on Limen will show up here too."
+12. Test tab "Reset all test accounts" also clears added friends and hand moves.
+
+Migration `20261025000000_your_people.sql`. Tests: `qa-people` (new), `qa-discover`, `qa-pending`, `qa-inbox-chat`, `qa-profile`, `qa-onboard`.
 
 ## Founder to-do list (not code)
 

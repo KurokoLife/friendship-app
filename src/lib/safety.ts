@@ -93,9 +93,10 @@ export function waitingForInterestCopy(name: string): string {
   return `Sent privately. If ${name} says Interested too, a chat opens for you both. ${name} is only told if that happens. People decide at their own pace, and that's okay. If it doesn't become mutual within 30 days, it closes on its own.`;
 }
 // What shows right after tapping Interested (2026-10-14): the person is
-// always saved in Inbox, Pending, and the line says what happens next.
+// always kept in Your people, under Getting to know (Inbox Pending until
+// 2026-10-25), and the line says what happens next.
 export function interestSavedCopy(name: string, r: Extract<InterestResult, { status: 'waiting' }>): string {
-  const where = "You'll find them in Inbox, under Pending.";
+  const where = "You'll find them in Your people, under Getting to know.";
   if (r.mutual) {
     if (r.wait === 'my_selfie') return `You and ${name} both said Interested. Your chat opens once your selfie is approved. ${where}`;
     if (r.wait === 'their_selfie') return `You and ${name} both said Interested. Your chat opens once ${name}'s selfie check is done. ${where}`;
@@ -116,7 +117,7 @@ export async function saveForLater(otherId: string): Promise<'saved' | 'full' | 
   return data === 'full' ? 'full' : 'saved';
 }
 export const SAVED_FULL_COPY =
-  "You have 5 people saved, the most at one time. Saved people stay for 30 days, or you can remove one in Saved to make room.";
+  "You have 5 people saved, the most at one time. Saved people stay for 30 days, or you can remove one under Saved in Discover to make room.";
 
 export type MyInterest = {
   other_user_id: string;

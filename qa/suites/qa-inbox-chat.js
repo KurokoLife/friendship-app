@@ -10,7 +10,7 @@ const { U, check, tap, text, go, q } = L;
   await q(`delete from reports where reporter_id = $1`, [U.david]).catch(() => {});
   await q(`delete from blocks where blocker_id = any($1) or blocked_id = any($1)`, [people]);
   await q(`update users set selfie_verified_at = now() where id = any($1)`, [people]);
-  await q(`insert into coach_marks_seen (user_id, mark_key) select u, k from unnest($1::uuid[]) u, unnest(array['tab_discover','tab_saved','tab_inbox','tab_profile']) k on conflict do nothing`, [people]).catch(() => {});
+  await q(`insert into coach_marks_seen (user_id, mark_key) select u, k from unnest($1::uuid[]) u, unnest(array['tab_discover','tab_saved','tab_inbox','tab_profile','tab_people']) k on conflict do nothing`, [people]).catch(() => {});
 
   // David and Mochi: Mochi asks for money and to move to another app
   const C = await L.makeChat(U.david, MOCHI, [
@@ -27,7 +27,7 @@ const { U, check, tap, text, go, q } = L;
   const d = await L.as(U.david);
   await go(d.page, '/inbox', 3500);
   let t = await text(d.page);
-  check('Inbox: tabs, Active first', t.includes('Active') && t.includes('Friends') && t.includes('Past'));
+  check('Chats: one list, no Pending or Friends tabs', t.includes('Chats') && !t.includes('Pending') && !t.includes('Friends'), t.slice(0, 400));
   check('Inbox: capacity line', t.includes('2 of 3 active conversations'), t.slice(0, 400));
   check('Inbox: both chats with last message', t.includes('Mochi') && t.includes('talk on whatsup') && t.includes('Maria S.') && t.includes('Yes! Saturday?'), t.slice(0, 800));
   check('Inbox: meetup count on the row', (t.match(/Met 2 times/g) || []).length === 1);
@@ -119,13 +119,15 @@ const { U, check, tap, text, go, q } = L;
   const st = await q(`select status from connections where id=$1`, [C]);
   check('Block: saved', st[0].status === 'blocked', st[0].status);
   await go(d.page, '/inbox', 3000);
-  await tap(d.page, 'Past', { wait: 1000 });
-  check('Block: chat moves to Past', (await text(d.page)).includes('Blocked'));
+  t = await text(d.page);
+  check('Block: chat moves to Past, at the bottom', t.includes('Blocked') && t.indexOf('PAST') < t.indexOf('Blocked'), t.slice(0, 800));
+  await go(d.page, '/people', 3000);
+  check('Block: never shown in Your people', !(await text(d.page)).includes('Mochi'));
 
   // Back button
   await go(d.page, `/thread/${C2}`, 3000);
   await tap(d.page, 'Back', { nth: 0, wait: 2000 });
-  check('Back returns to Inbox', d.page.url().includes('/inbox'), d.page.url());
+  check('Back returns to Chats', d.page.url().includes('/inbox'), d.page.url());
 
   await L.finish();
 })().catch((e) => {

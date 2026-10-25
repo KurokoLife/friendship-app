@@ -1,6 +1,6 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-24. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-25. Since Oct 25 the rebuild guideline docs/context/05_LIMEN_REBUILD.md sets the direction; this file still describes what is built, stage by stage. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
@@ -55,13 +55,15 @@ No "Step N of 10", no "Required" labels. Every joining screen after the intro ha
 
 ## 5. Discover and connecting
 
-- Tabs: Discover, Saved, Inbox, Profile (and Test for admins and test accounts). No Browse, no Remember tab, no Guide tab.
+- Tabs (since Oct 25, rebuild stage 1): Your people (home, first), Chats, Discover, You (and Test for admins and test accounts). Members land in Your people. No Browse, no Remember tab, no Guide.
+- Your people: four circles, Close / Friends / Getting to know / Want to reconnect. Limen people are placed on their own: an open or paused chat, and people you said Interested to ("Waiting to connect", with why), go in Getting to know; graduated friends in Friends. Ended, closed and blocked people never appear. "Move" puts anyone in another circle (private; holds until Limen's own placement changes). "Add someone" adds a friend from outside Limen: name, circle, how often you'd like to be in touch (choices that fit the circle), optional note; no phone or email. Tap a Limen person for the chat, an added friend for their page (Edit, Remove). No "last talked" dates. Suggestions and Text / Call / Email come in stage 3.
+- Chats: active and paused chats and new hellos, then Past at the bottom. Discover: today's person, then Saved below. You: a Profile | Settings switch.
 - One new person a day (in your own time zone), up to 3 waiting; the oldest gives way. Nobody shows while you have 3 active chats, and people with 3 active chats never appear. Never anyone you've had a chat with, in any state. Someone whose card passed can come back after 21 days, at the bottom. Picked by scoring (`generate-match-suggestions`, which only adds today's one person; `get_discover` decides what shows). Since Oct 18: a shared language is required; scores are meeting pace 40, interests 40, friendship type 20. People's own words and How you connect answers are never used.
-- Saved: at most 5, each for 30 days. Saving moves the person out of Discover. Anyone you start a chat with leaves Saved. People you said Interested to are in Inbox, Pending (not Saved).
-- "Interested" instead of "Say hello". The chat opens only when both say Interested. One-sided interest is never shown to the other person, but it quietly moves you to the front of their next suggestions. The person moves to Inbox, under Pending, even before your selfie is approved. The chat opens when both said Interested and both selfies are approved; Pending says what it's waiting for (the other person, your selfie, their selfie check, or room for a new chat). It closes on its own after 30 days if no chat opened, with one calm note in Pending ("Your interest in X has come to a close..."). At most 5 open.
+- Saved: at most 5, each for 30 days, listed below today's person in Discover. Saving moves the person out of today's list. Anyone you start a chat with leaves Saved. People you said Interested to are in Your people, Getting to know (not Saved).
+- "Interested" instead of "Say hello". The chat opens only when both say Interested. One-sided interest is never shown to the other person, but it quietly moves you to the front of their next suggestions. The person shows in Your people as "Waiting to connect", even before your selfie is approved. The chat opens when both said Interested and both selfies are approved; the row says what it's waiting for (the other person, your selfie, their selfie check, or room for a new chat). It closes on its own after 30 days if no chat opened, with one calm note in Your people ("Your interest in X has come to a close..."). At most 5 open.
 - Selfie check: once per account, approved only (reviewed by an admin in Settings). Needed before a chat opens or a first message is sent (since Oct 14 you can say Interested before it's approved; the person waits in Pending). While it waits: "Your selfie is waiting for our review". Two people who already talked can reconnect without it.
 - Limits for everyone: 3 active conversations (paused chats count) and 5 hellos waiting for a reply. Graduated chats don't count. Inbox shows "N of 3 active conversations · room for N more".
-- Inbox tabs: Active (opens first: active and paused chats, new hellos), Pending (people you said Interested to, until the chat opens; only you see it), Friends (graduated), Past (ended, closed, blocked, with history and notes). The person who blocked can "Hide this chat"; the blocked person only sees "Not available".
+- Chats: active and paused chats and new hellos first, Past at the bottom (ended, closed, blocked, with history and notes). Graduated friends are in Your people, under Friends. The person who blocked can "Hide this chat"; the blocked person only sees "Not available".
 - A match with no hello: a gentle suggestion from 2 days, closes quietly at 14 days.
 - Ghosting rule: someone who lets 2 or more chats close unanswered within 60 days is shown last in suggestions for 30 days. Never shown to anyone, resets on its own.
 - Suspend switch: `users.suspended_at` (set in Supabase after reviewing a report).
@@ -82,7 +84,7 @@ No "Step N of 10", no "Required" labels. Every joining screen after the intro ha
 - Once both have written, quiet is normal: no reply reminders, nothing closes on its own.
 - Check-in: after both wrote and 5 quiet days, each person privately gets "It's been quiet with X for a bit. That's normal..." (Say hi with starters / Not now / Turn off for this chat). Once per quiet stretch, not while a plan is set.
 - Meet-in-person nudges: after about 3 weeks of real talking with no meetup ("Want to plan something?"), and honest checks at about 2 and 6 months (plan / keep chatting / end kindly). After meeting, they start over from the last meetup, following the person's own pace if they set one. Paused time doesn't count. Nothing closes on its own.
-- Settings, "Reminders and nudges": check-ins, meet nudges, morning-of check, calendar question, short guides and notes coming back can each be turned off for all chats. In a chat, "Reminders" is one switch for that chat (Oct 23); a card's own "turn off for this chat" link still works. The getting-started note can't be turned off.
+- Settings, "Reminders and nudges": check-ins, meet nudges, morning-of check, calendar question and notes coming back can each be turned off for all chats ("Short guides" removed with the Guide, Oct 25). In a chat, "Reminders" is one switch for that chat (Oct 23); a card's own "turn off for this chat" link still works. The getting-started note can't be turned off.
 - No push notifications exist yet. Everything shows when the app is opened.
 
 ## 8. Planning a meetup
@@ -121,9 +123,9 @@ No "Step N of 10", no "Required" labels. Every joining screen after the intro ha
 
 ## 12. Guide
 
-Reached from Profile only. Today: 2 onboarding videos, "The First Meetup Does Not Need to Be Perfect", "Friendship Grows a Little at a Time", and 9 short reads. Draft plan (not decided): show each piece at the moment it helps, about 3 videos and 4 short reads. See claude/Guide_Draft_Plan.md.
+Removed Oct 25 (rebuild stage 1). No videos or reads in the app; a one-line "why" at the moment it helps replaces it.
 
 ## 13. Money and settings
 
 - No Premium, no AI credits, no paid capacity, no ads, no venue, employer or health-plan deals. Free pilot first; after the pilot a 21-day free trial, then $39 for 90 days (decided Oct 14, not built). Settings shows "Membership: Free during the pilot." The "How Limen is paid for" page no longer describes what comes after the pilot. Old purchase code is in the repo but unreachable.
-- Settings: edit profile, sign-in and recovery, selfie check, take a break (1 week, 2 weeks or 1 month: nobody new shown to you or you to them, chats carry on), reminders and nudges, export notes, blocked accounts, reports you filed, selfie review (admins), Terms/Privacy (placeholder text), delete account, show tips again. Invite a friend is hidden during the pilot.
+- Settings (in You, next to Profile, since Oct 25): About Limen, edit profile, sign-in and recovery, selfie check, take a break (1 week, 2 weeks or 1 month: nobody new shown to you or you to them, chats carry on), reminders and nudges, export notes, blocked accounts, reports you filed, selfie review (admins), Terms/Privacy (placeholder text), delete account, show tips again. Invite a friend is hidden during the pilot.

@@ -379,7 +379,7 @@ export default function TestToolsScreen() {
           {chat && !chat.has_messages && (
             <Section
               title="Match with no hello yet"
-              hint={`Nobody has written in your chat with ${chat.name}. From 2 days the chat and Inbox suggest a short hello; at 14 days the match closes quietly.`}>
+              hint={`Nobody has written in your chat with ${chat.name}. From 2 days the chat and Chats suggest a short hello; at 14 days the match closes quietly.`}>
               <View className="flex-row flex-wrap gap-2">
                 <Button
                   label="Make it 3 days old"
@@ -497,10 +497,10 @@ export default function TestToolsScreen() {
                 }
               />
               <Button
-                label="Show tips and videos again"
+                label="Show tips again"
                 onPress={async () => {
                   await resetCoachMarks();
-                  say('fresh', 'Done. First-time tips and video offers will show again.');
+                  say('fresh', 'Done. First-time tips will show again.');
                 }}
               />
               <Button

@@ -7,7 +7,6 @@ import { LogMeetupForm } from '@/components/log-meetup-form';
 import { FirstMeetupHomeNote, SafetyTipsLink, looksLikeHome } from '@/components/safety-tips';
 import { EMPTY_PLACE, PlaceField, type PlaceValue } from '@/components/place-field';
 import { StemMessageBox, sendChatMessage } from '@/components/stem-message-box';
-import { getSeenCoachMarks, markCoachMarkSeen } from '@/lib/coach-marks';
 import {
   acceptPlanInvite,
   addMeetupDetails,
@@ -45,9 +44,6 @@ type Props = {
   myId: string;
   otherName: string;
   onChanged: () => void;
-  // At most one Limen video guidance offer may be visible at once; this
-  // card reports when its own first-meetup video offer is showing.
-  onVideoOfferChange?: (active: boolean) => void;
   // Bumped by the thread when a prompt card changed the plan (for example
   // cancelling from the morning-of card), so this card reloads.
   refreshKey?: number;
@@ -62,10 +58,8 @@ type Props = {
     prefill?: EditorPrefill;
   } | null;
   onEndConnection?: () => void;
-  // Reminder settings (2026-10-10): the calendar question and the short
-  // guide offer can be turned off.
+  // Reminder settings (2026-10-10): the calendar question can be turned off.
   calendarAskOn?: boolean;
-  guidesOn?: boolean;
   // Tells the thread whether a plan exists (to hide "Let's plan something").
   onPlanState?: (hasPlan: boolean) => void;
 };
@@ -109,12 +103,10 @@ export function NextMeetupIndicatorV2({
   myId,
   otherName,
   onChanged,
-  onVideoOfferChange,
   refreshKey,
   editorRequest,
   onEndConnection,
   calendarAskOn = true,
-  guidesOn = true,
   onPlanState,
 }: Props) {
   const [plan, setPlan] = useState<MeetupPlan | null>(null);
@@ -130,7 +122,6 @@ export function NextMeetupIndicatorV2({
   const [activityText, setActivityText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showFirstMeetupOffer, setShowFirstMeetupOffer] = useState(false);
   // A note the person wrote in the planning card. It goes to the other
   // person together with the plan, once the plan is sent.
   const [noteToSend, setNoteToSend] = useState<string | null>(null);
@@ -161,19 +152,6 @@ export function NextMeetupIndicatorV2({
           .eq('meetup_id', result.meetup.id)
           .eq('user_id', myId);
         setCalendarAsked(asksError ? null : new Set(((asks ?? []) as { details_key: string }[]).map((a) => a.details_key)));
-        const seen = await getSeenCoachMarks();
-        if (!seen.has('video_first_meetup')) {
-          const { count } = await supabase
-            .from('meetups')
-            .select('id', { count: 'exact', head: true })
-            .eq('connection_id', connectionId)
-            .eq('status', 'occurred');
-          setShowFirstMeetupOffer((count ?? 0) === 0);
-        } else {
-          setShowFirstMeetupOffer(false);
-        }
-      } else {
-        setShowFirstMeetupOffer(false);
       }
     } catch {
       setPlan(null);
@@ -216,12 +194,6 @@ export function NextMeetupIndicatorV2({
       sub.remove();
     };
   }, [connectionId, load]);
-
-  const firstMeetupOfferVisible =
-    guidesOn && expanded && showFirstMeetupOffer && !editMode && plan?.status === 'confirmed' && plan.date !== localToday;
-  useEffect(() => {
-    onVideoOfferChange?.(firstMeetupOfferVisible);
-  }, [firstMeetupOfferVisible, onVideoOfferChange]);
 
   const openEditor = useCallback(
     (mode: EditMode, prefill?: EditorPrefill) => {
@@ -875,29 +847,6 @@ export function NextMeetupIndicatorV2({
       </View>
       {messagePanel}
       {firstMeetup && <SafetyTipsLink label="Safety tips for meeting someone new" />}
-      {/* On the day itself the morning-of card offers the same guide. */}
-      {guidesOn && showFirstMeetupOffer && !isToday && (
-        <View className="flex-row flex-wrap items-center gap-3 border-t border-accent-500/20 pt-2">
-          <Text className="text-caption text-stone-500 dark:text-stone-400">
-            First meetup coming up? A short guide if it helps.
-          </Text>
-          <Pressable
-            onPress={() => {
-              markCoachMarkSeen('video_first_meetup');
-              setShowFirstMeetupOffer(false);
-              router.push({ pathname: '/guide/[id]', params: { id: 'guide_meetup_anxiety' } });
-            }}>
-            <Text className="text-caption font-semibold text-accent-500">Watch</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              markCoachMarkSeen('video_first_meetup');
-              setShowFirstMeetupOffer(false);
-            }}>
-            <Text className="text-caption font-semibold text-stone-500 dark:text-stone-400">Not now</Text>
-          </Pressable>
-        </View>
-      )}
       {paceLine}
       {historyLink}
     </View>

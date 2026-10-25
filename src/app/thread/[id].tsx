@@ -29,7 +29,6 @@ import { RememberBar } from '@/components/remember-bar';
 import { getHeldCard, holdCard, releaseCard, type HeldCard } from '@/lib/held-card';
 import { ReportModal } from '@/components/report-modal';
 import { UniversalTextBox } from '@/components/universal-text-box';
-import { EndedConnectionVideoLink } from '@/components/video-guidance-card';
 import { fetchCuriosityNotes } from '@/lib/stories';
 import {
   FriendlyError,
@@ -222,15 +221,6 @@ export default function ThreadScreen() {
   const [heldCard, setHeldCard] = useState<HeldCard | null>(null);
   // The scam note is checked until the two people have met in person.
   const [haveMet, setHaveMet] = useState(false);
-  // 2026-08-12 correction: at most one Limen video guidance offer may be
-  // visible at once. Video 3 (NextMeetupIndicatorV2) and Video 6 (inline in
-  // PrimaryInterventionCard's PreMeetupSupport) each report upward via a
-  // plain callback whenever their own offer becomes visible; VideoGuidanceCard
-  // (Videos 2/4/5) is simply not rendered while either is true. Deliberately
-  // two separate booleans, not one shared setter both call: either one
-  // clearing must not accidentally clear the other's still-active state.
-  const [video3OfferActive, setVideo3OfferActive] = useState(false);
-  const [video6OfferActive, setVideo6OfferActive] = useState(false);
   // Meetup plans (2026-10-08): prompt cards can open the plan card's editor
   // and ask it to reload after they change the plan.
   const [planEditorRequest, setPlanEditorRequest] = useState<{
@@ -930,12 +920,6 @@ export default function ThreadScreen() {
                 available here anymore.
               </Text>
             )}
-            {/* Video 7 ("When a Friendship Changes or Ends"), 2026-08-11
-                video architecture update. Optional, after the fact only --
-                never a gate on ending, never shown before Report/Block in
-                the header, both of which are completely untouched by this
-                and remain reachable regardless of connection status. */}
-            <EndedConnectionVideoLink />
           </View>
         )}
 
@@ -1001,12 +985,10 @@ export default function ThreadScreen() {
                   setPlanBoardKey((k) => k + 1);
                   reloadPlanInvites();
                 }}
-                onVideoOfferChange={setVideo3OfferActive}
                 refreshKey={planRefreshKey}
                 editorRequest={planEditorRequest}
                 onEndConnection={() => setEndConnectionVisible(true)}
                 calendarAskOn={isOn(prompts, 'calendar')}
-                guidesOn={isOn(prompts, 'guides')}
                 onPlanState={setHasPlan}
               />
             )}
@@ -1205,7 +1187,6 @@ export default function ThreadScreen() {
                   onPlanSomething={handlePlanSomething}
                   notesOn={isOn(prompts, 'notes')}
                   iSentLast={messages.length > 0 && messages[messages.length - 1].sender_id === myId}
-                  onVideoOfferChange={setVideo6OfferActive}
                   onEndConnection={() => setEndConnectionVisible(true)}
                   onRequestPlanEditor={(mode) => setPlanEditorRequest((r) => ({ mode, n: (r?.n ?? 0) + 1 }))}
                   onPlanChanged={() => setPlanRefreshKey((k) => k + 1)}
@@ -1213,10 +1194,6 @@ export default function ThreadScreen() {
                 />
               </View>
             )}
-            {/* 2026-10-10: the short-guide offers (Videos 2 and 4) no longer
-                show inside chats. A guide popping up mid-conversation felt
-                like the app was watching. Where guides belong is part of
-                the Guide plan (claude/Guide_Draft_Plan.md). */}
             </View>
           )}
         </ScrollView>
