@@ -272,5 +272,5 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Tabs: Your people (home) · Chats · Discover · You. Chats = Active + Past at the bottom. Saved inside Discover. You = Profile | Settings switch, About Limen added. Guide removed completely. Members land in Your people after joining.
 - Your people: four circles, Limen people placed on their own (chat / waiting to connect → Getting to know, graduated → Friends), Move by hand, Add someone (name, circle, rhythm per circle, note; no phone or email), outside friend page with Edit and Remove. No "last talked" dates. Empty-state wording is a draft for the founder.
 - Fixed on the way: radio chips now tell screen readers which is selected on the web (aria-checked); qa-lib finds the newer Chromium folder.
-- Migration 20261025000000. No server functions changed. qa-people 60/60, qa-discover 22/22, qa-pending 23/23, qa-inbox-chat 34/34, qa-profile 31/31, qa-onboard 81/81.
+- Migration 20261025000000. No server functions changed. qa-people 60/60, qa-discover 22/22, qa-pending 19/19, qa-inbox-chat 34/34, qa-profile 31/31, qa-onboard 81/81. Full run: every suite passes (qa-remind, qa-oct9c, qa-testtab updated for the removed Short guides and new tab names; qa-place not run, needs its own function server).
 
