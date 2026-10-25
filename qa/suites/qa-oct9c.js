@@ -38,11 +38,10 @@ async function rpcAs(user, sql, params = []) {
   await go(a.page, `/candidate/${PRIYA}`, 3500);
   await tap(a.page, 'Interested', { wait: 2500 });
   let t = await text(a.page);
-  check('Profile explains the selfie is waiting and where the person went', t.includes('waiting for our review') && t.includes('Inbox, under Pending'), t.slice(0, 900));
-  await go(a.page, '/inbox', 3500);
-  await tap(a.page, 'Pending (1)', { wait: 1200 });
+  check('Profile explains the selfie is waiting and where the person went', t.includes('waiting for our review') && t.includes('in Your people, under Getting to know'), t.slice(0, 900));
+  await go(a.page, '/people', 3500);
   t = await text(a.page);
-  check('Inbox Pending lists Priya, waiting, with the selfie note', t.includes('Priya') && t.includes('Waiting for Priya') && t.includes('Your selfie is waiting for our review'), t.slice(0, 900));
+  check('Your people lists Priya, waiting, with the selfie note', t.includes('Priya') && t.includes('Waiting for Priya') && t.includes('Your selfie is waiting for our review'), t.slice(0, 900));
   await q(`delete from interests where from_user_id=$1`, [U.aisha]);
   // A chat that already exists (Priya said Interested, a match from before)
   await q(`insert into interests (from_user_id,to_user_id) values ($1,$2),($2,$1) on conflict do nothing`, [PRIYA, U.aisha]);
@@ -85,7 +84,7 @@ async function rpcAs(user, sql, params = []) {
   check('Fill tool reports 3 of 3', t.includes('You now have 3 of 3 active conversations'), t.match(/Added chats[^.]*\./)?.[0]);
   const cap = await rpcAs(U.maria, `select active_count from my_connection_capacity()`);
   check('Maria really has 3 active chats', cap.rows?.[0]?.active_count === 3, JSON.stringify(cap.rows));
-  await tap(mo.page, 'Inbox', { wait: 2500 });
+  await tap(mo.page, 'Chats', { wait: 2500 });
   t = await text(mo.page);
   check('Inbox shows the limit', t.includes('3 of 3 active conversations') && t.includes('Limen keeps it to 3 at a time'), t.slice(0, 300));
   r = await rpcAs(U.maria, `select create_connection_with_capacity_check($1)`, [PRIYA]);
@@ -98,13 +97,13 @@ async function rpcAs(user, sql, params = []) {
   // Maria's Inbox is now loaded and full. Switch to Aisha and look straight away.
   await tap(mo.page, 'Aisha Bello', { wait: 400 });
   await mo.page.waitForURL(/home/, { timeout: 10000 }).catch(() => {});
-  await tap(mo.page, 'Inbox', { wait: 150 });
+  await tap(mo.page, 'Chats', { wait: 150 });
   const early = await text(mo.page);
   await mo.page.waitForTimeout(2500);
   const later = await text(mo.page);
   const mariaNames = ['David C.', 'Robert K.'];
-  // Only the Inbox part of the page (Discover can stay in the page behind it).
-  const tabsAt = early.search(/Active Pending/);
+  // Only the Chats part of the page (Discover can stay in the page behind it).
+  const tabsAt = early.search(/Chats (\d of 3|When you)/);
   const earlyInbox = tabsAt >= 0 ? early.slice(tabsAt) : early;
   check('Right after switching, Inbox does not show the previous account\'s chats', !mariaNames.some((n) => earlyInbox.includes(n)), earlyInbox.slice(0, 300));
   check('Then shows the new account\'s own chats', later.includes('Priya N.') && !later.includes('3 of 3'), later.slice(0, 300));
