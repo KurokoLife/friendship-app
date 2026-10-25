@@ -162,7 +162,14 @@ async function rest(user, path, opts = {}) {
   check('Open chat: Getting to know, "Chatting on Limen"', /Maria S\. Chatting on Limen/.test(gtk) && !/Chatting on Limen, paused M/.test(gtk), gtk);
   check('Paused chat: Getting to know, paused', /Robert K\. Chatting on Limen, paused/.test(gtk), gtk);
   check('Said Interested: Getting to know, waiting to connect', /Jordan B\. Waiting to connect/.test(gtk), gtk);
-  check('Limen people show their photo', (await p.page.locator('img').count()) > 0 || (await q(`select count(*)::int n from profiles where user_id = any($1) and photo_url is not null`, [[U.maria, U.robert, U.jordan, U.aisha]]))[0].n === 0);
+  // Seed photos live on the internet, which the test copy can't reach; use one the local server has.
+  const oldPhoto = (await q(`select photo_url from profiles where user_id=$1`, [U.maria]))[0].photo_url;
+  await q(`update profiles set photo_url = 'http://localhost:8099/favicon.ico' where user_id=$1`, [U.maria]);
+  await go(p.page, '/circle', 3500);
+  check('Limen people show their photo', (await p.page.locator('img[src*="favicon.ico"]').count()) > 0);
+  check('A photo that does not load falls back to their initial', /\bR Robert K\./.test(await text(p.page)), (await text(p.page)).slice(0, 800));
+  await q(`update profiles set photo_url = $2 where user_id=$1`, [U.maria, oldPhoto]);
+  t = await text(p.page);
   check('Graduated: Friends', /Aisha \w\. Met on Limen/.test(fr), fr);
   check('Ended, closed and blocked people never appear', !t.includes('Marcus') && !t.includes('Sam S') && !t.includes('Elena'), t);
   check('A saved-only profile is not listed', !t.includes('David'), t);
@@ -236,7 +243,7 @@ async function rest(user, path, opts = {}) {
   });
   check('Laptop: content sits in a centered column', col > 300 && col < 360, col);
   const heads = await lap.page.evaluate(() => ['Close', 'Friends'].map((h) => {
-    const el = [...document.querySelectorAll('div[dir="auto"]')].find((d) => d.innerText.trim().split(' ·')[0] === h && getComputedStyle(d).fontSize === '14px');
+    const el = [...document.querySelectorAll('[role="heading"]')].find((d) => d.innerText.trim().split(' ·')[0] === h);
     return el ? Math.round(el.getBoundingClientRect().top) : null;
   }));
   check('Laptop: two columns (Close and Friends side by side)', heads[0] !== null && heads[0] === heads[1], JSON.stringify(heads));

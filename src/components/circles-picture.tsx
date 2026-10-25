@@ -1,4 +1,5 @@
-import { Pressable, Text, View, useColorScheme, type GestureResponderEvent } from 'react-native';
+import { useRef } from 'react';
+import { Platform, Pressable, Text, View, useColorScheme, type GestureResponderEvent } from 'react-native';
 
 import { Face } from '@/components/ui';
 import { CIRCLES, CIRCLE_LABELS, type Circle } from '@/lib/circle';
@@ -24,6 +25,7 @@ export function CirclesPicture({
   onRingPress: (c: Circle) => void;
 }) {
   const dark = useColorScheme() === 'dark';
+  const ref = useRef<View>(null);
   const s = size / 380; // drawn at 380px on a laptop, scaled down on a phone
   const center = size / 2;
   // Outer radius of each ring, inside out (matches the mockup).
@@ -46,8 +48,19 @@ export function CirclesPicture({
   };
 
   const onPress = (e: GestureResponderEvent) => {
-    const { locationX, locationY } = e.nativeEvent;
-    const c = ringAt(Math.hypot(locationX - center, locationY - center));
+    // Phones give locationX/Y relative to the picture. On the web, measure
+    // the click against the picture's own box.
+    const ev = e.nativeEvent as unknown as { locationX?: number; locationY?: number; clientX?: number; clientY?: number };
+    let x = ev.locationX;
+    let y = ev.locationY;
+    const node = ref.current as unknown as { getBoundingClientRect?: () => { left: number; top: number } } | null;
+    if (Platform.OS === 'web' && node?.getBoundingClientRect && ev.clientX !== undefined && ev.clientY !== undefined) {
+      const box = node.getBoundingClientRect();
+      x = ev.clientX - box.left;
+      y = ev.clientY - box.top;
+    }
+    if (x === undefined || y === undefined) return;
+    const c = ringAt(Math.hypot(x - center, y - center));
     if (c) onRingPress(c);
   };
 
@@ -58,11 +71,12 @@ export function CirclesPicture({
 
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       accessibilityRole="image"
       accessibilityLabel={`Your circles. ${label}.`}
       style={{ width: size, height: size, alignSelf: 'center' }}>
-      <View pointerEvents="none" style={{ width: size, height: size }}>
+      <View style={{ width: size, height: size, pointerEvents: 'none' }}>
         {[...CIRCLES].reverse().map((c) => {
           const r = radius[c];
           return (

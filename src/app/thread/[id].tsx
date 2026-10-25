@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -148,6 +149,7 @@ function shortDate(iso: string): string {
 
 export default function ThreadScreen() {
   const { id: connectionId } = useLocalSearchParams<{ id: string }>();
+  const { height: windowHeight } = useWindowDimensions();
   const [myId, setMyId] = useState<string | null>(null);
   const [otherId, setOtherId] = useState<string | null>(null);
   const [other, setOther] = useState<OtherParticipant | null>(null);
@@ -974,6 +976,11 @@ export default function ThreadScreen() {
                 </View>
               )}
             {myId && connectionId && (
+              // 2026-10-25 (design pass): pill buttons made the open plan card
+              // taller; on a phone it could fill the screen and push the chat
+              // out of reach. It now takes at most about half the screen and
+              // scrolls on its own.
+              <ScrollView style={{ maxHeight: Math.round(windowHeight * 0.5), flexGrow: 0 }} nestedScrollEnabled>
               <NextMeetupIndicatorV2
                 connectionId={connectionId}
                 myId={myId}
@@ -991,6 +998,7 @@ export default function ThreadScreen() {
                 calendarAskOn={isOn(prompts, 'calendar')}
                 onPlanState={setHasPlan}
               />
+              </ScrollView>
             )}
           </>
         )}

@@ -274,3 +274,12 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Fixed on the way: radio chips now tell screen readers which is selected on the web (aria-checked); qa-lib finds the newer Chromium folder.
 - Migration 20261025000000. No server functions changed. qa-people 60/60, qa-discover 22/22, qa-pending 19/19, qa-inbox-chat 34/34, qa-profile 31/31, qa-onboard 81/81. Full run: every suite passes (qa-remind, qa-oct9c, qa-testtab updated for the removed Short guides and new tab names; qa-place not run, needs its own function server).
 
+
+## 2026-10-25: Rebuild stage 1b, design pass
+
+- Founder replaced 05 (design guide v1, "Your circle", belief 6 "Every profile is a person"); saved and built 1b only.
+- Your people -> Your circle everywhere. Theme file with every color and Figtree; warm cream look, apricot main action, warm dark mode. Top bar and centered column on wide screens. Bare-word actions -> pills app-wide, in-sentence links underlined, tips with "Got it".
+- Your circle per the mockup: circles picture with faces, rows with chevrons, two columns on laptop, moving from the person's own page. Limen photos via migration 20261025000001.
+- Found by the tests: the open plan card could fill a phone screen (now capped at half, scrolls); ring taps on the web needed their own measuring.
+- "Every profile is a person" wording found elsewhere is listed in docs/DECISIONS.md section 12 (not changed: stages 4 and 6).
+
