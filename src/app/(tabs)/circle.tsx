@@ -14,6 +14,7 @@ import {
   RHYTHM_LABELS,
   fetchMyPeople,
   fetchOutsideFriends,
+  friendPhotoUrl,
   type Circle,
   type LimenPerson,
   type OutsideFriend,
@@ -46,6 +47,8 @@ export default function CircleScreen() {
   const [loaded, setLoaded] = useState(false);
   const [limen, setLimen] = useState<LimenPerson[]>([]);
   const [outside, setOutside] = useState<OutsideFriend[]>([]);
+  // Private photos of friends added outside Limen (short-lived links, own only).
+  const [friendPhotos, setFriendPhotos] = useState<Record<string, string>>({});
   const [closed, setClosed] = useState<PendingPerson[]>([]);
   const [selfie, setSelfie] = useState<SelfieStatus>('approved');
   const scrollRef = useRef<ScrollView>(null);
@@ -75,6 +78,8 @@ export default function CircleScreen() {
     ]);
     setLimen(people);
     setOutside(friends);
+    const urls = await Promise.all(friends.map(async (f) => [f.id, await friendPhotoUrl(f.photo_path)] as const));
+    setFriendPhotos(Object.fromEntries(urls.filter(([, u]) => u)) as Record<string, string>);
     setClosed(pending.filter((p) => p.state === 'closed'));
     setSelfie(selfieNow);
     setLoaded(true);
@@ -166,9 +171,13 @@ export default function CircleScreen() {
               key: r.key,
               name: r.name,
               circle: r.circle,
-              photoUrl: r.kind === 'limen' ? r.person.photo_url : null,
+              photoUrl: r.kind === 'limen' ? r.person.photo_url : (friendPhotos[r.friend.id] ?? null),
             }))}
             onRingPress={jumpTo}
+            onFacePress={(key) => {
+              const row = rows.find((r) => r.key === key);
+              if (row) open(row);
+            }}
           />
 
           {nobody && isSupabaseConfigured ? (
@@ -230,7 +239,7 @@ export default function CircleScreen() {
                             <Face
                               name={row.name}
                               circle={row.circle}
-                              photoUrl={row.kind === 'limen' ? row.person.photo_url : null}
+                              photoUrl={row.kind === 'limen' ? row.person.photo_url : (friendPhotos[row.friend.id] ?? null)}
                             />
                           }
                           onPress={() => open(row)}

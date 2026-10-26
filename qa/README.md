@@ -63,6 +63,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-place | Place search: Google first (real `place-search` function on :8000 with Google's answers faked; start it with `bash qa/start-place-fn.sh`), nearest first, one billing session, OpenStreetMap backup |
 | qa-inbox-chat | Inbox and chat end to end: rows, scam note, sending shows right away, Reflect, Reminders, Report, Block, Back |
 | qa-circle | Your circle: empty state, add / edit / move / remove a friend from outside Limen (rhythm choices per circle), Limen people placed on their own, hand moves, phone width, nobody else can read the list (through the API) |
+| qa-person | Your circle stage 1c: faces open the person, empty ring part jumps, person page, next check-in line (adding, editing, from the last reach-out), private photos and their privacy (storage rules through the test gateway), phone and laptop |
 | qa-discover | Discover one a day, up to 3 waiting, nobody while full; Interested and Saved for 30 days; Inbox tabs, hide a blocked chat |
 | qa-refresh | Cards and notes survive a page refresh; no "AI" on main screens; reminders sheet and payment page wording |
 | qa-answer | "Yes, we met" / "No, that's not right" on an old card, at a laptop window size |

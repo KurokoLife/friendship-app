@@ -14,15 +14,18 @@ const BASE_ANGLE: Record<Circle, number> = { close: -90, friends: -145, getting_
 // The circles picture (design guide v1): "You" in the middle, rings from the
 // inside out Close, Friends, Getting to know, Want to reconnect (outer ring
 // dashed). Faces sit on their ring, up to 6 per ring, then a "+N" bubble.
-// Tapping a ring jumps to that part of the list.
+// Tapping a face opens that person (stage 1c, 2026-10-26); tapping an empty
+// part of a ring (or a "+N" bubble) jumps to that part of the list.
 export function CirclesPicture({
   faces,
   size,
   onRingPress,
+  onFacePress,
 }: {
   faces: PictureFace[];
   size: number;
   onRingPress: (c: Circle) => void;
+  onFacePress: (key: string) => void;
 }) {
   const dark = useColorScheme() === 'dark';
   const ref = useRef<View>(null);
@@ -132,6 +135,9 @@ export function CirclesPicture({
             </Text>
           );
         })}
+      </View>
+      {/* Faces sit on top and take their own taps: a face opens that person. */}
+      <View style={{ position: 'absolute', left: 0, top: 0, width: size, height: size, pointerEvents: 'box-none' }}>
         {CIRCLES.flatMap((c) => {
           const here = faces.filter((f) => f.circle === c);
           if (here.length === 0) return [];
@@ -144,33 +150,44 @@ export function CirclesPicture({
           const span = c === 'close' ? 200 : 240;
           const step = slots > 1 ? Math.min(c === 'close' ? 60 : 42, span / (slots - 1)) : 0;
           const start = BASE_ANGLE[c] - (step * (slots - 1)) / 2;
+          // Each face sits in a tap area at least 44px across (design guide).
+          const box = Math.max(44, faceSize);
           const at = (i: number) => {
             const a = ((start + i * step) * Math.PI) / 180;
-            return { left: center + mid * Math.cos(a) - faceSize / 2, top: center + mid * Math.sin(a) - faceSize / 2 };
+            return { left: center + mid * Math.cos(a) - box / 2, top: center + mid * Math.sin(a) - box / 2 };
           };
           const nodes = shown.map((f, i) => (
-            <View key={f.key} style={{ position: 'absolute', ...at(i) }}>
+            <Pressable
+              key={f.key}
+              onPress={() => onFacePress(f.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`${f.name}, ${CIRCLE_LABELS[c]}`}
+              style={{ position: 'absolute', ...at(i), width: box, height: box, alignItems: 'center', justifyContent: 'center' }}>
               <Face name={f.name} photoUrl={f.photoUrl} circle={c} size={faceSize} ring />
-            </View>
+            </Pressable>
           ));
           if (extra > 0) {
             nodes.push(
-              <View
+              <Pressable
                 key={`more-${c}`}
-                style={{
-                  position: 'absolute',
-                  ...at(shown.length),
-                  width: faceSize,
-                  height: faceSize,
-                  borderRadius: faceSize / 2,
-                  backgroundColor: palette.card,
-                  borderWidth: 1.5,
-                  borderColor: circles[c].ringLine,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <Text style={{ color: circles[c].text, fontWeight: '700', fontSize: 13 }}>+{extra}</Text>
-              </View>
+                onPress={() => onRingPress(c)}
+                accessibilityRole="button"
+                accessibilityLabel={`${extra} more in ${CIRCLE_LABELS[c]}`}
+                style={{ position: 'absolute', ...at(shown.length), width: box, height: box, alignItems: 'center', justifyContent: 'center' }}>
+                <View
+                  style={{
+                    width: faceSize,
+                    height: faceSize,
+                    borderRadius: faceSize / 2,
+                    backgroundColor: palette.card,
+                    borderWidth: 1.5,
+                    borderColor: circles[c].ringLine,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Text style={{ color: circles[c].text, fontWeight: '700', fontSize: 13 }}>+{extra}</Text>
+                </View>
+              </Pressable>
             );
           }
           return nodes;

@@ -168,6 +168,78 @@ http
       // 2026-10-17: ZIP lookup stand-in for the joining walk (qa-onboard).
       if (p === '/functions/v1/geocode-city') return send(res, 200, { city: 'Los Angeles', state: 'CA', lat: 34.0522, lng: -118.2437 });
       if (p.startsWith('/functions/v1/')) return send(res, 200, { error: 'Not available in the local test copy' });
+      // 2026-10-26: private bucket friend-photos. Every access is checked
+      // against the real storage.objects row-level rules, run as the
+      // signed-in person, the way Supabase Storage does it.
+      const priv = p.match(/^\/storage\/v1\/object\/(sign\/)?(friend-photos)\/(.+)$/);
+      if (priv || (p === '/storage/v1/object/friend-photos' && req.method === 'DELETE')) {
+        const fs = require('fs'); const path = require('path');
+        const dir = path.join(__dirname, '.local', 'storage', 'friend-photos');
+        const asUser = async (fn) => {
+          const c = await pool.connect();
+          try {
+            await c.query('begin');
+            await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(claims || { role: 'anon' })]);
+            await c.query(`set local role ${claims && claims.role === 'authenticated' ? 'authenticated' : 'anon'}`);
+            const r = await fn(c);
+            await c.query('commit');
+            return r;
+          } catch (e) {
+            await c.query('rollback').catch(() => {});
+            return { error: String(e.message || e) };
+          } finally {
+            c.release();
+          }
+        };
+        if (!priv) {
+          // remove: body { prefixes: [...] }
+          const body = JSON.parse((await readBody(req)) || '{}');
+          const out = await asUser(async (c) => {
+            const removed = [];
+            for (const name of body.prefixes || []) {
+              const r = await c.query("delete from storage.objects where bucket_id = 'friend-photos' and name = $1 returning name", [name]);
+              if (r.rowCount) removed.push(name);
+            }
+            return { removed };
+          });
+          if (out.error) return send(res, 400, { error: out.error });
+          for (const name of out.removed) fs.rmSync(path.join(dir, name.replace(/\.\./g, '')), { force: true });
+          return send(res, 200, out.removed.map((name) => ({ name })));
+        }
+        const isSign = Boolean(priv[1]);
+        const name = decodeURIComponent(priv[3]).replace(/\.\./g, '');
+        const file = path.join(dir, name);
+        const tokenFor = (n, exp) => crypto.createHmac('sha256', SECRET).update(`friend-photos/${n}:${exp}`).digest('hex');
+        if (isSign && req.method === 'POST') {
+          const out = await asUser((c) => c.query("select 1 from storage.objects where bucket_id = 'friend-photos' and name = $1", [name]));
+          if (out.error || !out.rowCount) return send(res, 400, { statusCode: '404', error: 'not_found', message: 'Object not found' });
+          const body = JSON.parse((await readBody(req)) || '{}');
+          const exp = Math.floor(Date.now() / 1000) + Number(body.expiresIn || 60);
+          return send(res, 200, { signedURL: `/object/sign/friend-photos/${encodeURIComponent(name).replace(/%2F/g, '/')}?token=${tokenFor(name, exp)}&exp=${exp}` });
+        }
+        if (isSign && req.method === 'GET') {
+          const exp = Number(url.searchParams.get('exp'));
+          if (!exp || exp * 1000 < Date.now() || url.searchParams.get('token') !== tokenFor(name, exp) || !fs.existsSync(file)) {
+            return send(res, 400, { statusCode: '400', error: 'invalid', message: 'Invalid or expired link' });
+          }
+          res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Access-Control-Allow-Origin': '*' });
+          return res.end(fs.readFileSync(file));
+        }
+        if (!isSign && (req.method === 'POST' || req.method === 'PUT')) {
+          const chunks = []; for await (const ch of req) chunks.push(ch);
+          const out = await asUser(async (c) => {
+            await c.query("delete from storage.objects where bucket_id = 'friend-photos' and name = $1", [name]);
+            await c.query("insert into storage.objects (bucket_id, name, owner) values ('friend-photos', $1, $2)", [name, claims ? claims.sub : null]);
+            return { ok: true };
+          });
+          if (out.error) return send(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.writeFileSync(file, Buffer.concat(chunks));
+          return send(res, 200, { Key: `friend-photos/${name}`, Id: name });
+        }
+        // A private bucket is never readable without a signed link.
+        return send(res, 400, { statusCode: '400', error: 'private', message: 'Bucket not found' });
+      }
       // 2026-10-17: tiny storage stand-in (photo and selfie uploads) for the joining walk.
       if (p.startsWith('/storage/v1/object/')) {
         const fs = require('fs'); const path = require('path');

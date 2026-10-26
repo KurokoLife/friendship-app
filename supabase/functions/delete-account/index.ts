@@ -65,6 +65,18 @@ Deno.serve(async (req: Request) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // 2026-10-26: photos of friends added in Your circle are private files in
+  // the friend-photos bucket (folder = the user's id). Remove them too, so
+  // nothing of theirs is left behind. A failure here doesn't stop the delete.
+  try {
+    const { data: files } = await adminClient.storage.from('friend-photos').list(user.id, { limit: 1000 });
+    if (files && files.length > 0) {
+      await adminClient.storage.from('friend-photos').remove(files.map((f) => `${user.id}/${f.name}`));
+    }
+  } catch {
+    // keep going
+  }
+
   const { error } = await adminClient.auth.admin.deleteUser(user.id);
   if (error) {
     return jsonResponse({ error: error.message }, 500);

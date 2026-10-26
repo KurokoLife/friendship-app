@@ -283,3 +283,13 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Found by the tests: the open plan card could fill a phone screen (now capped at half, scrolls); ring taps on the web needed their own measuring.
 - "Every profile is a person" wording found elsewhere is listed in docs/DECISIONS.md section 12 (not changed: stages 4 and 6).
 
+
+## 2026-10-26: Rebuild stage 1c, Your circle fixes
+
+- Pulled the updated 05 (Notifications section, person page, next check-in date, photos, desktop option A, stages 1c and 3b). Built 1c only.
+- Faces in the circles picture open the person (Limen: chat; outside: their page); empty ring parts still jump to the list.
+- Person page for friends outside Limen with the next check-in line; the same line under the rhythm choice while adding or editing. The rule is one pair of database functions so stage 3 uses the same date.
+- Private photos for friends outside Limen (own folder, signed links, removed with the friend and on account deletion; delete-account changed).
+- Test copy: the storage stand-in now checks the real storage rules for friend-photos; test bootstrap grants storage tables like real Supabase.
+- Migration 20261026000000. Function to deploy: delete-account. qa-person 34/34, qa-circle 78/78, circlesql all true.
+

@@ -16,7 +16,7 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 8. Graduation | Not reviewed yet |
 | 9. Remember and Guide | Remember decided and built 2026-10-10. Guide: a draft plan is below, founder still deciding which videos |
 | 10. Money and settings | Not reviewed yet |
-| Rebuild (docs/context/05_LIMEN_REBUILD.md) | Stage 1 built 2026-10-25 (section 11). Stage 1b design pass built 2026-10-25 (section 12). Stages 2 to 6 not started |
+| Rebuild (docs/context/05_LIMEN_REBUILD.md) | Stage 1 built 2026-10-25 (section 11). Stage 1b design pass built 2026-10-25 (section 12). Stage 1c Your circle fixes built 2026-10-26 (section 13). Stages 2 to 6 not started |
 
 ---
 
@@ -194,6 +194,18 @@ Guideline: docs/context/05_LIMEN_REBUILD.md, "Design guide" (version 1) and "Eve
 10. **Every profile is a person, found but not changed yet** (stages 4 and 6): "this match closes quietly" (Chats, the new-chat card, and inside the chat), "This person has chosen who can message them first, and it isn't a match right now" (chat), "Nobody can pay for more matches" (How Limen is paid for), "deletes your profile, matches, conversations" (delete account), "Not the right friendship match" (a private ending reason), "as a user of this app" (placeholder Terms), "A member" as the name fallback when a name is missing (several screens), "Not for me" on Discover (05 says "Not now"), "Skip" on the plan limits step, and "N% complete" on your own Profile (about your own profile, not a score of a person; flagged for a decision). The Test tab says "matches" too (admins only). No scores, likes, views or match counts were found anywhere.
 
 Tests: `qa-circle` (78 checks) plus every other suite updated for sentence case, the new link taps and the moved waiting lines.
+
+## 13. Rebuild stage 1c: Your circle fixes (decided and built 2026-10-26)
+
+Guideline: docs/context/05_LIMEN_REBUILD.md, "Your circle" (person page, next check-in date, photos).
+
+1. **Faces open the person.** In the circles picture each face is its own button (44px tap area): a Limen person opens their chat, a friend added outside Limen opens their page. Tapping an empty part of a ring, or a "+N" bubble, still jumps to that part of the list (`src/components/circles-picture.tsx`).
+2. **Person page** for a friend outside Limen (`src/app/friend/[id].tsx`): a large face, name, Edit, the circle row (move to another circle), how often you'd like to be in touch with the next check-in line under it, the private note, "Only you see this." The reach-out buttons go just under the name in stage 3 (a marked spot in the code; nothing shown yet). Limen people still open their chat.
+3. **Next check-in date, one rule in one place (the database):** `outside_friend_next_check_in(friend, time zone, rhythm?)` picks where the count starts (the last time you reached out, `outside_friends.last_reached_at`, which stage 3 fills in; until then the day the friend was added, as a day in the person's own time zone) and `circle_next_check_in(day, rhythm)` adds the rhythm: every few days +3 days, every week +7, every two weeks +14, every month +1 month, every few months +3 months, a few times a year +4 months, no suggestions = no date. Stage 3 suggestions must call the same functions. The app only words it: "Limen will bring Momo up again around Nov 8." (year added when it isn't this year). Shown on the person page and right under the rhythm choice when adding or editing, updating as the choice changes; never on the list. Two cases 05 didn't word (founder to OK): a date that has already passed reads "Limen will bring Momo up again soon."; "No suggestions" reads "Limen won't bring Momo up on its own."
+4. **Photos for friends outside Limen:** optional, from the photo library (from the linked phone contact once contact linking exists in stage 3). Stored in a private storage bucket, `friend-photos`, in a folder named after the owner's user id; storage rules let only the owner upload, read (through a link that lasts an hour), replace or remove them; `outside_friends.photo_path` must point into the owner's own folder (checked by the database). Used for nothing else. Removing the friend removes the photo; deleting the account removes all of them (`delete-account` function). Without a photo, the colored initial stays. The form says "Only you see it, and it's used for nothing else."
+5. **Design guide and "Every profile is a person"** followed: faces everywhere, called by name, no dates on the list.
+
+Migration `20261026000000_circle_person_page.sql`. Function changed: `delete-account`. Tests: `qa-person` (34: face taps open the person, empty ring part jumps, the person page, the next-date line while adding and editing, counting from the last reach-out, photo upload, photo privacy through storage and the API, phone and laptop), `qa/sql-checks/circlesql.sql` (the date rule including month ends and time zones, and storage privacy), `qa-circle` (78).
 
 ## Founder to-do list (not code)
 

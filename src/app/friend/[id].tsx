@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { goBack } from '@/lib/navigation';
+import { CirclePickerSheet } from '@/components/circle-picker';
+import { Face, Pill, RowLink } from '@/components/ui';
 import {
   CIRCLES,
   CIRCLE_LABELS,
@@ -14,17 +15,22 @@ import {
   RHYTHM_LABELS,
   RHYTHM_LINES,
   fetchOutsideFriend,
+  friendPhotoUrl,
   moveOutsideFriend,
+  nextCheckIn,
+  nextCheckInLine,
+  removeFriendPhoto,
   removeOutsideFriend,
   rhythmFits,
   saveOutsideFriend,
+  setFriendPhoto,
   type Circle,
   type OutsideFriend,
   type Rhythm,
 } from '@/lib/circle';
+import { goBack } from '@/lib/navigation';
+import { PHOTO_RULES_TEXT, pickProfilePhoto, type PickedPhoto } from '@/lib/photo-picker';
 import { palette } from '@/theme';
-import { CirclePickerSheet } from '@/components/circle-picker';
-import { Face, Pill, RowLink } from '@/components/ui';
 
 const MUTED_ICON_COLOR = palette.muted;
 
@@ -45,15 +51,37 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
   );
 }
 
-// A friend from outside Limen (rebuild stage 1, 2026-10-25). One screen for
-// adding (id "new"), seeing and editing. Name, circle, how often you'd like
-// to be in touch (choices that fit the circle), an optional note. No phone
-// number or email: Limen never stores them. Private to you.
+// The next check-in line for a rhythm, from the one rule in the database
+// (circle_next_check_in). Updates as the rhythm changes.
+function useNextLine(name: string, friendId: string | null, rhythm: Rhythm | null): string | null {
+  const [line, setLine] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (!rhythm) {
+      setLine(null);
+      return;
+    }
+    nextCheckIn(friendId, rhythm).then((day) => {
+      if (live) setLine(nextCheckInLine(name.trim() || 'them', day, rhythm));
+    });
+    return () => {
+      live = false;
+    };
+  }, [name, friendId, rhythm]);
+  return line;
+}
+
+// A friend from outside Limen (stage 1, 2026-10-25; person page stage 1c,
+// 2026-10-26). One screen for adding (id "new"), the person page and
+// editing. The person page shows their face, name, circle, how often you'd
+// like to be in touch, when Limen will bring them up again, your note, and
+// Edit. No phone number or email: Limen never stores them. Private to you.
 // Text / Call / Email and suggestions come in stage 3.
 export default function FriendScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
   const [friend, setFriend] = useState<OutsideFriend | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(isNew);
   const [editing, setEditing] = useState(isNew);
   const [name, setName] = useState('');
@@ -63,19 +91,32 @@ export default function FriendScreen() {
   // own usual rhythm.
   const [rhythmPicked, setRhythmPicked] = useState(false);
   const [note, setNote] = useState('');
+  // A photo picked in the form, uploaded on save (or "remove" the saved one).
+  const [newPhoto, setNewPhoto] = useState<PickedPhoto | null>(null);
+  const [dropPhoto, setDropPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const load = async (friendId: string) => {
+    const f = await fetchOutsideFriend(friendId);
+    setFriend(f);
+    setPhotoUrl(await friendPhotoUrl(f?.photo_path ?? null));
+    setLoaded(true);
+  };
+
   useEffect(() => {
     if (isNew || !id) return;
-    fetchOutsideFriend(id).then((f) => {
-      setFriend(f);
-      setLoaded(true);
-    });
+    load(id);
   }, [id, isNew]);
+
+  // The count starts from the last time you reached out, or the day they
+  // were added (today, for someone new). The database decides.
+  const friendId = isNew ? null : (friend?.id ?? null);
+  const pageLine = useNextLine(friend?.name ?? '', friendId, friend && !editing ? friend.rhythm : null);
+  const formLine = useNextLine(name, friendId, editing ? rhythm : null);
 
   const startEdit = (f: OutsideFriend) => {
     setName(f.name);
@@ -83,6 +124,8 @@ export default function FriendScreen() {
     setRhythm(f.rhythm);
     setRhythmPicked(true);
     setNote(f.note ?? '');
+    setNewPhoto(null);
+    setDropPhoto(false);
     setError(null);
     setEditing(true);
   };
@@ -90,6 +133,17 @@ export default function FriendScreen() {
   const pickCircle = (c: Circle) => {
     setCircle(c);
     if (!rhythmPicked || !rhythm || !rhythmFits(c, rhythm)) setRhythm(DEFAULT_RHYTHM[c]);
+  };
+
+  const choosePhoto = async () => {
+    setError(null);
+    const picked = await pickProfilePhoto();
+    if (picked.ok) {
+      setNewPhoto(picked.photo);
+      setDropPhoto(false);
+    } else if (!('cancelled' in picked && picked.cancelled)) {
+      setError('message' in picked && picked.message ? picked.message : "That photo didn't work. Try another.");
+    }
   };
 
   const save = async () => {
@@ -104,17 +158,26 @@ export default function FriendScreen() {
     setSaving(true);
     setError(null);
     const result = await saveOutsideFriend(isNew ? null : (friend?.id ?? null), { name, circle, rhythm, note });
-    setSaving(false);
     if ('error' in result) {
+      setSaving(false);
       setError("That didn't save. Please try again.");
+      return;
+    }
+    let photoOk = true;
+    if (newPhoto) photoOk = await setFriendPhoto(result.id, newPhoto);
+    else if (dropPhoto && friend) photoOk = await removeFriendPhoto(friend);
+    setSaving(false);
+    if (!photoOk) {
+      // The rest is saved; say so plainly and stay in the form.
+      setError("Saved, but the photo didn't upload. Try again.");
+      if (isNew) router.replace({ pathname: '/friend/[id]', params: { id: result.id } });
       return;
     }
     if (isNew) {
       router.replace('/circle');
       return;
     }
-    const fresh = await fetchOutsideFriend(result.id);
-    setFriend(fresh);
+    await load(result.id);
     setEditing(false);
   };
 
@@ -160,6 +223,10 @@ export default function FriendScreen() {
     );
   }
 
+  // The face in the form: the newly picked photo, the saved one, or the initial.
+  const formFaceUrl = newPhoto ? newPhoto.uri : dropPhoto ? null : photoUrl;
+  const formCircle = circle ?? friend?.circle ?? 'getting_to_know';
+
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-900">
       <SafeAreaView className="flex-1">
@@ -200,15 +267,45 @@ export default function FriendScreen() {
                   </Text>
                   <View className="flex-row flex-wrap gap-2">
                     {CIRCLE_RHYTHMS[circle].map((r) => (
-                      <Chip key={r} label={RHYTHM_LABELS[r]} on={rhythm === r} onPress={() => {
+                      <Chip
+                        key={r}
+                        label={RHYTHM_LABELS[r]}
+                        on={rhythm === r}
+                        onPress={() => {
                           setRhythm(r);
                           setRhythmPicked(true);
-                        }} />
+                        }}
+                      />
                     ))}
                   </View>
+                  {formLine && (
+                    <Text accessibilityLiveRegion="polite" className="text-body text-stone-700 dark:text-stone-300">
+                      {formLine}
+                    </Text>
+                  )}
                   <Text className="text-caption text-stone-500 dark:text-stone-400">{RHYTHM_LINES[circle]}</Text>
                 </View>
               )}
+
+              <View className="gap-2">
+                <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Photo, if you like</Text>
+                <View className="flex-row flex-wrap items-center gap-3">
+                  <Face name={name.trim() || '?'} circle={formCircle} photoUrl={formFaceUrl} size={56} />
+                  <Pill label={formFaceUrl ? 'Choose another photo' : 'Choose a photo'} onPress={choosePhoto} />
+                  {formFaceUrl && (
+                    <Pill
+                      label="Remove photo"
+                      onPress={() => {
+                        setNewPhoto(null);
+                        setDropPhoto(true);
+                      }}
+                    />
+                  )}
+                </View>
+                <Text className="text-caption text-stone-500 dark:text-stone-400">
+                  Only you see it, and it&apos;s used for nothing else. {PHOTO_RULES_TEXT}
+                </Text>
+              </View>
 
               <View className="gap-2">
                 <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">Note, if you like</Text>
@@ -226,11 +323,12 @@ export default function FriendScreen() {
                 />
               </View>
 
-              {error && <Text className="text-caption text-red-600 dark:text-red-400">{error}</Text>}
+              {error && <Text className="text-caption text-red-700 dark:text-red-400">{error}</Text>}
 
               <Pressable
                 onPress={save}
                 disabled={saving}
+                accessibilityRole="button"
                 className={`min-h-12 items-center justify-center rounded-full bg-apricot py-3 active:opacity-80 ${saving ? 'opacity-40' : ''}`}>
                 <Text className="text-body font-semibold text-white">{isNew ? 'Add' : 'Save'}</Text>
               </Pressable>
@@ -240,7 +338,7 @@ export default function FriendScreen() {
                   {confirmRemove ? (
                     <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
                       <Text className="text-body text-stone-700 dark:text-stone-300">
-                        Remove {friend.name} from Your circle? Your note goes too.
+                        Remove {friend.name} from Your circle? Your note and photo go too.
                       </Text>
                       <View className="flex-row gap-3">
                         <Pill label="Keep" className="flex-1" onPress={() => setConfirmRemove(false)} />
@@ -256,11 +354,17 @@ export default function FriendScreen() {
           ) : (
             friend && (
               <>
-                <View className="flex-row items-center gap-4">
-                  <Face name={friend.name} circle={friend.circle} size={64} />
-                  <Text className="flex-1 text-display text-stone-900 dark:text-stone-50">{friend.name}</Text>
-                  <Pill label="Edit" onPress={() => startEdit(friend)} />
+                {/* The person page. */}
+                <View className="items-center gap-3">
+                  <Face name={friend.name} circle={friend.circle} photoUrl={photoUrl} size={96} />
+                  <Text accessibilityRole="header" className="text-center text-display text-stone-900 dark:text-stone-50">
+                    {friend.name}
+                  </Text>
+                  <Pill label="Edit" icon="create-outline" onPress={() => startEdit(friend)} />
                 </View>
+                {/* Stage 3 puts the reach-out buttons here (Text / Call / Email
+                    on the phone app; "Reach out however you usually do" and
+                    "I reached out" on a computer). */}
                 <RowLink
                   title={`Circle: ${CIRCLE_LABELS[friend.circle]}`}
                   subtitle="Move to another circle"
@@ -274,6 +378,7 @@ export default function FriendScreen() {
                   <View className="gap-0.5">
                     <Text className="text-caption text-stone-500 dark:text-stone-400">How often you&apos;d like to be in touch</Text>
                     <Text className="text-body text-stone-800 dark:text-stone-200">{RHYTHM_LABELS[friend.rhythm]}</Text>
+                    {pageLine && <Text className="text-body text-stone-700 dark:text-stone-300">{pageLine}</Text>}
                   </View>
                   <View className="gap-0.5">
                     <Text className="text-caption text-stone-500 dark:text-stone-400">Note</Text>
@@ -298,7 +403,7 @@ export default function FriendScreen() {
                       return;
                     }
                     setMoving(false);
-                    setFriend(await fetchOutsideFriend(friend.id));
+                    await load(friend.id);
                   }}
                 />
               </>

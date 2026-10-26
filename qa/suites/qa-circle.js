@@ -253,7 +253,7 @@ async function rest(user, path, opts = {}) {
   await go(p.page, `/friend/${F}`, 2500);
   await tap(p.page, 'Edit', { wait: 800 });
   await tap(p.page, 'Remove from Your circle', { wait: 800 });
-  check('Remove asks first', (await text(p.page)).includes('Remove Sam O. from Your circle? Your note goes too.'));
+  check('Remove asks first', (await text(p.page)).includes('Remove Sam O. from Your circle? Your note and photo go too.'));
   await tap(p.page, 'Remove', { wait: 2500 });
   check('Removed', (await q(`select count(*)::int n from outside_friends where id=$1`, [F]))[0].n === 0 && p.page.url().endsWith('/circle'));
 
