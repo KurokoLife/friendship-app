@@ -293,3 +293,11 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Test copy: the storage stand-in now checks the real storage rules for friend-photos; test bootstrap grants storage tables like real Supabase.
 - Migration 20261026000000. Function to deploy: delete-account. qa-person 34/34, qa-circle 78/78, circlesql all true.
 
+
+
+## 2026-10-26: Rebuild stage 2, Joining
+
+- Founder-approved Your circle wording: new empty state, no "Nobody here yet." under empty circles, the two next check-in lines approved.
+- Joining per 05: two intro screens, then after Basics: What's hardest (private), Think about your friends (names straight into Your circle with the default rhythm per circle), Here's where Limen can help (filled in from What's hardest). Meet someone new runs today's profile setup with the liking-gap line moved to Start with you; without it, no profile, a Your circle card and a Discover invitation offer it later, and nobody is shown to them or them to anyone. Everyone ends with Keep your account safe and All set. Existing members count as Meet someone new.
+- Drafts for the founder: the Your circle card, the Discover invitation, the hardest-to-help mapping, the All set without a profile, and a few helper lines (DECISIONS section 14).
+- Migration 20261026000001. No server functions changed. qa-onboard 127/127 (both branches), joiningsql all true.

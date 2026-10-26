@@ -1,15 +1,15 @@
 # Limen: status, open decisions and to-dos
 
-Last updated 2026-10-25. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
+Last updated 2026-10-26. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
 
 ## Rebuild (docs/context/05_LIMEN_REBUILD.md)
 
 | Stage | Status |
 |---|---|
-| 1. New home and tabs | Built 2026-10-25 (migration 20261025000000). Waiting: founder OK on the Your circle empty-state wording |
+| 1. New home and tabs | Built 2026-10-25 (migration 20261025000000). Empty-state wording approved Oct 26 |
 | 1b. Design pass | Built 2026-10-25 (migration 20261025000001). Look is version 1; founder to review after pilot feedback |
-| 1c. Your circle fixes | Built 2026-10-26 (migration 20261026000000; redeploy delete-account). To OK: "soon" and "won't bring X up" wording |
-| 2. Joining | Not started |
+| 1c. Your circle fixes | Built 2026-10-26 (migration 20261026000000; redeploy delete-account). "soon" and "won't bring X up" wording approved Oct 26 |
+| 2. Joining | Built 2026-10-26 (migration 20261026000001). To OK: Your circle profile card, Discover invitation, hardest-to-help mapping, All set without a profile (docs/DECISIONS.md section 14). Voice pass on profile screens left for stage 6 |
 | 3. Suggestions (needs a real phone test) | Not started |
 | 4. Say hi | Not started |
 | 5. Planning | Not started |

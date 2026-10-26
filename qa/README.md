@@ -41,6 +41,7 @@ psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/remsql.sql
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/notesql.sql   # notes privacy
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/meetanswersql.sql   # "Did you meet?" on old cards, topics
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/discoversql.sql   # Discover, Interested, Saved, hidden chats
+psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/joiningsql.sql   # joining answers private, Meet someone new rule
 ```
 
 Suites and what they cover (all passing on 2026-10-10):
@@ -58,7 +59,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-share | "Remind me later" after a good meetup |
 | qa-notes | Remember in the chat: bar, notes by meetup, free notes with topic chips, search and filters from 6 notes, Next time list, planning card (incl. "Ideas for us"), check-in, setting, ended chats, Settings download |
 | qa-pending | Interested always saved to Inbox, Pending; both interested + both selfies approved opens the chat; four tabs fit a phone |
-| qa-onboard | Joining from the first screen to Discover as a brand-new number: two-screen intro, then sign-up, Basics and Start with you (stories with guides, saved to the account as you write, comes back after leaving), recovery near the end, new order, no values or summary, ground rules, preview (every step, photo upload), side margins, Save, Interested, Pending, chat opening, first-time tips as cards that never cover a button |
+| qa-onboard | Joining as two brand-new numbers (stage 2): with Meet someone new (two intro screens, sign-up, Basics, What's hardest, friends into Your circle with the right rhythm, where Limen can help, then Start with you (stories with guides, saved to the account as you write, comes back after leaving), recovery near the end, new order, no values or summary, ground rules, preview (every step, photo upload), side margins, Save, Interested, Pending, chat opening, first-time tips as cards that never cover a button; then without Meet someone new: no profile, All set without the selfie, the Your circle card and Discover invitation, never suggested to others, hardest answers private through the API |
 | qa-profile | Small photo + viewer, one completion %, connection summary, Edit profile list with matching labels, Settings (sign-in, take a break, no invite), selfie and privacy wording |
 | qa-place | Place search: Google first (real `place-search` function on :8000 with Google's answers faked; start it with `bash qa/start-place-fn.sh`), nearest first, one billing session, OpenStreetMap backup |
 | qa-inbox-chat | Inbox and chat end to end: rows, scam note, sending shows right away, Reflect, Reminders, Report, Block, Back |

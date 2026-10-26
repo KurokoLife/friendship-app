@@ -1,6 +1,6 @@
 # Limen: what it is and how it works today
 
-Last updated 2026-10-25. Since Oct 25 the rebuild guideline docs/context/05_LIMEN_REBUILD.md sets the direction; this file still describes what is built, stage by stage. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
+Last updated 2026-10-26. Since Oct 25 the rebuild guideline docs/context/05_LIMEN_REBUILD.md sets the direction; this file still describes what is built, stage by stage. Short version of docs/DECISIONS.md, docs/LIMEN_V2_DECISIONS.md and the "LIMEN V2 DECISIONS" bullets at the top of AGENTS.md. Where older documents disagree (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md, CURRENT_STATE.md, FULL_APP_INVENTORY.md, PRODUCT_GUIDE.md, the blueprint), this file and those three win.
 
 ## 1. What Limen is
 
@@ -30,17 +30,17 @@ Working rules that follow from these:
 
 ## 3. Joining (onboarding)
 
-Since Oct 18, joining starts with the person (proposal doc "Limen: Joining and profile proposal"). Since Oct 19, sign-up comes right after the intro (like most apps), so writing is saved to the account and follows the person to any device:
-1. Intro, one screen (since Oct 22): "Making friends as an adult is hard. It's not just you.", the liking-gap line, and "Limen introduces you to one person at a time, and helps with the parts that can feel awkward, from a first hello to meeting in person" (no promise of a friend), no swiping, no perfect profile. "Join Limen" and "Already a member? Sign in".
-2. Phone number and code (sign-up).
-3. Basics (name, birthdate). Under 18 is turned away here, before anything else (the database refuses it too).
-4. Start with you: "What brings you to Limen?" (open box) and "Share a story so people can get to know you" (up to 3 stories; 5 optional guides to start from, never shown to readers). Saved to the account as the person writes, so they can start on the phone and finish on a computer. Someone who leaves comes back here, with what they wrote filled in.
-5. What you enjoy: interests, each with an optional line in your own words (each interest shows its own example line).
-6. Practical bits: where you're based; friendship type, meeting pace, reply pace, free times; bars or drinks (Fine with me / I'd rather not / I don't drink); Good to know about me; languages (at least one; English starts selected). ("How I like care" was removed Oct 24.) Then who you'd like to meet and ages.
-7. How you connect: 6 questions about friendship habits, any number of answers each, then "Share with people you connect with?" (Share with people I connect with / Keep private, equal, no default). Never used for matching.
-8. Photo. 9. Before you start: "Everyone here agrees to the same few things": Friendship only / Honest is kinder than quiet / Meet somewhere public first / Answer every hello, even with a "no thanks" (the quiet-chat rule spelled out: twice within two months, later in suggestions for the next month), then "Sounds good". 10. "Here's what people will see" preview. 11. Keep your account safe (account recovery, optional; moved here from after Basics). 12. All set, with the selfie check offer.
+Since Oct 26 (rebuild stage 2, exact wording from 05):
+1. Intro, two screens: "Most friendships don't end. They drift." (Next), then "Friendships are made of small moments." with the three ways Limen helps (keep up with friends you have, reconnect, meet someone new one at a time in person), "Wherever your friendships are right now, you can start here.", "Join Limen" and "Already a member? Sign in".
+2. Phone number and code (sign-up). 3. Basics (name, birthdate; under 18 turned away, the database refuses it too).
+4. What's hardest about friendship for you right now? Ten choices, pick any, plus Something else in your own words. Private, never used for matching.
+5. Think about your friends right now: names, each with a circle (Close by default; "Anyone you've lost touch with..." goes to Want to reconnect), saved straight into Your circle with the circle's default rhythm. "Most adults name one to four close friends. None is more common than people think." Skippable.
+6. Here's where Limen can help: five choices, filled in from What's hardest, changeable.
+7. With Meet someone new: the profile, as before: Start with you (with the liking-gap line at the top; what brings you here and up to 3 stories, saved as you write), What you enjoy, practical bits (location; friendship type, meeting pace, reply pace, free times; bars or drinks; Good to know about me; languages), who you'd like to meet and ages, How you connect (6 questions, then Share / Keep private), photo, Before you start (the ground rules), "Here's what people will see" preview.
+   Without it: no profile; Your circle offers it later in a card ("Meet someone new, too?", Not now puts it away), and Discover shows an invitation instead of people. They aren't shown to anyone until they finish a profile.
+8. Everyone: Keep your account safe (account recovery, optional), then All set (with the selfie check offer only for Meet someone new).
 
-No "Step N of 10", no "Required" labels. Every joining screen after the intro has Back. The two onboarding videos and quiz were removed from joining (they stay in the Guide).
+Saved as you go; opening the app while joining goes back to the first unfinished step. Back on every screen after the first. No "Step N of 10", no "Required" labels. Members who joined before Oct 26 count as having chosen Meet someone new.
 
 ## 4. Profile
 
