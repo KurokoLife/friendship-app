@@ -154,7 +154,9 @@ export default function ProfileBasicsScreen() {
     // Basics and saves straight to the profile. flushStartDraft only picks
     // up a draft left on this device by the older order.
     await flushStartDraft();
-    router.replace('/start-with-you');
+    // 2026-10-26 (rebuild stage 2): "What's hardest" comes next; the profile
+    // ("Start with you" onward) only for people who choose Meet someone new.
+    router.replace('/joining-hardest');
   };
 
   return (

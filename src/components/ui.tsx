@@ -147,3 +147,24 @@ export function Face({
     </View>
   );
 }
+
+// One choice in a "pick any" list: the whole row is the tap target, with a
+// checkbox on the left (stage 2, joining).
+export function CheckRow({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      aria-checked={checked}
+      accessibilityLabel={label}
+      className={`min-h-12 flex-row items-center gap-3 rounded-2xl border px-4 py-3 active:opacity-80 ${
+        checked
+          ? 'border-apricot bg-honey dark:border-apricot dark:bg-stone-800'
+          : 'border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800'
+      }`}>
+      <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={22} color={checked ? palette.apricot : palette.muted} />
+      <Text className="flex-1 text-body text-stone-900 dark:text-stone-50">{label}</Text>
+    </Pressable>
+  );
+}

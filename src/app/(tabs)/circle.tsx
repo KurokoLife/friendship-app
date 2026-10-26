@@ -27,6 +27,7 @@ import {
   type PendingPerson,
   type SelfieStatus,
 } from '@/lib/safety';
+import { fetchJoining, saveJoining, wantsToMeetNew } from '@/lib/joining';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { layout, palette } from '@/theme';
 
@@ -51,6 +52,9 @@ export default function CircleScreen() {
   const [friendPhotos, setFriendPhotos] = useState<Record<string, string>>({});
   const [closed, setClosed] = useState<PendingPerson[]>([]);
   const [selfie, setSelfie] = useState<SelfieStatus>('approved');
+  // Joined without "Meet someone new" (stage 2): a card offers the profile
+  // until they set it up or say Not now.
+  const [offerProfile, setOfferProfile] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const listTop = useRef(0);
   const sectionY = useRef<Partial<Record<Circle, number>>>({});
@@ -70,12 +74,14 @@ export default function CircleScreen() {
     // A pair that became ready (a selfie approved, room freed) opens first,
     // so it shows as a chat rather than as waiting.
     await openReadyInterests().catch(() => 0);
-    const [people, friends, pending, selfieNow] = await Promise.all([
+    const [people, friends, pending, selfieNow, joining] = await Promise.all([
       fetchMyPeople(),
       fetchOutsideFriends(),
       fetchMyPending(),
       fetchMySelfieStatus(),
+      fetchJoining(),
     ]);
+    setOfferProfile(!wantsToMeetNew(joining) && !joining?.meet_offer_hidden_at);
     setLimen(people);
     setOutside(friends);
     const urls = await Promise.all(friends.map(async (f) => [f.id, await friendPhotoUrl(f.photo_path)] as const));
@@ -149,6 +155,28 @@ export default function CircleScreen() {
             text="People you meet on Limen show up here on their own. Add anyone else you'd like to keep up with."
           />
 
+          {offerProfile && (
+            // Draft wording, waiting for the founder's OK.
+            <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-title text-stone-900 dark:text-stone-50">Meet someone new, too?</Text>
+              <Text className="text-body text-stone-600 dark:text-stone-300">
+                Limen can introduce you to one person at a time who lives nearby, to meet in person. It starts with a
+                short profile in your own words.
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                <Pill label="Set up my profile" variant="filled" onPress={() => router.push('/start-with-you')} />
+                <Pill
+                  label="Not now"
+                  onPress={() => {
+                    setOfferProfile(false);
+                    saveJoining({ meet_offer_hidden_at: new Date().toISOString() });
+                  }}
+                />
+              </View>
+              <Text className="text-caption text-stone-500 dark:text-stone-400">You can also start anytime from Discover.</Text>
+            </View>
+          )}
+
           {!isSupabaseConfigured && (
             <Text className="text-caption text-amber-700 dark:text-amber-400">Supabase isn&apos;t configured yet. See .env.example.</Text>
           )}
@@ -181,11 +209,11 @@ export default function CircleScreen() {
           />
 
           {nobody && isSupabaseConfigured ? (
-            // Empty state. Draft wording, waiting for the founder's OK.
+            // Empty state (wording approved by the founder 2026-10-26).
             <View className="gap-2 rounded-2xl border border-stone-200 bg-white p-6 dark:border-stone-700 dark:bg-stone-800">
-              <Text className="text-title text-stone-900 dark:text-stone-50">Who would you like to keep up with?</Text>
+              <Text className="text-title text-stone-900 dark:text-stone-50">Who would you like to stay close to?</Text>
               <Text className="text-body text-stone-600 dark:text-stone-300">
-                Add a friend you&apos;d like to see more of, or someone you&apos;ve lost touch with. A first name is enough,
+                Add someone you&apos;d like to see more of, or someone you&apos;ve lost touch with. A first name is enough,
                 and only you see this list.
               </Text>
               <Text className="text-caption text-stone-500 dark:text-stone-400">People you meet on Limen will show up here too.</Text>
@@ -226,10 +254,7 @@ export default function CircleScreen() {
                         )}
                       </View>
                     )}
-                    {inCircle.length === 0 ? (
-                      <Text className="text-caption text-stone-500 dark:text-stone-400">Nobody here yet.</Text>
-                    ) : (
-                      inCircle.map((row) => (
+                    {inCircle.map((row) => (
                         <RowLink
                           key={row.key}
                           title={row.name}
@@ -244,8 +269,7 @@ export default function CircleScreen() {
                           }
                           onPress={() => open(row)}
                         />
-                      ))
-                    )}
+                      ))}
                   </View>
                 );
               })}

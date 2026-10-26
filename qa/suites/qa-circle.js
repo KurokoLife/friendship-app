@@ -44,7 +44,7 @@ async function rest(user, path, opts = {}) {
   check('Tip is short, with a "Got it" button', /Tip · Your circle/i.test(t) && t.includes("People you meet on Limen show up here on their own. Add anyone else you'd like to keep up with.") && (await p.page.getByRole('button', { name: 'Got it' }).count()) === 1, t.slice(0, 500));
   check('Circles picture: You in the middle and the four rings', (await p.page.locator('[aria-label^="Your circles."]').count()) === 1 && /You Close Friends Getting to know Want to reconnect/.test(t), t.slice(0, 600));
   check('Headings in sentence case, never all caps', !/CLOSE|GETTING TO KNOW/.test(await p.page.innerText('body')));
-  check('Empty state invites adding someone', t.includes('Who would you like to keep up with?') && t.includes("A first name is enough, and only you see this list.") && t.includes('People you meet on Limen will show up here too.'), t.slice(0, 800));
+  check('Empty state invites adding someone', t.includes('Who would you like to stay close to?') && t.includes("A first name is enough, and only you see this list.") && t.includes('People you meet on Limen will show up here too.'), t.slice(0, 800));
   const tail = t.slice(-60);
   check('Tab bar: Your circle first, then Chats, Discover, You', ['Your circle', 'Chats', 'Discover', 'You'].every((x, i, arr) => i === 0 || tail.lastIndexOf(x) > tail.lastIndexOf(arr[i - 1])), JSON.stringify(tail));
   check('Phone width: no sideways scroll (empty)', await p.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));

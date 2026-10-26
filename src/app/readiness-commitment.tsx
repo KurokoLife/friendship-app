@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { addMeetNew } from '@/lib/joining';
 import { PaddedSafeArea } from '@/components/padded-safe-area';
 
 import { track } from '@/lib/analytics';
@@ -102,6 +103,9 @@ export default function ReadinessCommitmentScreen() {
       return;
     }
 
+    // Finishing the profile means choosing Meet someone new (also when it was
+    // set up later from Your circle or Discover, 2026-10-26).
+    await addMeetNew();
     track('onboarding_completed');
     router.replace('/profile-review?from=onboarding');
   };

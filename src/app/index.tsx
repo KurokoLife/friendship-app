@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { fetchJoining, wantsToMeetNew } from '@/lib/joining';
 import { normalizeStories } from '@/lib/stories';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { palette } from '@/theme';
@@ -28,7 +29,15 @@ const MUTED_ICON_COLOR = palette.muted;
 // further along than profile-basics lands on /home rather than exactly
 // where they left off, a deliberate, smaller scope than modeling every
 // later onboarding stage would require.
-type ResumeTarget = '/philosophy-intro' | '/circle' | '/profile-basics' | '/start-with-you' | '/profile-build';
+type ResumeTarget =
+  | '/philosophy-intro'
+  | '/circle'
+  | '/profile-basics'
+  | '/joining-hardest'
+  | '/joining-friends'
+  | '/joining-help'
+  | '/start-with-you'
+  | '/profile-build';
 
 export default function Index() {
   const [target, setTarget] = useState<ResumeTarget | null>(null);
@@ -85,6 +94,30 @@ export default function Index() {
       }
       const { data: userRow } = await supabase.from('users').select('readiness_status').eq('id', user.id).maybeSingle();
       if (!userRow?.readiness_status) {
+        // 2026-10-26 (rebuild stage 2): after Basics come What's hardest,
+        // Think about your friends and Here's where Limen can help, each
+        // marked done in joining_answers. Someone who was already writing
+        // their profile before this (no row yet) carries on with it.
+        const j = await fetchJoining();
+        const interests0 = profile.activity_interests as { categories?: unknown[] } | null;
+        const startedProfile =
+          !!profile.life_transitions_other?.trim() ||
+          normalizeStories(profile.stories).some((s) => s.text.trim()) ||
+          (Array.isArray(interests0?.categories) && interests0.categories.length > 0);
+        if (!(j === null && startedProfile)) {
+          if (!j?.hardest_at) {
+            setTarget('/joining-hardest');
+            return;
+          }
+          if (!j.friends_at) {
+            setTarget('/joining-friends');
+            return;
+          }
+          if (!j.goals_at || !wantsToMeetNew(j)) {
+            setTarget('/joining-help');
+            return;
+          }
+        }
         const interests = profile.activity_interests as { categories?: unknown[] } | null;
         const startedBuilder = Array.isArray(interests?.categories) && interests.categories.length > 0;
         const hasStory = normalizeStories(profile.stories).some((s) => s.text.trim());

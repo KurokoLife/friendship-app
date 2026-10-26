@@ -55,6 +55,9 @@ export default function StartWithYouScreen() {
   const [triedContinue, setTriedContinue] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  // Still joining (Back goes to "Here's where Limen can help"), or a member
+  // setting up a profile later from Your circle or Discover.
+  const [member, setMember] = useState(false);
   const example = useMemo(() => WHAT_BRINGS_EXAMPLES[Math.floor(Math.random() * WHAT_BRINGS_EXAMPLES.length)], []);
   const latest = useRef(draft);
   latest.current = draft;
@@ -69,6 +72,8 @@ export default function StartWithYouScreen() {
       } = await supabase.auth.getUser();
       let saved: StartDraft = { whatBrings: '', stories: [] };
       if (user) {
+        const { data: userRow } = await supabase.from('users').select('readiness_status').eq('id', user.id).maybeSingle();
+        setMember(!!userRow?.readiness_status);
         const { data } = await supabase
           .from('profiles')
           .select('life_transitions_other, stories')
@@ -130,7 +135,13 @@ export default function StartWithYouScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1">
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-7 px-6 pb-6 pt-10">
-          <Pressable onPress={() => router.replace('/profile-basics')} className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
+          <Pressable
+            onPress={() => {
+              if (!member) router.replace('/joining-help');
+              else if (router.canGoBack()) router.back();
+              else router.replace('/circle');
+            }}
+            className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600 self-start">
             <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
           </Pressable>
 
@@ -139,6 +150,15 @@ export default function StartWithYouScreen() {
             <Text className="text-body text-stone-500 dark:text-stone-400">
               Write the way you&apos;d talk to someone new over coffee. Messy is fine. Short is fine. It saves as you
               go, so you can finish or change it anytime, on your phone or a computer.
+            </Text>
+          </View>
+
+          {/* The liking-gap line (Boothby et al., 2018), moved here from the
+              intro on 2026-10-26: it belongs with meeting someone new. */}
+          <View className="rounded-2xl border border-honey-line bg-honey p-4 dark:border-stone-700 dark:bg-stone-800">
+            <Text className="text-body text-stone-700 dark:text-stone-300">
+              One thing worth knowing: after meeting someone new, most people underestimate how much the other person
+              liked them.
             </Text>
           </View>
 

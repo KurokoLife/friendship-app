@@ -6,7 +6,9 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
+import { Pill } from '@/components/ui';
 import { formatDistance } from '@/lib/distance';
+import { fetchJoining, wantsToMeetNew } from '@/lib/joining';
 import { lifeTransitionFragment } from '@/lib/life-transition';
 import { useTestTools } from '@/lib/test-mode';
 import { fetchProfileStories } from '@/lib/stories';
@@ -157,6 +159,9 @@ export default function HomeScreen() {
   const [noneToday, setNoneToday] = useState<'nobody' | 'failed' | null>(null);
   const [saved, setSaved] = useState<SavedProfile[]>([]);
   const [removing, setRemoving] = useState<string | null>(null);
+  // Joined without "Meet someone new" (stage 2, 2026-10-26): an invitation
+  // instead of people, until they set up a profile.
+  const [invite, setInvite] = useState(false);
 
   const loadSaved = useCallback(async () => {
     const { data } = await supabase.from('saved_profiles').select('*').order('saved_at', { ascending: false });
@@ -222,6 +227,13 @@ export default function HomeScreen() {
       return;
     }
     setUsingDevFallback(false);
+    const joining = await fetchJoining();
+    if (!wantsToMeetNew(joining)) {
+      setInvite(true);
+      setLoaded(true);
+      return;
+    }
+    setInvite(false);
     loadSaved();
     const tz = deviceTimeZone();
     const read = async () => {
@@ -328,6 +340,37 @@ export default function HomeScreen() {
     return (
       <View className="flex-1 items-center justify-center bg-stone-50 dark:bg-stone-900">
         <ActivityIndicator color={MUTED_ICON_COLOR} />
+      </View>
+    );
+  }
+
+  if (invite) {
+    // Draft wording, waiting for the founder's OK.
+    return (
+      <View className="flex-1 bg-stone-50 dark:bg-stone-900">
+        <SafeAreaView className="flex-1">
+          <ScrollView contentContainerClassName="gap-6 px-6 pb-10 pt-10">
+            <Text className="text-display text-stone-900 dark:text-stone-50">Meet someone new</Text>
+            <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
+              <Text className="text-body text-stone-700 dark:text-stone-300">
+                Here, Limen introduces you to one new person a day who lives nearby and would also like a new friend.
+                The idea is to meet in person.
+              </Text>
+              <Text className="text-body text-stone-700 dark:text-stone-300">
+                It starts with a short profile in your own words, so people can get to know you first.
+              </Text>
+              <Pill
+                label="Set up my profile"
+                variant="filled"
+                className="self-start"
+                onPress={() => router.push('/start-with-you')}
+              />
+            </View>
+            <Text className="text-caption text-stone-500 dark:text-stone-400">
+              Until then, nobody here sees you, and you don&apos;t see anyone.
+            </Text>
+          </ScrollView>
+        </SafeAreaView>
       </View>
     );
   }

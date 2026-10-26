@@ -51,6 +51,9 @@ export default function AccountRecoveryScreen() {
   // Also reachable from Settings, "Sign-in and recovery" (2026-10-14).
   const { from } = useLocalSearchParams<{ from?: string }>();
   const fromSettings = from === 'settings';
+  // Joining without a profile (no Meet someone new, 2026-10-26): Back goes to
+  // "Here's where Limen can help" instead of the profile preview.
+  const fromJoining = from === 'joining';
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
   const [linked, setLinked] = useState<Record<Provider, boolean>>({ google: false, apple: false });
   const [linkingProvider, setLinkingProvider] = useState<Provider | null>(null);
@@ -138,6 +141,7 @@ export default function AccountRecoveryScreen() {
 
   // 2026-10-19: in joining this now comes near the end, after the preview.
   const goNext = () => router.replace(fromSettings ? '/settings' : '/modules-complete');
+  const backTo = fromSettings ? '/settings' : fromJoining ? '/joining-help' : '/profile-review?from=onboarding';
   const hasLinked = linked.google || linked.apple;
 
   return (
@@ -145,7 +149,7 @@ export default function AccountRecoveryScreen() {
       className="flex-1 bg-stone-50 dark:bg-stone-900"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <PaddedSafeArea className="flex-1 px-6 py-10">
-        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => (mode === 'choose' ? router.replace(fromSettings ? '/settings' : '/profile-review?from=onboarding') : setMode('choose'))}>
+        <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => (mode === 'choose' ? router.replace(backTo) : setMode('choose'))}>
           <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Back</Text>
         </Pressable>
 
