@@ -134,7 +134,9 @@ const pickedIso = (daysAgo) => new Date(Date.now() - daysAgo * 864e5).toISOStrin
   await p.page.waitForTimeout(2500);
   check('Tapping a Limen person’s face opens their chat', p.page.url().includes(`/thread/${C}`), p.page.url());
 
-  // An empty part of a ring jumps to that part of the list
+  // An empty part of a ring jumps to that part of the list (a short window,
+  // so the list is below the fold; empty circles show only their heading).
+  await p.page.setViewportSize({ width: 390, height: 640 });
   await go(p.page, '/circle', 3500);
   const scrollTop = () => p.page.evaluate(() => [...document.querySelectorAll('div')].filter((d) => d.scrollHeight > d.clientHeight + 20 && ['auto', 'scroll'].includes(getComputedStyle(d).overflowY)).map((d) => d.scrollTop)[0] ?? -1);
   const before = await scrollTop();
