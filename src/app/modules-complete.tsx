@@ -10,8 +10,7 @@ import { palette } from '@/theme';
 // All set, the last joining screen. With Meet someone new: sets the "one
 // new person a day" expectation and offers the selfie check now (approval is
 // manual and can take up to a day). Without it (2026-10-26, rebuild stage 2):
-// no profile and no selfie, just Your circle; the wording is a draft waiting
-// for the founder's OK.
+// no profile and no selfie, just Your circle (wording approved 2026-10-27).
 export default function ModulesCompleteScreen() {
   const [meetNew, setMeetNew] = useState<boolean | null>(null);
 

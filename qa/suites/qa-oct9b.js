@@ -90,6 +90,11 @@ async function rpcAs(user, sql, params = []) {
   await q(`delete from connections where user_a_id = any($1) or user_b_id = any($1)`, [all]);
   await q(`delete from interests where from_user_id = any($1) or to_user_id = any($1)`, [all]);
   await q(`update users set selfie_verified_at = now() where id = $1`, [U.aisha]);
+  // A real match only opens once both selfies are approved, and reopening a
+  // match where nobody said hello needs them too (only people who talked can
+  // reconnect without one). Set them here so the suite doesn't depend on
+  // what an earlier suite left behind.
+  await q(`insert into selfie_checks (user_id,pose,status,consent_at,reviewed_at) values ($1,'three fingers','approved',now(),now()),($2,'three fingers','approved',now(),now()) on conflict (user_id) do update set status='approved'`, [U.maria, ELENA]);
   await q(`insert into interests (from_user_id,to_user_id) values ($1,$2),($2,$1)`, [U.maria, ELENA]);
   const [c3] = await q(`insert into connections (user_a_id, user_b_id, status, opened_at) values ($1,$2,'pending', now() - interval '1 day') returning id`, [U.maria, ELENA]);
   const C3 = c3.id;

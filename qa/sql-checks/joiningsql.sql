@@ -39,4 +39,14 @@ select 'no row = joined before stage 2 = meets new people: ' || public.wants_to_
 select 'without Meet someone new: not suggested: ' || (not public.wants_to_meet_new('10000000-0000-0000-0000-000000000005')) as result;
 update joining_answers set goals = '{keep_in_touch,meet_new}' where user_id = '10000000-0000-0000-0000-000000000005';
 select 'with it: suggested: ' || public.wants_to_meet_new('10000000-0000-0000-0000-000000000005') as result;
+-- "Not now" on the Your circle card (2026-10-27): back in 30 days, never after the third.
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+set local role authenticated;
+select 'first Not now: later: ' || (meet_offer_not_now() = 'later') as result;
+select 'back in 30 days: ' || ((select (meet_offer_back_at - now()) between interval '29 days 23 hours' and interval '30 days 1 minute' from joining_answers) ) as result;
+select 'second Not now: later: ' || (meet_offer_not_now() = 'later') as result;
+select 'third Not now: never: ' || (meet_offer_not_now() = 'never') as result;
+select 'hidden for good: ' || ((select meet_offer_hidden_at is not null and meet_offer_back_at is null and meet_offer_not_now_count = 3 from joining_answers)) as result;
+reset role;
+select 'another person''s Not now never touches my card: ' || ((select meet_offer_not_now_count from joining_answers where user_id = '10000000-0000-0000-0000-000000000001') is distinct from 3) as result;
 rollback;

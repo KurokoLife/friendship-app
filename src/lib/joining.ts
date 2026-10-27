@@ -44,8 +44,8 @@ export const GOAL_OPTIONS: { key: GoalKey; label: string }[] = [
   { key: 'patterns', label: 'Notice my own patterns' },
 ];
 
-// How "What's hardest" fills in "Here's where Limen can help" (draft,
-// waiting for the founder's OK). Each answer turns on the goals it points
+// How "What's hardest" fills in "Here's where Limen can help" (approved by
+// the founder 2026-10-27). Each answer turns on the goals it points
 // to; the person can change anything.
 export const HARDEST_TO_GOALS: Record<HardestKey, GoalKey[]> = {
   meeting_new: ['meet_new'],
@@ -76,6 +76,8 @@ export type JoiningAnswers = {
   friends_at: string | null;
   goals_at: string | null;
   meet_offer_hidden_at: string | null;
+  meet_offer_not_now_count: number;
+  meet_offer_back_at: string | null;
 };
 
 export async function fetchJoining(): Promise<JoiningAnswers | null> {
@@ -85,7 +87,9 @@ export async function fetchJoining(): Promise<JoiningAnswers | null> {
   if (!user) return null;
   const { data } = await supabase
     .from('joining_answers')
-    .select('hardest, hardest_other, goals, hardest_at, friends_at, goals_at, meet_offer_hidden_at')
+    .select(
+      'hardest, hardest_other, goals, hardest_at, friends_at, goals_at, meet_offer_hidden_at, meet_offer_not_now_count, meet_offer_back_at'
+    )
     .eq('user_id', user.id)
     .maybeSingle();
   return (data as JoiningAnswers | null) ?? null;
@@ -107,6 +111,21 @@ export async function saveJoining(patch: Partial<JoiningAnswers>): Promise<boole
 // stage 2 have no row and count as yes.
 export function wantsToMeetNew(j: JoiningAnswers | null): boolean {
   return !j || j.goals === null || j.goals.includes('meet_new');
+}
+
+// The Your circle card "Meet someone new, too?" (founder, 2026-10-27): shows
+// only without Meet someone new; "Not now" brings it back about 30 days
+// later, and after the third "Not now" it never shows again
+// (meet_offer_not_now, migration 20261027000000).
+export function meetOfferShowing(j: JoiningAnswers | null, now: Date = new Date()): boolean {
+  if (wantsToMeetNew(j) || !j) return false;
+  if (j.meet_offer_hidden_at) return false;
+  return !j.meet_offer_back_at || new Date(j.meet_offer_back_at) <= now;
+}
+
+export async function meetOfferNotNow(): Promise<boolean> {
+  const { error } = await supabase.rpc('meet_offer_not_now');
+  return !error;
 }
 
 // Adds "Meet someone new" (finishing the profile later from Your circle or

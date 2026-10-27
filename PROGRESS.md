@@ -302,3 +302,10 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Drafts for the founder: the Your circle card, the Discover invitation, the hardest-to-help mapping, the All set without a profile, and a few helper lines (DECISIONS section 14).
 - Migration 20261026000001. No server functions changed. qa-onboard 127/127 (both branches), joiningsql all true.
 - Full run: every suite passes except 3 checks in qa-oct9b (a reopened match getting a fresh 14 days); they fail the same way without this stage's migration, so they were already failing before stage 2. Not fixed here.
+
+
+## 2026-10-27: Stage 2 drafts decided, qa-oct9b
+
+- Founder decisions: "Meet someone new, too?" card comes back about 30 days after Not now, gone after the third, ends when a profile is set up; Discover invitation line reworded; the other drafts approved.
+- qa-oct9b's 3 failures: the test opened a match without approved selfies; reopening correctly needs them. Test fixed, no app change.
+- Migration 20261027000000. No server functions changed. qa-onboard 136/136, qa-oct9b 62/62, joiningsql all true.

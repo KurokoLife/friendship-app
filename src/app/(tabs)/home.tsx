@@ -345,7 +345,7 @@ export default function HomeScreen() {
   }
 
   if (invite) {
-    // Draft wording, waiting for the founder's OK.
+    // Wording approved by the founder 2026-10-27.
     return (
       <View className="flex-1 bg-stone-50 dark:bg-stone-900">
         <SafeAreaView className="flex-1">
@@ -367,7 +367,7 @@ export default function HomeScreen() {
               />
             </View>
             <Text className="text-caption text-stone-500 dark:text-stone-400">
-              Until then, nobody here sees you, and you don&apos;t see anyone.
+              Until then, you aren&apos;t shown to anyone, and nobody is shown to you.
             </Text>
           </ScrollView>
         </SafeAreaView>

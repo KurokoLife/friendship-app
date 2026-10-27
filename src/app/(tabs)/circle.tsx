@@ -27,7 +27,7 @@ import {
   type PendingPerson,
   type SelfieStatus,
 } from '@/lib/safety';
-import { fetchJoining, saveJoining, wantsToMeetNew } from '@/lib/joining';
+import { fetchJoining, meetOfferNotNow, meetOfferShowing } from '@/lib/joining';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { layout, palette } from '@/theme';
 
@@ -52,8 +52,8 @@ export default function CircleScreen() {
   const [friendPhotos, setFriendPhotos] = useState<Record<string, string>>({});
   const [closed, setClosed] = useState<PendingPerson[]>([]);
   const [selfie, setSelfie] = useState<SelfieStatus>('approved');
-  // Joined without "Meet someone new" (stage 2): a card offers the profile
-  // until they set it up or say Not now.
+  // Joined without "Meet someone new" (stage 2): a card offers the profile.
+  // Not now brings it back in about 30 days; the third Not now ends it.
   const [offerProfile, setOfferProfile] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const listTop = useRef(0);
@@ -81,7 +81,7 @@ export default function CircleScreen() {
       fetchMySelfieStatus(),
       fetchJoining(),
     ]);
-    setOfferProfile(!wantsToMeetNew(joining) && !joining?.meet_offer_hidden_at);
+    setOfferProfile(meetOfferShowing(joining));
     setLimen(people);
     setOutside(friends);
     const urls = await Promise.all(friends.map(async (f) => [f.id, await friendPhotoUrl(f.photo_path)] as const));
@@ -156,7 +156,7 @@ export default function CircleScreen() {
           />
 
           {offerProfile && (
-            // Draft wording, waiting for the founder's OK.
+            // Wording approved by the founder 2026-10-27.
             <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
               <Text className="text-title text-stone-900 dark:text-stone-50">Meet someone new, too?</Text>
               <Text className="text-body text-stone-600 dark:text-stone-300">
@@ -169,7 +169,7 @@ export default function CircleScreen() {
                   label="Not now"
                   onPress={() => {
                     setOfferProfile(false);
-                    saveJoining({ meet_offer_hidden_at: new Date().toISOString() });
+                    meetOfferNotNow();
                   }}
                 />
               </View>

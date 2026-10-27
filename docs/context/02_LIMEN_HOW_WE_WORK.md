@@ -24,7 +24,7 @@ Last updated 2026-10-25.
 - The migration must bump `limen_db_version()` to its own number. Also update `REQUIRED_DB_VERSION` and `RECENT_DB_UPDATES` in `src/lib/db-version.ts` (the Test tab warns when the live database is behind).
 - The founder runs it by pasting the raw link into the Supabase SQL Editor:
   `https://raw.githubusercontent.com/KurokoLife/friendship-app/limen-v2-ethics-alignment/supabase/migrations/<file>`
-- Current version: `20261026000001` (Joining). Design: colors and font only in `src/theme/tokens.js`; buttons, rows and links from `src/components/ui.tsx`.
+- Current version: `20261027000000` (Meet someone new card: Not now). Design: colors and font only in `src/theme/tokens.js`; buttons, rows and links from `src/components/ui.tsx`.
 - Patterns: private tables use own-row RLS; anything another person must never see goes through SECURITY DEFINER functions that return only the caller's own data; prompt cards are rows in `connection_interventions`, ranked by `get_active_intervention` so only one shows.
 
 ## Server functions

@@ -321,6 +321,7 @@ const PHONE2 = '555556' + String(Date.now()).slice(-4);
   await p2.goto('http://localhost:8099/home'); await p2.waitForTimeout(3500);
   const d2 = await t2();
   check('Discover shows an invitation instead of people', /Meet someone new/.test(d2) && /Set up my profile/.test(d2) && !/People for you/.test(d2), d2.slice(0, 600));
+  check('Discover invitation ends with the approved line', /Until then, you aren't shown to anyone, and nobody is shown to you\./.test(d2));
   check('Discover did not pick anyone for them', (await q('select count(*)::int n from match_suggestions where user_id = $1', [me2]))[0].n === 0);
   // Never suggested to anyone, even with a photo, until they choose it.
   await q("update profiles set photo_url = 'https://example.com/x.jpg', languages = '{English}', location_lat = null, location_lng = null where user_id = $1", [me2]);
@@ -338,7 +339,33 @@ const PHONE2 = '555556' + String(Date.now()).slice(-4);
   await tap2('Not now', true, 1500);
   check('Not now puts the card away', !/Meet someone new, too\?/.test(await t2()));
   await p2.reload(); await p2.waitForTimeout(3500);
-  check('and it stays away', !/Meet someone new, too\?/.test(await t2()));
+  check('and it stays away for now', !/Meet someone new, too\?/.test(await t2()));
+  // Not now brings it back about 30 days later; the third Not now ends it (founder, 2026-10-27).
+  const offer = async () => (await q('select meet_offer_not_now_count n, meet_offer_back_at back, meet_offer_hidden_at hidden from joining_answers where user_id = $1', [me2]))[0];
+  let o = await offer();
+  const days = (d) => Math.round((new Date(d) - Date.now()) / 86400000);
+  check('first Not now: back in about 30 days', o.n === 1 && days(o.back) === 30 && !o.hidden, JSON.stringify(o));
+  const monthLater = async () => { await q("update joining_answers set meet_offer_back_at = now() - interval '1 minute' where user_id = $1", [me2]); await p2.reload(); await p2.waitForTimeout(3500); };
+  await monthLater();
+  check('30 days later the card comes back', /Meet someone new, too\?/.test(await t2()));
+  await tap2('Not now', true, 1500);
+  o = await offer();
+  check('second Not now: back again in about 30 days', o.n === 2 && days(o.back) === 30 && !o.hidden, JSON.stringify(o));
+  await monthLater();
+  check('...and comes back once more', /Meet someone new, too\?/.test(await t2()));
+  // Setting up a profile ends it (here: choosing Meet someone new).
+  await q("update joining_answers set goals = goals || '{meet_new}' where user_id = $1", [me2]);
+  await p2.reload(); await p2.waitForTimeout(3500);
+  check('setting up a profile ends the card', !/Meet someone new, too\?/.test(await t2()));
+  await q("update joining_answers set goals = array_remove(goals, 'meet_new') where user_id = $1", [me2]);
+  await p2.reload(); await p2.waitForTimeout(3500);
+  await tap2('Not now', true, 1500);
+  o = await offer();
+  check('third Not now: never again', o.n === 3 && !!o.hidden && !o.back, JSON.stringify(o));
+  await q("update joining_answers set meet_offer_back_at = now() - interval '400 days' where user_id = $1", [me2]);
+  await p2.reload(); await p2.waitForTimeout(3500);
+  check('after the third Not now it never comes back, even much later', !/Meet someone new, too\?/.test(await t2()));
+  check('Discover still offers the profile', (await (async () => { await p2.goto('http://localhost:8099/home'); await p2.waitForTimeout(3500); return /Set up my profile/.test(await t2()); })()));
   // Private: another person can never read the hardest answers.
   const other = await (await fetch('http://localhost:54321/__test/session?user=10000000-0000-0000-0000-000000000001')).json();
   const peek = await (await fetch(`http://localhost:54321/rest/v1/joining_answers?select=*&user_id=eq.${me2}`, { headers: { apikey: 'x', Authorization: `Bearer ${other.access_token}` } })).json();
