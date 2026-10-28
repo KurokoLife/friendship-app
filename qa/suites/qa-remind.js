@@ -43,44 +43,22 @@ const { U, check, tap, text, go, q } = L;
   await sweep();
   iv = await q(`select intervention_type, target_user_id from connection_interventions where connection_id=$1 and status='pending' order by 1`, [B]);
   check('8 quiet days after both wrote: no reply reminders', !iv.some((i) => i.intervention_type.startsWith('no_ghost')), JSON.stringify(iv));
-  check('Check-in for both people', iv.filter((i) => i.intervention_type === 'conversation_restart_prompt').length === 2, JSON.stringify(iv));
+  // 2026-10-28 (stage 3): the chat's own check-in is retired; quiet chats
+  // come up as suggestions in Your circle instead (qa-suggest).
+  check('No chat check-in for either person (retired)', iv.filter((i) => i.intervention_type === 'conversation_restart_prompt').length === 0, JSON.stringify(iv));
   const st = await q(`select status from connections where id=$1`, [B]);
   check('Chat did not close on its own', st[0].status === 'active', st[0].status);
   const m = await L.as(U.maria, { viewport: { width: 390, height: 844 } });
   await go(m.page, `/thread/${B}`, 3500);
   t = await text(m.page);
-  check("Maria's check-in: calm, no turn", t.includes("It's been quiet with David C. for a bit. That's normal.") && !/your turn/i.test(t), t.slice(0, 900));
+  check("Maria's chat stays calm: no check-in, no turn", !t.includes("It's been quiet with David C.") && !/your turn/i.test(t), t.slice(0, 900));
   check('No "waiting" line for Maria once both wrote', !t.includes('Sometimes it takes a few days'), '');
-  await tap(m.page, 'Say hi', { wait: 1200 });
-  t = await text(m.page);
-  check('Say hi: starters to finish in own words', t.includes('Hi! Just checking in,') || t.includes('Thinking of you,'), t.slice(-900));
-  await tap(m.page, 'Hi! Just checking in, ', { exact: false, nth: 0, wait: 800 });
-  const box = m.page.locator('textarea, input[type="text"]').filter({ hasText: '' });
-  const inputs = await m.page.locator('textarea').all();
-  let typed = false;
-  for (const inp of inputs) {
-    const v = await inp.inputValue().catch(() => '');
-    if (v.startsWith('Hi! Just checking in')) { await inp.fill(v + 'how was the trip?'); typed = true; break; }
-  }
-  check('Starter is in the box', typed);
-  await tap(m.page, 'Send', { nth: 0, wait: 2500 });
-  const sent = await q(`select content from messages where connection_id=$1 and sender_id=$2 order by created_at desc limit 1`, [B, U.maria]);
-  check('Check-in message sent in her own words', sent[0]?.content === 'Hi! Just checking in, how was the trip?', sent[0]?.content);
-  check('It shows in the chat right away (no refresh)', (await text(m.page)).includes('Hi! Just checking in, how was the trip?'), (await text(m.page)).slice(0, 900));
-  iv = await q(`select count(*)::int n from connection_interventions where connection_id=$1 and status='pending' and intervention_type='conversation_restart_prompt'`, [B]);
-  check('A new message puts check-ins away for both', iv[0].n === 0, iv[0].n);
 
-  // David turns check-ins off for this chat from the card
-  await q(`update messages set created_at = created_at - interval '7 days' where connection_id=$1`, [B]);
-  await q(`delete from connection_interventions where connection_id=$1`, [B]);
-  await sweep();
+  // David turns reminders off for this chat (it also keeps Maria out of his
+  // Your circle suggestions).
+  await q(`insert into prompt_settings (user_id, connection_id, kind, enabled) values ($1,$2,'check_in',false)`, [U.david, B]);
   const d = await L.as(U.david);
   await go(d.page, `/thread/${B}`, 3500);
-  t = await text(d.page);
-  check('David sees a check-in', t.includes("It's been quiet with Maria S. for a bit"), t.slice(0, 700));
-  await tap(d.page, 'Turn off check-ins for this chat', { wait: 2000 });
-  t = await text(d.page);
-  check('Turned off: card gone', !t.includes("It's been quiet with Maria S."), '');
   const ps = await q(`select kind, connection_id from prompt_settings where user_id=$1`, [U.david]);
   check('Saved as off for this chat only', ps.length === 1 && ps[0].kind === 'check_in' && ps[0].connection_id === B, JSON.stringify(ps));
 

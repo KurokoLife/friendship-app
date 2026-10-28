@@ -42,7 +42,7 @@ async function rest(user, path, opts = {}) {
   check('Your circle is reachable and titled', t.startsWith('Your circle'), t.slice(0, 200));
   check('Header: "Only you see this." and a filled Add someone button', t.includes('Only you see this.') && (await p.page.getByRole('button', { name: 'Add someone' }).count()) === 1, t.slice(0, 300));
   check('Tip is short, with a "Got it" button', /Tip · Your circle/i.test(t) && t.includes("People you meet on Limen show up here on their own. Add anyone else you'd like to keep up with.") && (await p.page.getByRole('button', { name: 'Got it' }).count()) === 1, t.slice(0, 500));
-  check('Circles picture: You in the middle and the four rings', (await p.page.locator('[aria-label^="Your circles."]').count()) === 1 && /You Close Friends Getting to know Want to reconnect/.test(t), t.slice(0, 600));
+  check('Circles picture: You in the middle and the four rings', (await p.page.locator('[aria-label^="Your circles."]').count()) === 1 && /Close Friends Getting to know Want to reconnect/.test(t) && (await p.page.getByRole('button', { name: 'You. Open your profile' }).count()) === 1, t.slice(0, 600));
   check('Headings in sentence case, never all caps', !/CLOSE|GETTING TO KNOW/.test(await p.page.innerText('body')));
   check('Empty state invites adding someone', t.includes('Who would you like to stay close to?') && t.includes("A first name is enough, and only you see this list.") && t.includes('People you meet on Limen will show up here too.'), t.slice(0, 800));
   const tail = t.slice(-60);

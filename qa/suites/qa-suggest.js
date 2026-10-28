@@ -90,7 +90,7 @@ function dayLabel(addDays) {
   s = await t();
   check('I reached out: noted, with the why and the next date', /Noted\. A check-in tells someone they matter to you\./.test(s) && s.includes(`Limen will bring Momo up again around ${dayLabel(7)}.`), s.slice(0, 500));
   check('I reached out saves the day for the next date', (await q(`select last_reached_at > now() - interval '1 minute' ok from outside_friends where id = $1`, [momo]))[0].ok);
-  await tap(p.page, 'Got it', { wait: 2500 });
+  await p.page.getByLabel('Suggestion', { exact: true }).getByRole('button', { name: 'Got it', exact: true }).click(); await p.page.waitForTimeout(2500);
   check('Got it puts the card away', !(await cardText()), await cardText());
 
   // ---- How often: one at a time, with a gap ---------------------------------

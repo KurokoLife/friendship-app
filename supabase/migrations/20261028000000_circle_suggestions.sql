@@ -470,6 +470,78 @@ update public.connection_interventions
 set status = 'dismissed'
 where intervention_type = 'conversation_restart_prompt' and status in ('pending', 'snoozed');
 
+-- The Test tab's "Quiet chat" tool says so too.
+create or replace function public.test_no_reply(p_connection_id uuid, p_hours integer)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_conn public.connections%rowtype;
+  v_last record;
+  v_sender_name text;
+  v_recipient uuid;
+  v_recipient_name text;
+  v_result text;
+  v_check text;
+  v_reopened boolean := false;
+begin
+  if not public.is_test_operator() then raise exception 'Test tools are only for admins and test accounts'; end if;
+  select * into v_conn from public.connections
+  where id = p_connection_id and (user_a_id = auth.uid() or user_b_id = auth.uid());
+  if not found then raise exception 'You are not part of that chat'; end if;
+  if v_conn.status in ('blocked', 'ended') then
+    raise exception 'This chat is %. Pick another chat.', v_conn.status;
+  end if;
+
+  select id, sender_id, created_at into v_last from public.messages
+  where connection_id = p_connection_id order by created_at desc, id desc limit 1;
+  if not found then raise exception 'Send a message in this chat first.'; end if;
+
+  if v_conn.status in ('inactive', 'paused') then
+    update public.connections set status = 'active' where id = p_connection_id;
+    delete from public.connection_pause_details where connection_id = p_connection_id;
+    v_reopened := true;
+  end if;
+  -- Forget any earlier reopen, so moving the messages back keeps them in
+  -- this conversation.
+  update public.connections set resumed_at = null, opened_at = created_at where id = p_connection_id;
+
+  delete from public.connection_interventions
+  where connection_id = p_connection_id
+    and (intervention_type like 'no\_ghost\_%' or intervention_type = 'conversation_restart_prompt');
+  update public.messages
+  set created_at = created_at + ((now() - make_interval(hours => p_hours)) - v_last.created_at)
+  where connection_id = p_connection_id;
+
+  v_recipient := case when v_conn.user_a_id = v_last.sender_id then v_conn.user_b_id else v_conn.user_a_id end;
+  select display_name into v_sender_name from public.profiles where user_id = v_last.sender_id;
+  select display_name into v_recipient_name from public.profiles where user_id = v_recipient;
+
+  v_result := public.run_no_ghost_check_v2(p_connection_id, now());
+  v_check := public.run_conversation_restart_check_v2(p_connection_id, now());
+
+  return (case when v_reopened then 'Reopened the chat first. ' else '' end)
+    || format('The last message (from %s) is now %s hours old. ', v_sender_name, p_hours)
+    || case
+      when v_result = 'talking' then
+        case v_check
+          when 'retired' then 'You have both written, so there are no reply reminders. Quiet chats now come up as suggestions in Your circle, one person at a time.'
+          when 'fired' then 'You have both written, so there are no reply reminders. Both people now see a check-in card.'
+          when 'turned_off' then 'You have both written. A check-in would show now, but both people turned check-ins off.'
+          when 'meetup_already_scheduled' then 'You have both written, and a plan is set, so nothing shows.'
+          else 'You have both written, so there are no reply reminders. A check-in shows after 5 quiet days.'
+        end
+      when v_result = 'none' then format('Only %s has written so far. %s gets one gentle note at their usual reply pace (1, 2 or 3 days).', v_sender_name, v_recipient_name)
+      when v_result = 'r1' then format('Only %s has written so far. %s now sees a gentle note about the hello.', v_sender_name, v_recipient_name)
+      when v_result = 's1' then format('%s now sees "It''s been quiet" (send one more, wait, or close). %s still sees the gentle note.', v_sender_name, v_recipient_name)
+      when v_result = 'auto_closed' then 'Nobody answered for 7 days, so this chat closed quietly.'
+      else v_result
+    end;
+end;
+$$;
+
 -- 5. Test tab: a suggestion now ------------------------------------------------
 -- For the acting test account: forgets the gap since the last suggestion and
 -- any Not now, and if nobody is due, makes the friend added first due today.

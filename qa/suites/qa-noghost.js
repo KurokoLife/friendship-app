@@ -1,6 +1,6 @@
 // Quiet chats (rebuilt 2026-10-10): one gentle note only while just one
-// person has written; once both have, a check-in at 5 quiet days and
-// nothing closes on its own. Driven through the Test tab like a tester would.
+// person has written; once both have, nothing closes on its own (the chat
+// check-in was retired 2026-10-28; Your circle suggestions replace it). Driven through the Test tab like a tester would.
 const L = require('../qa-lib');
 const { U, check, tap, text, go, q } = L;
 (async () => {
@@ -87,17 +87,13 @@ const { U, check, tap, text, go, q } = L;
   await go(d.page, '/dev', 3000);
   await tap(d.page, 'Maria S.');
   await tap(d.page, '5 days', { wait: 1500 });
-  check('5 days: tool says both see a check-in', (await text(d.page)).includes('Both people now see a check-in card'));
+  // 2026-10-28 (stage 3): the chat's own check-in is retired; quiet chats come
+  // up as suggestions in Your circle instead (qa-suggest).
+  check('5 days: tool points to Your circle suggestions', (await text(d.page)).includes('Quiet chats now come up as suggestions in Your circle'));
   await go(d.page, `/thread/${C}`, 3500);
-  check('David sees the check-in', (await text(d.page)).includes("It's been quiet with Maria S. for a bit. That's normal."));
+  check('David sees no check-in in the chat', !(await text(d.page)).includes("It's been quiet with Maria S."));
   await go(m.page, `/thread/${C}`, 3500);
-  check('Maria sees the check-in', (await text(m.page)).includes("It's been quiet with David C. for a bit."));
-  // nth 0: a video offer under the card can have its own "Not now".
-  await tap(m.page, 'Not now', { nth: 0, wait: 1500 });
-  check('"Not now" puts it away', !(await text(m.page)).includes("It's been quiet with David C."));
-  await q(`select run_friendship_journey_sweep_all(now())`);
-  await go(m.page, `/thread/${C}`, 3500);
-  check('It stays away for this quiet stretch', !(await text(m.page)).includes("It's been quiet with David C."));
+  check('Maria sees no check-in in the chat', !(await text(m.page)).includes("It's been quiet with David C."));
 
   await go(d.page, '/dev', 3000);
   await tap(d.page, 'Maria S.');

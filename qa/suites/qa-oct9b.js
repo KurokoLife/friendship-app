@@ -214,7 +214,8 @@ async function rpcAs(user, sql, params = []) {
   check('Both have written: no reply reminders after the pause either (2026-10-10)', rem2.length === 0, JSON.stringify(rem2));
   await q(`select run_friendship_journey_sweep_all(now() + interval '5 days 1 hour')`);
   const ci = await q(`select count(*)::int n from connection_interventions where connection_id=$1 and status='pending' and intervention_type='conversation_restart_prompt'`, [C4]);
-  check('Check-in counts from the end of the pause, not before', ci[0].n === 2, ci[0].n);
+  // 2026-10-28: the chat check-in is retired (Your circle suggestions instead).
+  check('No chat check-in after the pause either (retired)', ci[0].n === 0, ci[0].n);
 
   // Old pause with no end date resumes after 2 weeks
   await q(`update connections set status='paused' where id=$1`, [C4]);
