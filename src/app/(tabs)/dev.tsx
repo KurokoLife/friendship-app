@@ -512,6 +512,17 @@ export default function TestToolsScreen() {
                 }
               />
               <Button
+                label="Your circle suggestion now"
+                busy={busy === 'fresh'}
+                onPress={() =>
+                  rpc('fresh', 'test_circle_suggestion_now', {}, (d) =>
+                    d === 'no_friends'
+                      ? 'Add someone in Your circle first, then try again.'
+                      : 'Done. Open Your circle: a suggestion shows at the top.'
+                  )
+                }
+              />
+              <Button
                 label="Clear my daily limits"
                 busy={busy === 'fresh'}
                 onPress={() => rpc('fresh', 'test_clear_ai_limits', {}, () => 'Daily and weekly limits cleared for this account.')}

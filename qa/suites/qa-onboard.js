@@ -187,6 +187,7 @@ const PHONE2 = '555556' + String(Date.now()).slice(-4);
   check('readiness screen has side margins', (await margin('Before you start')) >= 16);
   check('Before you start reads warmly', /Everyone here agrees to the same few things/.test(await t()) && /Friendship only/.test(await t()) && /Honest is kinder than quiet/.test(await t()));
   check('the reply rule is spelled out', /Answer every hello, even with a "no thanks"/.test(await t()) && /twice within two months/.test(await t()));
+  check('Before you start: ending or pausing never counts, no extra button', /Nobody is told\. Ending a chat or pausing never counts\./.test(await t()) && !/More about quiet chats|Show less/.test(await t()));
   await tap('Sounds good', true, 3500);
   check('preview shows a 5-year age range', /Tess W\., (45-49|50-54)/.test(await t()));
   check('preview has Back', (await page.getByText('Back', { exact: true }).filter({ visible: true }).count()) > 0);

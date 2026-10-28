@@ -31,7 +31,7 @@ const AGREEMENTS: { title: string; text: string }[] = [
   },
   {
     title: 'Answer every hello, even with a "no thanks"',
-    text: "Take the time you need. If a new chat closes because you never answered, and that happens twice within two months, you'll show up later in suggestions for the next month. Nobody is told.",
+    text: "Take the time you need. If a new chat closes because you never answered, and that happens twice within two months, you'll show up later in suggestions for the next month. Nobody is told. Ending a chat or pausing never counts.",
   },
 ];
 
@@ -55,7 +55,6 @@ const PAUSE_OPTIONS: { label: string; days: number }[] = [
 // live app yet.
 export default function ReadinessCommitmentScreen() {
   const [step, setStep] = useState<Step>('question');
-  const [expanded, setExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,24 +205,6 @@ export default function ReadinessCommitmentScreen() {
                   <Text className="text-body text-stone-600 dark:text-stone-300">{a.text}</Text>
                 </View>
               ))}
-              <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setExpanded((v) => !v)}>
-                <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">
-                  {expanded ? 'Show less' : 'More about quiet chats'}
-                </Text>
-              </Pressable>
-
-              {expanded && (
-                <View className="gap-2 rounded-2xl border border-stone-200 bg-stone-50 p-4 dark:border-stone-700 dark:bg-stone-900">
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    Only a chat that closes because you never replied counts, and only when it happens 2 or more
-                    times in 60 days. Ending a chat honestly, pausing, or taking a few days to reply never counts.
-                  </Text>
-                  <Text className="text-caption text-stone-500 dark:text-stone-400">
-                    It only changes where you appear in new people&apos;s suggestions for a while. It never shows on
-                    your profile, nobody else sees it, and nobody reads your messages to decide it.
-                  </Text>
-                </View>
-              )}
             </View>
           </ScrollView>
         )}

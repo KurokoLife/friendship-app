@@ -47,6 +47,12 @@
           "photosPermission": "Allows you to choose photos for your profile.",
           "cameraPermission": "Allows you to take a selfie so we can check you match your profile photo."
         }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Lets you link a friend to a contact so you can text, call or email them from Limen. Limen doesn't keep their number or email."
+        }
       ]
     ],
     "experiments": {

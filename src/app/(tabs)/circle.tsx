@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CirclesPicture } from '@/components/circles-picture';
 import { CoachMark } from '@/components/coach-mark';
+import { SuggestionCard } from '@/components/suggestion-card';
 import { Face, Pill, RowLink } from '@/components/ui';
 import {
   CIRCLES,
@@ -28,6 +29,7 @@ import {
   type SelfieStatus,
 } from '@/lib/safety';
 import { fetchJoining, meetOfferNotNow, meetOfferShowing } from '@/lib/joining';
+import { fetchSuggestion, type Suggestion } from '@/lib/suggestions';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { layout, palette } from '@/theme';
 
@@ -55,6 +57,9 @@ export default function CircleScreen() {
   // Joined without "Meet someone new" (stage 2): a card offers the profile.
   // Not now brings it back in about 30 days; the third Not now ends it.
   const [offerProfile, setOfferProfile] = useState(false);
+  const [myPhoto, setMyPhoto] = useState<string | null>(null);
+  // Stage 3: one suggestion at a time, at the top.
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const listTop = useRef(0);
   const sectionY = useRef<Partial<Record<Circle, number>>>({});
@@ -74,14 +79,18 @@ export default function CircleScreen() {
     // A pair that became ready (a selfie approved, room freed) opens first,
     // so it shows as a chat rather than as waiting.
     await openReadyInterests().catch(() => 0);
-    const [people, friends, pending, selfieNow, joining] = await Promise.all([
+    const [people, friends, pending, selfieNow, joining, next] = await Promise.all([
       fetchMyPeople(),
       fetchOutsideFriends(),
       fetchMyPending(),
       fetchMySelfieStatus(),
       fetchJoining(),
+      fetchSuggestion(),
     ]);
+    setSuggestion(next);
     setOfferProfile(meetOfferShowing(joining));
+    const { data: me } = await supabase.from('profiles').select('photo_url').eq('user_id', user.id).maybeSingle();
+    setMyPhoto((me as { photo_url: string | null } | null)?.photo_url ?? null);
     setLimen(people);
     setOutside(friends);
     const urls = await Promise.all(friends.map(async (f) => [f.id, await friendPhotoUrl(f.photo_path)] as const));
@@ -149,6 +158,16 @@ export default function CircleScreen() {
             <Pill label="Add someone" icon="add" variant="filled" onPress={addSomeone} />
           </View>
 
+          {suggestion && (
+            <SuggestionCard
+              suggestion={suggestion}
+              onDone={() => {
+                setSuggestion(null);
+                load();
+              }}
+            />
+          )}
+
           <CoachMark
             markKey="tab_people"
             title="Your circle"
@@ -202,6 +221,8 @@ export default function CircleScreen() {
               photoUrl: r.kind === 'limen' ? r.person.photo_url : (friendPhotos[r.friend.id] ?? null),
             }))}
             onRingPress={jumpTo}
+            myPhotoUrl={myPhoto}
+            onYouPress={() => router.push({ pathname: '/profile', params: { view: 'profile' } })}
             onFacePress={(key) => {
               const row = rows.find((r) => r.key === key);
               if (row) open(row);

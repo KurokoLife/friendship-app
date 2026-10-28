@@ -83,9 +83,12 @@ export type OutsideFriend = {
   last_reached_at: string | null;
   // Private photo in the friend-photos bucket (owner's folder), or none.
   photo_path: string | null;
+  // A linked phone contact (stage 3): only its id on that phone, never a
+  // number or an email.
+  contact_id: string | null;
 };
 
-const FRIEND_COLUMNS = 'id, name, circle, rhythm, note, created_at, last_reached_at, photo_path';
+const FRIEND_COLUMNS = 'id, name, circle, rhythm, note, created_at, last_reached_at, photo_path, contact_id';
 
 export const NAME_MAX = 60;
 export const NOTE_MAX = 1000;
@@ -161,7 +164,7 @@ export function localDay(iso: string | Date = new Date()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function deviceTimeZone(): string {
+export function deviceTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   } catch {

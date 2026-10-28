@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Platform, Pressable, Text, View, useColorScheme, type GestureResponderEvent } from 'react-native';
+import { useRef, useState } from 'react';
+import { Image, Platform, Pressable, Text, View, useColorScheme, type GestureResponderEvent } from 'react-native';
 
 import { Face } from '@/components/ui';
 import { CIRCLES, CIRCLE_LABELS, type Circle } from '@/lib/circle';
@@ -21,12 +21,20 @@ export function CirclesPicture({
   size,
   onRingPress,
   onFacePress,
+  myPhotoUrl,
+  onYouPress,
 }: {
   faces: PictureFace[];
   size: number;
   onRingPress: (c: Circle) => void;
   onFacePress: (key: string) => void;
+  // Your own profile photo in the middle (2026-10-28); without one, the
+  // apricot "You" circle. Tapping it opens You, Profile.
+  myPhotoUrl?: string | null;
+  onYouPress?: () => void;
 }) {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const showPhoto = !!myPhotoUrl && !photoFailed;
   const dark = useColorScheme() === 'dark';
   const ref = useRef<View>(null);
   const s = size / 380; // drawn at 380px on a laptop, scaled down on a phone
@@ -100,20 +108,6 @@ export function CirclesPicture({
             />
           );
         })}
-        <View
-          style={{
-            position: 'absolute',
-            left: center - youR,
-            top: center - youR,
-            width: youR * 2,
-            height: youR * 2,
-            borderRadius: youR,
-            backgroundColor: palette.apricot,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: Math.max(13, 15 * s) }}>You</Text>
-        </View>
         {/* Ring labels sit at the bottom of each ring. */}
         {CIRCLES.map((c) => {
           const mid = (radius[c] + inner(c)) / 2;
@@ -138,6 +132,57 @@ export function CirclesPicture({
       </View>
       {/* Faces sit on top and take their own taps: a face opens that person. */}
       <View style={{ position: 'absolute', left: 0, top: 0, width: size, height: size, pointerEvents: 'box-none' }}>
+        <Pressable
+          onPress={onYouPress}
+          disabled={!onYouPress}
+          accessibilityRole="button"
+          accessibilityLabel="You. Open your profile"
+          style={{
+            position: 'absolute',
+            left: center - Math.max(youR, 22),
+            top: center - Math.max(youR, 22),
+            width: Math.max(youR, 22) * 2,
+            height: Math.max(youR, 22) * 2,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <View
+            style={{
+              width: youR * 2,
+              height: youR * 2,
+              borderRadius: youR,
+              backgroundColor: palette.apricot,
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              borderWidth: showPhoto ? 2 : 0,
+              borderColor: palette.apricot,
+            }}>
+            {showPhoto ? (
+              <Image
+                source={{ uri: myPhotoUrl! }}
+                onError={() => setPhotoFailed(true)}
+                style={{ width: youR * 2, height: youR * 2 }}
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: Math.max(13, 15 * s) }}>You</Text>
+            )}
+          </View>
+          {showPhoto && (
+            <View
+              style={{
+                position: 'absolute',
+                bottom: Math.max(youR, 22) - youR - 8,
+                paddingHorizontal: 7,
+                paddingVertical: 1,
+                borderRadius: 999,
+                backgroundColor: palette.apricot,
+              }}>
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>You</Text>
+            </View>
+          )}
+        </Pressable>
         {CIRCLES.flatMap((c) => {
           const here = faces.filter((f) => f.circle === c);
           if (here.length === 0) return [];

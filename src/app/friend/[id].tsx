@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CirclePickerSheet } from '@/components/circle-picker';
+import { ReachOut } from '@/components/reach-out';
 import { Face, Pill, RowLink } from '@/components/ui';
 import {
   CIRCLES,
@@ -76,7 +77,7 @@ function useNextLine(name: string, friendId: string | null, rhythm: Rhythm | nul
 // editing. The person page shows their face, name, circle, how often you'd
 // like to be in touch, when Limen will bring them up again, your note, and
 // Edit. No phone number or email: Limen never stores them. Private to you.
-// Text / Call / Email and suggestions come in stage 3.
+// Stage 3 (2026-10-28) adds the reach-out buttons (src/components/reach-out.tsx).
 export default function FriendScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
@@ -362,9 +363,10 @@ export default function FriendScreen() {
                   </Text>
                   <Pill label="Edit" icon="create-outline" onPress={() => startEdit(friend)} />
                 </View>
-                {/* Stage 3 puts the reach-out buttons here (Text / Call / Email
-                    on the phone app; "Reach out however you usually do" and
-                    "I reached out" on a computer). */}
+                {/* Stage 3 (2026-10-28): Text / Call / Email on the phone app;
+                    "Reach out however you usually do" and "I reached out" on a
+                    computer. */}
+                <ReachOut friend={friend} onChanged={() => load(friend.id)} />
                 <RowLink
                   title={`Circle: ${CIRCLE_LABELS[friend.circle]}`}
                   subtitle="Move to another circle"

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoachMark } from '@/components/coach-mark';
 import { SettingsPanel } from '@/components/settings-panel';
+import { PatternNotes } from '@/components/pattern-notes';
 import { PUBLIC_PROFILE_COLUMNS, PublicProfileView, type PublicProfile } from '@/components/public-profile-view';
 import { EXPERIENCE_QUESTIONS, normalizeExperience, type FriendshipExperience } from '@/lib/friendship-experience';
 import { loadProfileName } from '@/lib/names';
@@ -290,6 +291,7 @@ export default function ProfileScreen() {
               value="Never shown"
               note={`Others only see your city${profile.location_city ? `: ${profile.location_city}` : ''}.`}
             />
+            <PatternNotes />
             {/* 2026-10-18: your own How you connect answers, word for word.
                 The written summary is gone. Never shown to anyone else. */}
             <View className="gap-3 pt-1">

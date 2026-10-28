@@ -43,6 +43,8 @@ const REPLY_SECTIONS: Section[] = [
       'If you had shared this, how would you want someone to respond?',
       'Reply to one thing they said before adding your own news.',
       'Share a little of yourself back, about as much as they shared.',
+      // Stage 3 (2026-10-28): 05's "Celebrating" is a tip only (Gable et al. 2004). Draft wording.
+      'When they share good news, ask about it: how it happened, how it felt.',
     ],
   },
   {

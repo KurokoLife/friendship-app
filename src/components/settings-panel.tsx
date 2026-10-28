@@ -17,6 +17,7 @@ import {
 } from '@/lib/prompt-settings';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { buildRememberExport } from '@/lib/remember';
+import { FREQUENCY_OPTIONS, getFrequency, setFrequency, type SuggestionFrequency } from '@/lib/suggestions';
 import { palette } from '@/theme';
 
 const SHOW_INVITE = false;
@@ -137,7 +138,61 @@ const REPORT_CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
+// Suggestions in Your circle (stage 3, 2026-10-28): how often Limen brings
+// someone up. 05 gives three choices; "No suggestions" is added so every
+// reminder can be turned off (draft).
+function SuggestionSettings() {
+  const [frequency, setFreq] = useState<SuggestionFrequency | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured) return;
+      getFrequency().then(setFreq);
+    }, [])
+  );
+
+  const choose = async (f: SuggestionFrequency) => {
+    setBusy(true);
+    setFreq(f);
+    if (!(await setFrequency(f))) setFreq(await getFrequency());
+    setBusy(false);
+  };
+
+  return (
+    <View className="gap-3">
+      <SectionHeader label="Suggestions in Your circle" />
+      <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+        <Text className="text-caption text-stone-500 dark:text-stone-400">
+          How often Limen brings someone up, one person at a time. Only you see them.
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {FREQUENCY_OPTIONS.map((o) => {
+            const on = frequency === o.key;
+            return (
+              <Pressable
+                key={o.key}
+                onPress={() => !busy && choose(o.key)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: on }}
+                aria-checked={on}
+                accessibilityLabel={o.label}
+                className={`min-h-11 justify-center rounded-full border px-4 active:opacity-70 ${
+                  on ? 'border-apricot bg-honey dark:border-apricot dark:bg-stone-700' : 'border-outline dark:border-stone-600'
+                }`}>
+                <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">{o.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // Reminders and nudges (2026-10-10): turn each kind off for all chats.
+// "Check-ins" left this list on 2026-10-28: Your circle suggestions replace
+// them (a chat's own Reminders switch still keeps that person out).
 // One chat can be changed from that chat ("Reminders" under the messages).
 function ReminderSettings() {
   const [settings, setSettings] = useState<PromptSettings | null>(null);
@@ -165,7 +220,7 @@ function ReminderSettings() {
           These are on for all your chats. Turn any of them off here, or for one chat from that chat&apos;s
           &quot;Reminders&quot; link. Only you see them, and nobody is told if you turn them off.
         </Text>
-        {PROMPT_KINDS.map((kind) => (
+        {PROMPT_KINDS.filter((k) => k !== 'check_in').map((kind) => (
           <View key={kind} className="flex-row items-start gap-3">
             <View className="flex-1 gap-0.5">
               <Text className="text-body text-stone-900 dark:text-stone-50">{PROMPT_LABELS[kind].title}</Text>
@@ -423,6 +478,7 @@ export function SettingsPanel() {
               push infrastructure anywhere in this codebase (a standing,
               repeatedly-documented gap), and the only email this app ever
               sends is Supabase Auth's own transactional confirmation. */}
+          <SuggestionSettings />
           <ReminderSettings />
 
           {/* Help: coach marks (20260820000000). Resets every first-time
