@@ -244,6 +244,8 @@ Two fixes first (founder's test): Before you start's "Answer every hello" point 
 9. **Test tab:** "Your circle suggestion now" makes a suggestion show right away for the acting test account. "Reset all test accounts" also clears suggestions, their settings, pattern answers and Limen rhythms.
 10. Privacy: suggestions, pattern answers, Limen rhythms and the frequency are own-row only; suggestions and answers are written only through the database functions.
 
+11. **Founder OK (2026-10-28):** every draft above (lines, timings, the pattern answers, contact lines, the celebrating tip) and the Limen "last in touch" rule (messages from either person count) are approved as built.
+
 Migration `20261028000000_circle_suggestions.sql`. No server functions changed. App: `expo-contacts` added (works in Expo Go). Tests: `qa-suggest` (62: the due rule, one at a time and the gap for each frequency, Not now coming back after a week, Fewer down to the slowest, Limen people and which chats never count, the note-based lines, pattern question and its answers on You, check-in retired, privacy through the API, person page on the web, laptop, the Test tab tool, the "You" photo), `qa-onboard` (Before you start line).
 
 ## Founder to-do list (not code)
