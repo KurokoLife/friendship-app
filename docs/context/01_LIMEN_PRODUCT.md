@@ -86,7 +86,7 @@ Saved as you go; opening the app while joining goes back to the first unfinished
 - Check-in: retired Oct 28 (stage 3). Quiet Limen chats come up as suggestions in Your circle instead.
 - Meet-in-person nudges: after about 3 weeks of real talking with no meetup ("Want to plan something?"), and honest checks at about 2 and 6 months (plan / keep chatting / end kindly). After meeting, they start over from the last meetup, following the person's own pace if they set one. Paused time doesn't count. Nothing closes on its own.
 - Settings, "Reminders and nudges": check-ins, meet nudges, morning-of check, calendar question and notes coming back can each be turned off for all chats ("Short guides" removed with the Guide, Oct 25). In a chat, "Reminders" is one switch for that chat (Oct 23); a card's own "turn off for this chat" link still works. The getting-started note can't be turned off.
-- No push notifications exist yet. Everything shows when the app is opened.
+- Notifications (since Oct 28, stage 3b): phone push and email, chosen per type (a new hi, new messages, plans and meetups, suggestions) and per channel in Settings, with quiet hours (9 pm to 8 am by default). They never show message text: "Maria S. said hello", "New message from Maria S." (at most one per chat an hour), plan lines, and for suggestions only the name and the plain line. Email goes only to the address confirmed in Sign-in and recovery; phone push is turned on from Settings.
 
 ## 8. Planning a meetup
 

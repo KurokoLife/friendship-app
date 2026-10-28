@@ -199,4 +199,4 @@ Stages, one Claude Code session each (repo KurokoLife/friendship-app, branch lim
 Rules for every stage: build only what the stage lists; follow the voice guide, the design guide and "Every profile is a person"; never change decided wording without asking the founder; follow 02 (migrations safe to run twice, bump limen_db_version, npx tsc --noEmit, qa suites); add qa tests for every new rule; end with the exact migrations to run (raw GitHub links) and functions to deploy, in plain words.
 This file lives in the repo as docs/context/05_LIMEN_REBUILD.md and CLAUDE.md loads it, so every session reads it. When this file changes, replace the repo copy.
 
-Status: Stage 1 and 1b built Oct 25. Stage 1c and 2 built Oct 26. Stage 3 built Oct 28 (phone test pending). Next: 3b (notifications).
+Status: Stage 1 and 1b built Oct 25. Stage 1c and 2 built Oct 26. Stage 3 and 3b built Oct 28 (phone test pending). Next: 4 (say hi).

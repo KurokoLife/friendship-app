@@ -11,6 +11,7 @@ Last updated 2026-10-28. The detailed decisions per area are in docs/DECISIONS.m
 | 1c. Your circle fixes | Built 2026-10-26 (migration 20261026000000; redeploy delete-account). "soon" and "won't bring X up" wording approved Oct 26 |
 | 2. Joining | Built 2026-10-26 (migrations 20261026000001, 20261027000000). Drafts decided Oct 27: the profile card comes back 30 days after Not now and ends after the third; new Discover invitation line; the rest approved (docs/DECISIONS.md section 14). Voice pass on profile screens left for stage 6 |
 | 3. Suggestions (needs a real phone test) | Built 2026-10-28 (migration 20261028000000). Web tested; Text / Call / Email and contacts need the founder's phone test (Expo Go). Drafts approved Oct 28 (docs/DECISIONS.md section 15) |
+| 3b. Notifications | Built 2026-10-28 (migration 20261028000001, new function send-notifications). Founder: Resend account and secrets, a Cron job, and an Expo account for push (steps in docs/DECISIONS.md section 16 and the session summary). To OK: the drafts in section 16 |
 | 4. Say hi | Not started |
 | 5. Planning | Not started |
 | 6. Finishing pass | Not started |
@@ -53,10 +54,10 @@ Decided recently (don't re-ask): a meetup added with "Met up already? Add it" co
 - Make your own account an admin to review selfies (Supabase SQL Editor): `update public.users set is_admin = true where id = '<your user id>';`
 - Keep the database and server functions up to date: run each new migration from its raw GitHub link, and redeploy changed functions from the dashboard.
 - Decide on a report data retention policy (legal question).
+- Notifications: a Resend account with your domain verified, the secrets RESEND_API_KEY, NOTIFY_FROM and APP_URL, a Supabase Cron job running send-notifications every 5 minutes, and (for push) a free Expo account linked with `eas init`.
 
 ## Not built yet (deferred on purpose)
 
-- Push notifications (everything shows when the app is opened).
 - Voice input (mic icons are placeholders; needs a custom app build).
 - Store products for the Journey pass.
 - Stories: a private "what people asked you" view for the writer.

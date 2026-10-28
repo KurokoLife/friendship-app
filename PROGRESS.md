@@ -317,3 +317,11 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Stage 3: one suggestion at a time in Your circle (friends outside Limen and Limen chats), due by the stage 1c date rule; 05 lines with why and source, own notes first; I reached out / Not now / Fewer; how often in Settings; pattern question after 3 Not nows, answers on You; contacts and Text / Call / Email on the phone app, "Reach out however you usually do" on the web; the chat check-in retired. Test tab "Your circle suggestion now".
 - Drafts for the founder listed in docs/DECISIONS.md section 15. Phone test still to do (Expo Go).
 - Migration 20261028000000. No server functions changed. qa-suggest 62/62.
+
+
+## 2026-10-28: Rebuild stage 3b, Notifications
+
+- Founder chose Resend and all of 3b at once; has Expo Go but no Expo account yet.
+- Push (Expo) and email (Resend), per type and channel, quiet hours, gentle defaults, never message text. The database fills an outbox (messages, plans, suggestions with the same rule as Your circle); the new send-notifications function sends it every 5 minutes from Supabase Cron. Push is turned on from Settings and needs the Expo project id.
+- Drafts listed in docs/DECISIONS.md section 16.
+- Migration 20261028000001. New function send-notifications. qa-notify 33/33 (the real function against stand-ins), notifysql 28/28.

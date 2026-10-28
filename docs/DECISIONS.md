@@ -16,7 +16,7 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 8. Graduation | Not reviewed yet |
 | 9. Remember and Guide | Remember decided and built 2026-10-10. Guide: a draft plan is below, founder still deciding which videos |
 | 10. Money and settings | Not reviewed yet |
-| Rebuild (docs/context/05_LIMEN_REBUILD.md) | Stage 1 built 2026-10-25 (section 11). Stage 1b design pass built 2026-10-25 (section 12). Stage 1c Your circle fixes built 2026-10-26 (section 13). Stage 2 Joining built 2026-10-26 (section 14). Stage 3 Suggestions built 2026-10-28 (section 15). Stages 3b to 6 not started |
+| Rebuild (docs/context/05_LIMEN_REBUILD.md) | Stage 1 built 2026-10-25 (section 11). Stage 1b design pass built 2026-10-25 (section 12). Stage 1c Your circle fixes built 2026-10-26 (section 13). Stage 2 Joining built 2026-10-26 (section 14). Stage 3 Suggestions built 2026-10-28 (section 15). Stage 3b Notifications built 2026-10-28 (section 16). Stages 4 to 6 not started |
 
 ---
 
@@ -247,6 +247,20 @@ Two fixes first (founder's test): Before you start's "Answer every hello" point 
 11. **Founder OK (2026-10-28):** every draft above (lines, timings, the pattern answers, contact lines, the celebrating tip) and the Limen "last in touch" rule (messages from either person count) are approved as built.
 
 Migration `20261028000000_circle_suggestions.sql`. No server functions changed. App: `expo-contacts` added (works in Expo Go). Tests: `qa-suggest` (62: the due rule, one at a time and the gap for each frequency, Not now coming back after a week, Fewer down to the slowest, Limen people and which chats never count, the note-based lines, pattern question and its answers on You, check-in retired, privacy through the API, person page on the web, laptop, the Test tab tool, the "You" photo), `qa-onboard` (Before you start line).
+
+## 16. Rebuild stage 3b: Notifications (decided and built 2026-10-28)
+
+Guideline: docs/context/05_LIMEN_REBUILD.md, "Notifications (decided Oct 25)". Founder chose Resend for email and all of 3b in one stage.
+
+1. **Channels:** push to the phone app (Expo's push service) and email (Resend). SMS is never used for reminders.
+2. **Settings** (You, Settings, "Notifications"): four types, each with a Phone and an Email switch: A new hi / New messages / Plans and meetups / Suggestions. Quiet hours with From (8, 9, 10, 11 pm) and Until (6, 7, 8, 9 am), or off. Gentle defaults: everything on, quiet 9 pm to 8 am in the person's own time zone (saved from the phone when the app opens). Suggestions also follow "Suggestions in Your circle" (No suggestions = no suggestion notifications).
+3. **What they say (privacy):** never message text. A first message in a chat: "Maria S. said hello"; after that "New message from Maria S." (at most one per chat an hour, draft); an invite: "Maria S. invited you to plan something"; a time suggested: "David C. suggested a time to meet"; a plan set: "Your plan with Maria S. is set"; cancelled: "Your plan with Maria S. was cancelled" (the person who did it isn't notified). Suggestions: only the name and the plain line ("You and Momo haven't been in touch for a while."); note-based suggestions never quote the note in a notification ("You wanted to ask Robert something." / "How's it going with Jenny, do you think?", drafts). Push title "Limen". Email: the same line as the subject, an "Open Limen" button, and "You can choose which emails you get, or turn them off, in Limen under You, Settings, Notifications." (draft).
+4. **How it works:** the database fills `notification_outbox` itself (triggers on messages and meetups; `queue_suggestion_notifications()` starts each person's next suggestion with the same `get_circle_suggestion` rule and frequency, so the notification and the Your circle card are the same suggestion). The `send-notifications` server function runs every few minutes from Supabase Cron, asks `notifications_to_send()` what is ready (per type and channel, holds through quiet hours, lets go of anything older than 2 days, puts away what nobody could receive), sends, and marks it (`mark_notification_sent`). A phone that no longer has the app is forgotten (`forget_push_token`). Members can't read the outbox or run any of this; only the service key can run the function. Suspended accounts get nothing.
+5. **Push on the phone:** asked only when the person taps "Turn on phone notifications" in Settings; after that the phone's address is kept with whoever is signed in (`register_push_token`, only real Expo tokens). Tapping a notification opens that chat or Your circle. Needs the app linked to an Expo account (a project id); until then Settings says "Phone notifications aren't ready in this version of the app yet." On the web: "Phone notifications work in the Limen phone app."
+6. **Email:** only to the address the person confirmed in Sign-in and recovery (`users.email`); without one, Settings says "To get emails, add one in Sign-in and recovery."
+7. **Test tab:** "Send me a test notification".
+
+Migration `20261028000001_notifications.sql`. New server function `send-notifications` (secrets `RESEND_API_KEY`, `NOTIFY_FROM`, `APP_URL`; a Supabase Cron job every 5 minutes). App: `expo-notifications`. Tests: `qa-notify` (33: the real function against stand-ins for Expo and Resend: who may run it, push and email for a hello, never the text, sent once, choices per type and channel, quiet hours, a forgotten phone, suggestions sent once and the same as Your circle, none when off; the Settings screen), `qa/sql-checks/notifysql.sql` (28).
 
 ## Founder to-do list (not code)
 

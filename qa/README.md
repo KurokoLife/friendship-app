@@ -42,6 +42,7 @@ psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/notesql.sql   # notes
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/meetanswersql.sql   # "Did you meet?" on old cards, topics
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/discoversql.sql   # Discover, Interested, Saved, hidden chats
 psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/joiningsql.sql   # joining answers private, Meet someone new rule
+psql -h /tmp -p 5433 -U postgres -d limen -f qa/sql-checks/notifysql.sql   # notifications: triggers, never the text, privacy, quiet hours
 ```
 
 Suites and what they cover (all passing on 2026-10-10):
@@ -66,6 +67,7 @@ Suites and what they cover (all passing on 2026-10-10):
 | qa-circle | Your circle: empty state, add / edit / move / remove a friend from outside Limen (rhythm choices per circle), Limen people placed on their own, hand moves, phone width, nobody else can read the list (through the API) |
 | qa-person | Your circle stage 1c: faces open the person, empty ring part jumps, person page, next check-in line (adding, editing, from the last reach-out), private photos and their privacy (storage rules through the test gateway), phone and laptop |
 | qa-suggest | Your circle suggestions (stage 3): who is due (stage 1c rule), one at a time with the gap for each frequency, I reached out, Not now back after a week, Fewer down to the slowest, Limen people (open chat, both wrote; never paused, one-sided or turned off), lines from your own notes, the pattern question and its answers on You, chat check-in retired, privacy through the API, person page on the web, laptop, Test tab tool, the "You" photo |
+| qa-notify | Notifications (stage 3b): runs the real send-notifications function (Deno) against the local database with stand-ins for Expo push and Resend (ports 8000 and 8093): only the service key may run it, hello by push and email, never the message text, sent once, per type and channel, quiet hours, a forgotten phone, suggestions sent once and matching Your circle; then the Notifications settings screen |
 | qa-discover | Discover one a day, up to 3 waiting, nobody while full; Interested and Saved for 30 days; Inbox tabs, hide a blocked chat |
 | qa-refresh | Cards and notes survive a page refresh; no "AI" on main screens; reminders sheet and payment page wording |
 | qa-answer | "Yes, we met" / "No, that's not right" on an old card, at a laptop window size |
