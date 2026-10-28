@@ -2,7 +2,7 @@ import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AppState, useColorScheme, useWindowDimensions } from 'react-native';
@@ -13,6 +13,7 @@ import { SpotlightHost } from '@/components/spotlight-host';
 import { TestModeBanner } from '@/components/test-mode-banner';
 import { initAnalytics } from '@/lib/analytics';
 import { clearCoachMarksCache } from '@/lib/coach-marks';
+import { listenForNotificationTaps, refreshPushIfAllowed, saveMyTimeZone } from '@/lib/notifications';
 import { recordActiveDayIfSignedIn } from '@/lib/referral';
 import { supabase } from '@/lib/supabase';
 import { layout, palette } from '@/theme';
@@ -75,8 +76,14 @@ export default function RootLayout() {
   // sitting untouched in the background across a real calendar-day
   // boundary, with no new sign-in or token refresh to fire an auth event.
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       recordActiveDayIfSignedIn();
+      // Notifications (stage 3b): keep this phone's push address and time
+      // zone with whoever is signed in. Never asks for permission here.
+      if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+        refreshPushIfAllowed();
+        saveMyTimeZone();
+      }
       // Coach marks (20260820000000): clears the shared in-memory "seen"
       // cache on every real auth event, cheap and safe to call
       // unconditionally, same reasoning recordActiveDayIfSignedIn already
@@ -89,9 +96,12 @@ export default function RootLayout() {
         recordActiveDayIfSignedIn();
       }
     });
+    // Tapping a notification opens the chat or Your circle it's about.
+    const stopTaps = listenForNotificationTaps((path) => router.push(path as never));
     return () => {
       authListener.subscription.unsubscribe();
       appStateSubscription.remove();
+      stopTaps();
     };
   }, []);
 

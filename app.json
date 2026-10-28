@@ -53,7 +53,8 @@
         {
           "contactsPermission": "Lets you link a friend to a contact so you can text, call or email them from Limen. Limen doesn't keep their number or email."
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

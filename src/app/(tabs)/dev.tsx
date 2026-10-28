@@ -523,6 +523,19 @@ export default function TestToolsScreen() {
                 }
               />
               <Button
+                label="Send me a test notification"
+                busy={busy === 'fresh'}
+                onPress={() =>
+                  rpc('fresh', 'test_notify_me', {}, (d) =>
+                    d === 'queued_push'
+                      ? 'Queued. It goes to this phone within a few minutes (when the sender runs), unless it is quiet hours.'
+                      : d === 'queued_email'
+                        ? 'Queued. It goes to your email within a few minutes, unless it is quiet hours.'
+                        : 'Queued, but there is nowhere to send it: turn on phone notifications or add an email first.'
+                  )
+                }
+              />
+              <Button
                 label="Clear my daily limits"
                 busy={busy === 'fresh'}
                 onPress={() => rpc('fresh', 'test_clear_ai_limits', {}, () => 'Daily and weekly limits cleared for this account.')}

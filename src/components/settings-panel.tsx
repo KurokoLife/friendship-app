@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, Share, Switch, Text, View } from 'react-native';
 
 import { CoachMark } from '@/components/coach-mark';
+import { NotificationSettings } from '@/components/notification-settings';
 import { track } from '@/lib/analytics';
 import { resetCoachMarks } from '@/lib/coach-marks';
 import {
@@ -236,8 +237,7 @@ function ReminderSettings() {
         ))}
         <Text className="text-caption text-stone-500 dark:text-stone-400">
           Always on: when someone says hello and hasn&apos;t heard back yet, one gentle note. It shows once, only
-          before you&apos;ve both written. Limen doesn&apos;t send push or email notifications yet; these show inside
-          the app.
+          before you&apos;ve both written. These show inside the app; phone and email notifications are set above.
         </Text>
       </View>
     </View>
@@ -472,13 +472,8 @@ export function SettingsPanel() {
             </View>
           )}
 
-          {/* Notifications: honest about what actually exists rather than a
-              fake toggle for a system that isn't built. Confirmed before
-              writing this screen: no expo-notifications dependency, no
-              push infrastructure anywhere in this codebase (a standing,
-              repeatedly-documented gap), and the only email this app ever
-              sends is Supabase Auth's own transactional confirmation. */}
           <SuggestionSettings />
+          <NotificationSettings />
           <ReminderSettings />
 
           {/* Help: coach marks (20260820000000). Resets every first-time
