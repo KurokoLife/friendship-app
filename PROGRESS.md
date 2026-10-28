@@ -309,3 +309,11 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Founder decisions: "Meet someone new, too?" card comes back about 30 days after Not now, gone after the third, ends when a profile is set up; Discover invitation line reworded; the other drafts approved.
 - qa-oct9b's 3 failures: the test opened a match without approved selfies; reopening correctly needs them. Test fixed, no app change.
 - Migration 20261027000000. No server functions changed. qa-onboard 136/136, qa-oct9b 62/62, joiningsql all true.
+
+
+## 2026-10-28: Rebuild stage 3, Suggestions
+
+- Founder fixes first: Before you start's extra "More about quiet chats" button gone, "Ending a chat or pausing never counts." added; "You" in the circles shows your own photo and opens your profile.
+- Stage 3: one suggestion at a time in Your circle (friends outside Limen and Limen chats), due by the stage 1c date rule; 05 lines with why and source, own notes first; I reached out / Not now / Fewer; how often in Settings; pattern question after 3 Not nows, answers on You; contacts and Text / Call / Email on the phone app, "Reach out however you usually do" on the web; the chat check-in retired. Test tab "Your circle suggestion now".
+- Drafts for the founder listed in docs/DECISIONS.md section 15. Phone test still to do (Expo Go).
+- Migration 20261028000000. No server functions changed. qa-suggest 62/62.
