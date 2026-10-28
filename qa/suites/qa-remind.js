@@ -53,6 +53,8 @@ const { U, check, tap, text, go, q } = L;
   t = await text(m.page);
   check("Maria's chat stays calm: no check-in, no turn", !t.includes("It's been quiet with David C.") && !/your turn/i.test(t), t.slice(0, 900));
   check('No "waiting" line for Maria once both wrote', !t.includes('Sometimes it takes a few days'), '');
+  // Maria says hi herself (the layout checks below look for this message).
+  await q(`insert into messages (connection_id, sender_id, content, type) values ($1,$2,'Hi! Just checking in, how was the trip?','text')`, [B, U.maria]);
 
   // David turns reminders off for this chat (it also keeps Maria out of his
   // Your circle suggestions).
@@ -82,8 +84,8 @@ const { U, check, tap, text, go, q } = L;
   await go(d.page, '/settings', 3000);
   t = await text(d.page);
   check('Settings: Reminders and nudges section', (t.includes('REMINDERS AND NUDGES') || t.includes('Reminders and nudges')) && t.includes('Calendar question'), t.slice(0, 600));
-  const sSwitches = d.page.getByRole('switch');
-  await sSwitches.nth(3).click();
+  check('Settings: no Check-ins switch (retired 2026-10-28)', !t.includes('Check-ins'));
+  await d.page.getByRole('switch', { name: 'Calendar question', exact: true }).click();
   await d.page.waitForTimeout(1500);
   const ps3 = await q(`select kind from prompt_settings where user_id=$1 and connection_id is null`, [U.david]);
   check('Calendar question off for all chats', ps3.length === 1 && ps3[0].kind === 'calendar', JSON.stringify(ps3));
