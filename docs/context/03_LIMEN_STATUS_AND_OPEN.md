@@ -67,7 +67,7 @@ Decided recently (don't re-ask): a meetup added with "Met up already? Add it" co
 
 ## Cleanup debt (safe to leave, remove when convenient)
 
-- Old purchase code: `src/lib/ai-credits.ts`, `src/lib/premium.ts`, receipt functions.
+- Old purchase receipt functions (the app-side purchase code and react-native-iap were removed 2026-11-01; they broke the Android build).
 - Hidden Browse tab and its connection-analysis sheet; `generate-activity-suggestions`.
 - Old planning and intervention functions and tables in the database (unused).
 - History moved to docs/archive/ on Oct 10 (full old AGENTS.md and PROGRESS.md). Searchable, often out of date, never auto-loaded.
