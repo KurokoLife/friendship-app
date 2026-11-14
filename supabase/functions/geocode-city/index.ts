@@ -44,6 +44,11 @@
 // database at all, it's a pure lookup, the caller writes the result to
 // their own profile themselves.
 
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -156,6 +161,18 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return jsonResponse({ error: 'Missing Authorization header' }, 401);
+  }
+  // 2026-11-13: check the caller is really signed in. Before, any request
+  // that carried a header got through, so this could be used by strangers.
+  const caller = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const {
+    data: { user },
+  } = await caller.auth.getUser();
+  if (!user) {
+    return jsonResponse({ error: 'Not authenticated' }, 401);
   }
 
   let body: { city?: string; state?: string; country?: string; zip?: string };

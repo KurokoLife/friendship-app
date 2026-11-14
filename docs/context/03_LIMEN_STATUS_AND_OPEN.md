@@ -16,6 +16,10 @@ Last updated 2026-10-28. The detailed decisions per area are in docs/DECISIONS.m
 | 5. Planning | Not started |
 | 6. Finishing pass | Not started |
 
+## Security review (2026-11-11 to 13)
+
+Holes found and fixed in migration 20261113000000 (run it after 20261028000001; redeploy `geocode-city`). Still open, founder to decide: make the GitHub repo private; a per-person limit on place search before the pilot; whether test accounts should stay in the real database once real members join.
+
 ## Review status by area
 
 | Area | Status |

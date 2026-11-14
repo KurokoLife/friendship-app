@@ -262,6 +262,21 @@ Guideline: docs/context/05_LIMEN_REBUILD.md, "Notifications (decided Oct 25)". F
 
 Migration `20261028000001_notifications.sql`. New server function `send-notifications` (secrets `RESEND_API_KEY`, `NOTIFY_FROM`, `APP_URL`; a Supabase Cron job every 5 minutes). App: `expo-notifications`. Tests: `qa-notify` (33: the real function against stand-ins for Expo and Resend: who may run it, push and email for a hello, never the text, sent once, choices per type and channel, quiet hours, a forgotten phone, suggestions sent once and the same as Your circle, none when off; the Settings screen), `qa/sql-checks/notifysql.sql` (28).
 
+## 17. Security hardening (built 2026-11-13)
+
+Found by a security review on Nov 11, confirmed on the live project. Nothing changes on screen.
+
+- Your own account row: premium, credits, verified, referral, admin, selfie and suspended flags can't be edited from the app. Phone and email are copied from the sign-in system, never from what the app sends.
+- A test account is recognised by its sign-in phone number, not by the copy on its own row.
+- Messages: the only thing a reader can change is "read". A message sent from the app is always plain text, dated now.
+- Connections: from the app a person can only say "Not now" to someone Limen may show them, and save or unsave. Opening, pausing, ending, blocking and meetup counts only happen through Limen's own functions.
+- Usage limits table is read-only. Suggestion rows are added only by the server.
+- Other people's map coordinates stay on the server; the app gets the distance only.
+- Signed-out visitors can run nothing but the version check. Background jobs, payment credits and internal helpers are server-only.
+- Web: `public/_headers` (no framing, no type guessing, HTTPS only, unused device features off).
+- Encryption: data is encrypted on the way (HTTPS) and on Supabase's disks. Chats are not end-to-end encrypted (decided not to build for now: reports, notifications and account recovery depend on the server being able to read rows).
+- Open: repo is public; `place-search` has no per-person limit; test accounts in the real database.
+
 ## Founder to-do list (not code)
 
 - Twilio A2P 10DLC registration, so real mobile carriers deliver the code.

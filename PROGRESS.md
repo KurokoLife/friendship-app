@@ -325,3 +325,12 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Push (Expo) and email (Resend), per type and channel, quiet hours, gentle defaults, never message text. The database fills an outbox (messages, plans, suggestions with the same rule as Your circle); the new send-notifications function sends it every 5 minutes from Supabase Cron. Push is turned on from Settings and needs the Expo project id.
 - Drafts listed in docs/DECISIONS.md section 16.
 - Migration 20261028000001. New function send-notifications. qa-notify 33/33 (the real function against stand-ins), notifysql 28/28.
+
+
+## 2026-11-13: Security hardening
+
+- A security review (Nov 11) found holes that let a person change things from a browser that the app never offers: give any account premium or credits (even signed out), rewrite a received message, skip the selfie check by passing as a test account, create an open chat row with anyone, change the usage-limits table, run background jobs, and read other people's map coordinates. All confirmed on the local test copy and on the live project (read-only checks). No real members yet, so nothing to clean up.
+- Fix is one migration, 20261113000000_security_hardening.sql: trusted columns on `users` can't be edited by clients (phone and email come from the sign-in system); `_is_seed_account` reads `auth.users`; messages allow only `read_at` to change and client inserts are always plain text dated now; a guard trigger on `connections` (clients may only "Not now" someone Limen may show them, and toggle saved); RLS on `ai_function_caps`; other people's lat/lng no longer selectable in the three profile views; signed-out visitors can run no functions, and 77 internal functions are server-only; new functions are no longer open to signed-out visitors by default.
+- `geocode-city` now checks the caller is signed in (redeploy). `public/_headers` adds browser safety headers for the web app.
+- New check: `qa/sql-checks/securitysql.sql` (every attempt above, plus a guard that fails if a new full-power function a member can run doesn't check the caller).
+- Not changed, noted for later: `place-search` has no per-person limit; test accounts live in the real database; the repo is public.
