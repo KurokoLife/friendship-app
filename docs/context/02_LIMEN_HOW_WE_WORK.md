@@ -22,10 +22,10 @@ Last updated 2026-10-25.
 
 - Add a new file in `supabase/migrations/` named `YYYYMMDDNNNNNN_short_name.sql`. It must be safe to run twice.
 - The migration must bump `limen_db_version()` to its own number. Also update `REQUIRED_DB_VERSION` and `RECENT_DB_UPDATES` in `src/lib/db-version.ts` (the Test tab warns when the live database is behind).
-- The founder runs it by pasting the raw link into the Supabase SQL Editor:
-  `https://raw.githubusercontent.com/KurokoLife/friendship-app/limen-v2-ethics-alignment/supabase/migrations/<file>`
-- Current version: `20261113000000` (Security hardening). Design: colors and font only in `src/theme/tokens.js`; buttons, rows and links from `src/components/ui.tsx`.
-- Patterns: private tables use own-row RLS; anything another person must never see goes through SECURITY DEFINER functions that return only the caller's own data; prompt cards are rows in `connection_interventions`, ranked by `get_active_intervention` so only one shows. Security (since Nov 13): a SECURITY DEFINER function members can call must check `auth.uid()`; an internal one (jobs, helpers that trust ids) must end with `revoke all on function ... from public, anon, authenticated`; clients never write trusted columns directly; run `qa/sql-checks/securitysql.sql` after every migration.
+- The founder runs it by opening the raw link (signed in to GitHub, the repo is private) and pasting the text into the Supabase SQL Editor:
+  `https://github.com/KurokoLife/friendship-app/raw/limen-v2-ethics-alignment/supabase/migrations/<file>`
+- Current version: `20261113000001` (Test tools only on test chats, place search limit). Design: colors and font only in `src/theme/tokens.js`; buttons, rows and links from `src/components/ui.tsx`.
+- Patterns: private tables use own-row RLS; anything another person must never see goes through SECURITY DEFINER functions that return only the caller's own data; prompt cards are rows in `connection_interventions`, ranked by `get_active_intervention` so only one shows. Security (since Nov 13): a SECURITY DEFINER function members can call must check `auth.uid()`; an internal one (jobs, helpers that trust ids) must end with `revoke all on function ... from public, anon, authenticated`; clients never write trusted columns directly; run `qa/sql-checks/securitysql.sql` after every migration. A new Test tab tool that takes a chat must call `_test_chat_only`.
 
 ## Server functions
 

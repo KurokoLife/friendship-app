@@ -275,7 +275,9 @@ Found by a security review on Nov 11, confirmed on the live project. Nothing cha
 - Signed-out visitors can run nothing but the version check. Background jobs, payment credits and internal helpers are server-only.
 - Web: `public/_headers` (no framing, no type guessing, HTTPS only, unused device features off).
 - Encryption: data is encrypted on the way (HTTPS) and on Supabase's disks. Chats are not end-to-end encrypted (decided not to build for now: reports, notifications and account recovery depend on the server being able to read rows).
-- Open: repo is public; `place-search` has no per-person limit; test accounts in the real database.
+- Test tools (Nov 13, later): the Test tab tools that take a chat only work when both people are test accounts or an admin, so a guessed test-number code can't reach a real member's chat.
+- Place search: at most 200 Google lookups a day and 30 a minute per person; over that, OpenStreetMap is used.
+- Open: repo to be made private; random codes for the test phone numbers; test accounts in the real database.
 
 ## Founder to-do list (not code)
 

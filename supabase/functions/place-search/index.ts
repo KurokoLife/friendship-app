@@ -53,6 +53,12 @@ Deno.serve(async (req: Request) => {
 
   if (!GOOGLE_KEY) return json({ unavailable: true });
 
+  // 2026-11-13: a limit per person (200 a day, 30 a minute) so nobody can run
+  // up the Google bill. Over it, or if the check fails, the app quietly uses
+  // the free OpenStreetMap search instead.
+  const { data: allowed, error: limitError } = await caller.rpc('use_place_search');
+  if (limitError || allowed !== true) return json({ unavailable: true, limited: true });
+
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();

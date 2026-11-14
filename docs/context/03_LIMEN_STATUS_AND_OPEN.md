@@ -18,7 +18,7 @@ Last updated 2026-10-28. The detailed decisions per area are in docs/DECISIONS.m
 
 ## Security review (2026-11-11 to 13)
 
-Holes found and fixed in migration 20261113000000 (run it after 20261028000001; redeploy `geocode-city`). Still open, founder to decide: make the GitHub repo private; a per-person limit on place search before the pilot; whether test accounts should stay in the real database once real members join.
+Fixed in migrations 20261113000000 and 20261113000001 (both run on live Nov 13). Test tools now only work on chats between test accounts; place search has a per-person limit (redeploy `place-search` when it goes live). Still open: make the GitHub repo private (founder, Settings); give each test phone number in Supabase Auth a random code; decide whether test accounts stay in the real database once real members join.
 
 ## Review status by area
 

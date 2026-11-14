@@ -144,4 +144,58 @@ select 'coordinates of other people are hidden: ' || (
 select 'every table is protected: ' || (
   (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
    where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity) = 0) as result;
+-- 10. Test tools only work on chats between test accounts (Nov 13, later).
+insert into auth.users (id, phone) values ('30000000-0000-0000-0000-000000000001', '+14155550111')
+  on conflict (id) do nothing;
+insert into public.users (id) values ('30000000-0000-0000-0000-000000000001') on conflict (id) do nothing;
+insert into connections (id, user_a_id, user_b_id, status)
+  values ('aaaaaaaa-0000-0000-0000-00000000000c', :'A', '30000000-0000-0000-0000-000000000001', 'active');
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+set local role authenticated;
+savepoint t1;
+select public.test_send_message_as('aaaaaaaa-0000-0000-0000-00000000000c', '30000000-0000-0000-0000-000000000001', 'not me', 0);
+rollback to savepoint t1;
+savepoint t2;
+select public.test_reopen_chat('aaaaaaaa-0000-0000-0000-00000000000c');
+rollback to savepoint t2;
+savepoint t3;
+select public.test_talking_age('aaaaaaaa-0000-0000-0000-00000000000c', 30);
+rollback to savepoint t3;
+reset role;
+select 'a test account can''t post into a real member''s chat: ' ||
+  ((select count(*) from messages where connection_id = 'aaaaaaaa-0000-0000-0000-00000000000c') = 0) as result;
+select 'every Test tab tool that takes a chat checks it is a test chat: ' || (
+  (select count(*) from pg_proc p
+   where p.pronamespace = 'public'::regnamespace and p.proname ~ '^(test_|dev_)'
+     and has_function_privilege('authenticated', p.oid, 'execute')
+     and pg_get_function_identity_arguments(p.oid) ~ 'p_connection_id'
+     and p.prosrc !~ '_test_chat_only\(' and p.prosrc !~ '_is_seed_account\(' and p.prosrc !~ '5555500') = 0) as result;
+
+-- Test tools still work on a chat between two test accounts.
+delete from connections where (user_a_id = :'A' and user_b_id = '10000000-0000-0000-0000-000000000002')
+  or (user_a_id = '10000000-0000-0000-0000-000000000002' and user_b_id = :'A');
+insert into connections (id, user_a_id, user_b_id, status)
+  values ('aaaaaaaa-0000-0000-0000-00000000000d', :'A', '10000000-0000-0000-0000-000000000002', 'active');
+set local role authenticated;
+select public.test_send_message_as('aaaaaaaa-0000-0000-0000-00000000000d', '10000000-0000-0000-0000-000000000002', 'hi from David', 0);
+reset role;
+select 'test tools still work between test accounts: ' ||
+  ((select count(*) from messages where connection_id = 'aaaaaaaa-0000-0000-0000-00000000000d') = 1) as result;
+
+-- 11. Place search limit.
+set local role authenticated;
+select count(*) filter (where ok) as allowed, count(*) filter (where not ok) as refused
+  from (select public.use_place_search() as ok from generate_series(1, 35)) s \gset
+reset role;
+select 'place search stops after 30 a minute: ' || (:allowed = 30 and :refused = 5) as result;
+update public.place_search_usage set minute_start = now() - interval '2 minutes', day_count = 200
+  where user_id = :'A';
+set local role authenticated;
+select public.use_place_search() as over_day \gset
+reset role;
+select 'place search stops after 200 a day: ' || (not :'over_day'::boolean) as result;
+select 'nobody can read or change the place search counts: ' || (
+  not has_table_privilege('authenticated', 'public.place_search_usage', 'select')
+  and not has_table_privilege('authenticated', 'public.place_search_usage', 'update')
+  and not has_function_privilege('anon', 'public.use_place_search()', 'execute')) as result;
 rollback;

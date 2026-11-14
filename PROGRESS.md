@@ -334,3 +334,10 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - `geocode-city` now checks the caller is signed in (redeploy). `public/_headers` adds browser safety headers for the web app.
 - New check: `qa/sql-checks/securitysql.sql` (every attempt above, plus a guard that fails if a new full-power function a member can run doesn't check the caller).
 - Not changed, noted for later: `place-search` has no per-person limit; test accounts live in the real database; the repo is public.
+
+## 2026-11-13 (later): Test tools only on test chats, place search limit
+
+- Founder confirmed test phone numbers are listed in Supabase Auth. The numbers are in the code, so anyone who guessed a code was a test operator, and 8 Test tab tools (`test_send_message_as`, `test_reopen_chat`, `test_end_pause`, `test_match_age`, `test_no_reply`, `test_plan_board_age`, `test_share_reminder_now`, `test_talking_age`) accepted any chat id: they could post into a real member's chat as anyone. Now each one calls `_test_chat_only(connection, person?)` right after its operator check: both people must be test accounts or an admin, and the sender must be in the chat.
+- Place search: `place_search_usage` + `use_place_search()` (200 a day, 30 a minute per person); `place-search` checks it and over the limit returns `unavailable`, so the app uses OpenStreetMap. Tested against the real function: 30 through, then the backup.
+- Migration 20261113000001_test_tools_and_place_limit.sql. Redeploy `place-search` (not deployed yet on live). securitysql 25/25; qa-testtab, qa-plan, qa-meet, qa-meetups, qa-remind, qa-share, qa-noghost, qa-oct9/9b/9c, qa-mochi, qa-suggest, qa-inbox-chat, qa-circle, qa-answer, qa-place all pass.
+- Repo visibility can't be changed from a Claude session (GitHub blocks settings changes); founder to make it private. Raw links in docs now use github.com/.../raw/... so they keep working while signed in.
