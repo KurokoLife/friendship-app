@@ -1,6 +1,6 @@
 # Limen: status, open decisions and to-dos
 
-Last updated 2026-10-28. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
+Last updated 2026-11-14. The detailed decisions per area are in docs/DECISIONS.md (in the repo).
 
 ## Rebuild (docs/context/05_LIMEN_REBUILD.md)
 
@@ -15,6 +15,10 @@ Last updated 2026-10-28. The detailed decisions per area are in docs/DECISIONS.m
 | 4. Say hi | Not started |
 | 5. Planning | Not started |
 | 6. Finishing pass | Not started |
+
+## Main rule: golden rule + ask (2026-11-14)
+
+Treat people the way you'd want to be treated, and ask when you don't know. Added to 05 (belief 7, test 5, its own section). Copy review in docs/context/07_COPY_REVIEW.md: founder to OK each line; approved changes to built screens (joining, suggestions, chat) go in as copy updates, the rest with stages 4 to 6.
 
 ## Security review (2026-11-11 to 13)
 
