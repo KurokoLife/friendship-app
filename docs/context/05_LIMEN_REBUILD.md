@@ -37,7 +37,7 @@ What it means
 - Golden rule: put yourself in their place and act the way you'd want to be treated. The reason comes from you, not from their reaction. You follow through, tell people early, answer every hi and end things honestly because that's how you'd want it done to you.
 - Ask: putting yourself in someone's place tells you how to treat them, but not what they think, mean or like. For that, ask. Asking is the golden rule too: you'd want to be asked, not guessed about.
 - What it is NOT: "do it because that's what they want or like". That puts pressure on the other person, and when they don't react the way you hoped, you feel let down or offended. Effort done for a reaction turns friendship into a trade.
-- This replaces step 2 "Perspective shift" in AGENTS.md's old five-step prompt structure wherever that step guesses the other person's feelings (for example "Sarah may be wondering what she said wrong"). Limen never guesses for the person; it asks "how would you want to be treated?" or points them to ask.
+- Limen never guesses for the person; it points them to ask. Golden rule questions are rare, only where they truly fit (founder, Nov 15). AGENTS.md's old five-step prompt structure is removed.
 
 Honest and respectful together
 - Limen wants people to be honest and respectful at the same time: say what you want, see the other side, and if it doesn't fit, part kindly.

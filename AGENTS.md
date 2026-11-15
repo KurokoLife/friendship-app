@@ -5,7 +5,7 @@ This file holds only what is current. How every part works today: docs/context/0
 ## WHAT WE ARE BUILDING
 A native iOS and Android friendship app for adults navigating life transitions (divorce, relocation, bereavement, career change, empty nesting). Both genders. Open to all ages with age filtering. Especially strong fit for 40+ adults.
 
-The app teaches friendship skills, provides AI-powered matching, and supports users through the full friendship formation arc — from first message to graduation (see the Limen v2 graduation spec below: earliest at 6 meetups over 8+ weeks, decided by 10 meetups or 6 months, mutual and private).
+The app helps people notice and makes the next step easy, and supports them through the full friendship arc — from first message to graduation (see the Limen v2 graduation spec below: earliest at 6 meetups over 8+ weeks, decided by 10 meetups or 6 months, mutual and private).
 
 ---
 
@@ -62,32 +62,19 @@ Full rationale and research links: `docs/LIMEN_V2_DECISIONS.md`.
 - **Rebuild stage 3b: Notifications (2026-10-28):** push (Expo) and email (Resend), per type (hi, message, plan, suggestion) and channel in Settings (`notification_settings`, defaults all on, quiet 9 pm to 8 am in the person's time zone, `set_my_time_zone`). Never message text: "Maria S. said hello", "New message from Maria S." (one per chat an hour), plan lines, suggestions = name + plain line (`_suggestion_notify_line`). The database fills `notification_outbox` (triggers on messages and meetups; `queue_suggestion_notifications()` uses `get_circle_suggestion`, same rule and frequency); the `send-notifications` function (service key only, Supabase Cron every 5 minutes) sends via `notifications_to_send()` / `mark_notification_sent()` / `forget_push_token()`. Push asked only from Settings ("Turn on phone notifications"), `register_push_token`; needs the Expo project id (`eas init`). Email only to the confirmed `users.email`. Test tab "Send me a test notification". Migration `20261028000001_notifications.sql`. Tests: `qa-notify` (33), `notifysql.sql` (28). Full list: docs/DECISIONS.md section 16.
 - **Security hardening (2026-11-13):** no change to how the app works. Clients can no longer edit trusted columns on `users` (premium, credits, verified, referral, admin, selfie, suspended; phone and email always come from sign-in), rewrite a message (only `read_at`), write `connections` freely (only "Not now" on someone `browse_profiles` shows them, and saved; everything else through the SECURITY DEFINER functions), change `ai_function_caps`, or read other people's `location_lat` / `location_lng` from `browse_profiles`, `discovery_profiles`, `connected_profiles`. Signed-out visitors can run no function except `limen_db_version`; internal functions (jobs, credits, helpers that trust the ids they are given) are server-only. **Rules for new work:** a SECURITY DEFINER function a member can call must check `auth.uid()` (or `is_test_operator()`); an internal one must `revoke all ... from public, anon, authenticated`; a recreated profile view must not grant lat/lng; never trust `public.users.phone`. Migration `20261113000000_security_hardening.sql`; redeploy `geocode-city`. Test: `qa/sql-checks/securitysql.sql`.
 - **Test tools only on test chats, place search limit (2026-11-13, later):** every Test tab tool that takes a chat (`test_send_message_as`, `test_reopen_chat`, `test_end_pause`, `test_match_age`, `test_no_reply`, `test_plan_board_age`, `test_share_reminder_now`, `test_talking_age`) calls `_test_chat_only(connection, person?)` after its operator check: both people must be test accounts or an admin. New test tools that take a chat must do the same. Place search: `use_place_search()` (200 a day, 30 a minute per person), checked by `place-search`; over it the app falls back to OpenStreetMap. Migration `20261113000001_test_tools_and_place_limit.sql`; redeploy `place-search`. Test: `securitysql.sql` (25).
-- **Golden rule + ask is the main rule (2026-11-14, founder):** treat people the way you'd want to be treated (from your own standard, not for their reaction), and ask when you don't know what someone thinks, means or likes. Never give the other person's reaction as the reason to act ("they'll love it", "lands better than you think"). It supersedes step 2 "Perspective shift" of the AI philosophy below wherever that step guesses the other person's feelings. Full rule, copy rules and research: docs/context/05_LIMEN_REBUILD.md ("Golden rule + ask", belief 7, test 5). Proposed wording changes, pending founder OK: docs/context/07_COPY_REVIEW.md. No code changed yet.
+- **Golden rule + ask is the main rule (2026-11-14, founder):** treat people the way you'd want to be treated (from your own standard, not for their reaction), and ask when you don't know what someone thinks, means or likes. Never give the other person's reaction as the reason to act ("they'll love it", "lands better than you think"). (The old five-step "AI philosophy" is removed, see "How the app treats people" below; golden rule questions stay rare, founder Nov 15.) Full rule, copy rules and research: docs/context/05_LIMEN_REBUILD.md ("Golden rule + ask", belief 7, test 5). Proposed wording changes, pending founder OK: docs/context/07_COPY_REVIEW.md. No code changed yet.
 ---
 
-## AI PHILOSOPHY — THE ANCHOR
-*This governs every AI feature. Never violate this. Grounded in Self-Determination Theory (Deci and Ryan).*
+## HOW THE APP TREATS PEOPLE (2026-11-15, replaces the old "AI philosophy" and its five-step prompt structure)
+The beliefs, the 7-point test for every feature and the copy rules are in the founder's "00 Core" doc (claude.ai project "Business - Limen"; a repo copy comes with the docs update). The essentials:
+- The app never writes, rewrites or polishes a message. Starters are fine; the person finishes them in their own words.
+- The app helps people notice; the person decides and acts. Choices are equal, no nudge, and choosing not to act is fine.
+- Never guess or explain what the other person feels or means. Point to asking them ("Not sure what they meant? Ask them. Only they know.").
+- Never question who someone is, what kind of person they are, or imply they are doing harm.
+- Never give the other person's reaction as the reason to act ("they'll love it", "it means more to them than people expect").
+- Golden rule questions ("If you were the one waiting, how would you want to hear?") appear only at a handful of moments where they truly fit, never on every card. Often no extra line is the right answer.
+- Private stays private. Meeting in person is the point; chat is how people get there.
 
-**The app helps users reflect on what they feel and how the other person might see it. It never writes, rewrites, or polishes their messages.**
-
-- User's raw honest input always comes first. Claude asks questions and points out what the user might have missed; the words are always the user's own.
-- The app suggests. The user decides and acts. Nothing moves without the human choosing.
-- App never shares a user's private feelings without explicit user choice.
-- Every AI feature must pass: "Is this helping the human do something they chose to do, or replacing a human choice?" If the latter — it doesn't belong.
-
-**Every prompt follows this five-step structure:**
-1. **Awareness** — show what is happening, no pressure, no urgency, just clarity
-2. **Perspective shift** — show the other person's possible experience, not to guilt but to inform. Example: "Sarah may be wondering what she said wrong."
-3. **Identity mirror** — one honest question connecting the moment to who they want to be. Example: "Is hurting someone's feeling something you want to do?" Does NOT require honesty as a stated value — assumes basic human decency from the act of joining the platform.
-4. **Choice** — all options presented equally, no hierarchy, no preferred answer, no nudge. User picks. App respects whatever they choose including choosing not to act.
-5. **Reflection** (changed 2026-10-03, was "Articulation") — if the user chooses to act, they write it themselves. AI may ask reflective questions ("how would you want to be answered?") and point out things in their own draft (a missed question, no question back, nothing of their own shared), but AI NEVER writes, rewrites, or suggests sendable text. Feedback comes back as codes and the server writes fixed observation sentences, so model output can never be pasted as a message. See `supabase/functions/reflection-coach`.
-
-**Scientific foundation:**
-- Self-Determination Theory: autonomous motivation (freely chosen) is more durable than externally pressured behavior. When people feel controlled they resist. When they feel they chose freely they own it.
-- Identity-based behavior change: "I am someone who shows up for people" produces more consistent behavior than "showing up makes the other person feel good."
-- Combined perspective shift + identity mirror (2025 Frontiers in Psychiatry): produces better outcomes than either alone. Perspective shift without identity mirror can cause empathic overarousal and withdrawal. Identity mirror redirects from guilt to agency.
-
-**Text is the starting point, not the destination:**
-Research on Media Richness Theory confirms text lacks non-verbal cues required for emotional depth. The app treats text as the beginning of a friendship, not where it lives. Every feature is designed to move users naturally from text toward voice toward in-person contact as trust builds. The user chooses when to move. The app creates conditions and removes friction.
+The old five-step prompt structure is removed on purpose (founder, Nov 15): it guessed the other person's feelings and questioned the person's character. Never bring it back.
 
 ---
