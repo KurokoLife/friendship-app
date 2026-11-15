@@ -1,9 +1,10 @@
 # Limen: how we work (for build and test sessions)
 
-Last updated 2026-10-25.
+Last updated 2026-11-15.
 
 ## Working with the founder
 
+- Check every screen and line of copy against docs/context/00_CORE.md, including "How it should feel": judge how it reads, not whether it matches words.
 - Plain, non-technical, short, step by step. Check Goal / Context / Action / Output before building, unless it's already clear.
 - Don't just agree. Recommend what's best and say why.
 - When the founder has to act, give the exact link and the exact clicks.
@@ -47,7 +48,7 @@ Last updated 2026-10-25.
 
 ## Every session
 
-1. CLAUDE.md auto-loads AGENTS.md (current decisions) and docs/context 01 to 05 (05 is the rebuild guideline; build one stage per session). Before changing an area, `grep` the archive (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md) and docs/DECISIONS.md for that area's past reasons. Never read the archive files whole (the progress history is about 700 KB).
+1. CLAUDE.md auto-loads AGENTS.md (current decisions), docs/context/00_CORE.md (beliefs, the 7-point test, how copy should feel; wins over everything else), 01_PRODUCT.md (what's built), 02_PLAN_AND_STATUS.md (what to build next, stage by stage; build one stage per session) and this file. 00 to 02 are copies of the founder's claude.ai project docs: when one changes there, replace the repo copy, and after a stage update both. Before changing an area, `grep` the archive (docs/archive/AGENTS_FULL_HISTORY.md, docs/archive/PROGRESS_HISTORY.md) and docs/DECISIONS.md for that area's past reasons. Never read the archive files whole (the progress history is about 700 KB).
 2. Build, then `npx tsc --noEmit`, then the relevant qa suites. Check screens on a phone-sized window.
-3. Write it down: a short dated entry at the end of PROGRESS.md (recent log, not auto-loaded), a bullet under "LIMEN V2 DECISIONS" in AGENTS.md, the area in docs/DECISIONS.md, and update docs/context if something there changed.
+3. Write it down: a short dated entry at the end of PROGRESS.md (recent log, not auto-loaded), a bullet under "LIMEN V2 DECISIONS" in AGENTS.md, the area in docs/DECISIONS.md, and update docs/context 01 and 02 (and tell the founder to update the same project docs) if something there changed.
 4. Commit, push, and tell the founder the exact migrations to run and functions to deploy.

@@ -341,3 +341,8 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - Place search: `place_search_usage` + `use_place_search()` (200 a day, 30 a minute per person); `place-search` checks it and over the limit returns `unavailable`, so the app uses OpenStreetMap. Tested against the real function: 30 through, then the backup.
 - Migration 20261113000001_test_tools_and_place_limit.sql. Redeploy `place-search` (not deployed yet on live). securitysql 25/25; qa-testtab, qa-plan, qa-meet, qa-meetups, qa-remind, qa-share, qa-noghost, qa-oct9/9b/9c, qa-mochi, qa-suggest, qa-inbox-chat, qa-circle, qa-answer, qa-place all pass.
 - Repo visibility can't be changed from a Claude session (GitHub blocks settings changes); founder to make it private. Raw links in docs now use github.com/.../raw/... so they keep working while signed in.
+
+## 2026-11-15: Core and docs reorganized (no code changed)
+- With the founder: the Core (beliefs, golden rule + ask, the 7-point test, "How it should feel") and a full copy review. All decisions are in docs/context/02_PLAN_AND_STATUS.md, "Copy update" (not built yet).
+- AGENTS.md: the old five-step "AI philosophy" removed (commit 425c75d); pointers updated.
+- docs/context now: 00_CORE, 01_PRODUCT, 02_PLAN_AND_STATUS, 03_HOW_WE_WORK, 00_PROJECT_INSTRUCTIONS. Old 01 to 07 moved to docs/archive/context-2026-11/. CLAUDE.md loads the new set.

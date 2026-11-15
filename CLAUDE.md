@@ -1,8 +1,7 @@
-# Limen: Claude Code context
+# Limen (Okage): Claude Code context
 
 @AGENTS.md
-@docs/context/01_LIMEN_PRODUCT.md
-@docs/context/02_LIMEN_HOW_WE_WORK.md
-@docs/context/03_LIMEN_STATUS_AND_OPEN.md
-@docs/context/04_LIMEN_WHY.md
-@docs/context/05_LIMEN_REBUILD.md
+@docs/context/00_CORE.md
+@docs/context/01_PRODUCT.md
+@docs/context/02_PLAN_AND_STATUS.md
+@docs/context/03_HOW_WE_WORK.md

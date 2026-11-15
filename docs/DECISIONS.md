@@ -16,7 +16,7 @@ Areas are decided one at a time. An area marked **Decided** is built or queued t
 | 8. Graduation | Not reviewed yet |
 | 9. Remember and Guide | Remember decided and built 2026-10-10. Guide: a draft plan is below, founder still deciding which videos |
 | 10. Money and settings | Not reviewed yet |
-| Rebuild (docs/context/05_LIMEN_REBUILD.md) | Stage 1 built 2026-10-25 (section 11). Stage 1b design pass built 2026-10-25 (section 12). Stage 1c Your circle fixes built 2026-10-26 (section 13). Stage 2 Joining built 2026-10-26 (section 14). Stage 3 Suggestions built 2026-10-28 (section 15). Stage 3b Notifications built 2026-10-28 (section 16). Stages 4 to 6 not started |
+| Rebuild (old guideline now docs/archive/context-2026-11/05_LIMEN_REBUILD.md; plan now docs/context/02_PLAN_AND_STATUS.md) | Stage 1 built 2026-10-25 (section 11). Stage 1b design pass built 2026-10-25 (section 12). Stage 1c Your circle fixes built 2026-10-26 (section 13). Stage 2 Joining built 2026-10-26 (section 14). Stage 3 Suggestions built 2026-10-28 (section 15). Stage 3b Notifications built 2026-10-28 (section 16). Stages 4 to 6 not started. Core and copy review decided 2026-11-15 (section 18) |
 
 ---
 
@@ -278,6 +278,10 @@ Found by a security review on Nov 11, confirmed on the live project. Nothing cha
 - Test tools (Nov 13, later): the Test tab tools that take a chat only work when both people are test accounts or an admin, so a guessed test-number code can't reach a real member's chat.
 - Place search: at most 200 Google lookups a day and 30 a minute per person; over that, OpenStreetMap is used.
 - Open: repo to be made private; random codes for the test phone numbers; test accounts in the real database.
+
+## 18. Core and copy review (decided 2026-11-15, not built)
+
+The founder's Core is docs/context/00_CORE.md: awareness of what we don't always see, the values people already hold, the golden rule (including showing you care and saying sorry; accepting is the other person's choice) and asking when you don't know; the 7-point test; "How it should feel" with approved and rejected lines. Founder rules from the review: don't overdo the golden rule (five places in the whole app); no lines that make people dwell or tell them how to feel; an apology is never a starter; a check-in is a way to show you care (about the person's own act, not the other person's reaction); judge copy by how it feels, not by matching words. Every decided line is in docs/context/02_PLAN_AND_STATUS.md, "Copy update". The old five-step "AI philosophy" in AGENTS.md was removed for good.
 
 ## Founder to-do list (not code)
 
