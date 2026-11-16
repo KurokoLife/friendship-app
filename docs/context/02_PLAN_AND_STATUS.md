@@ -14,14 +14,16 @@ Every stage below must pass the full test in 00 Core (including "How it should f
 | 2. Joining | Built Oct 26 to 27. Copy update decided Nov 15 (below) |
 | 3. Suggestions | Built Oct 28. Needs the founder's phone test (Text / Call / Email). Copy update decided Nov 15 (below) |
 | 3b. Notifications | Built Oct 28. Founder setup still needed (to-do list) |
-| Copy update | Decided Nov 15, not built (below). A small Claude Code session |
+| Copy update | Built Nov 16, "Limen" kept on screen. Waiting for the name swap: the About name line and "without Okage". Golden rule place 5 comes with stage 5. Code sweep listed in docs/COPY_SWEEP_2026-11-16.md, waiting for the founder |
 | 4. Say hi | Next |
 | 5. Planning | Not started |
 | 6. Finishing pass | Not started |
 
 One Claude Code session per stage, on the repo (branch limen-v2-ethics-alignment). Each stage leaves the app working and tested. Rules for every stage: build only what the stage lists; follow 00 Core (beliefs, test, how it should feel, voice) and the design guide in 01; never change decided wording without asking the founder; add tests for every new rule; end with the exact database updates and functions to deploy, in plain words.
 
-### Copy update for built screens (decided Nov 15)
+### Copy update for built screens (decided Nov 15, built Nov 16)
+
+Built Nov 16 except the parts that wait for the name swap (About name line, "without Okage") and place 5 (stage 5). Founder choices while building: the check-in line sits on the Staying in touch suggestion with no "Why we say this" link; the two joining follow-ups show once in Your circle from the day after joining; the "I'm not sure yet" card gets only "If you're wondering how it went for them, you can ask." ("Or ask how it was for them." said the same thing). Detail: docs/DECISIONS.md section 19.
 
 Keep "Limen" in the app until the name checks pass; then swap every on-screen "Limen" for "Okage" in one go.
 
@@ -150,7 +152,7 @@ Fixed and live: migrations 20261113000000 and 20261113000001. Still open:
 ## Founder to-do list
 
 - **Update the project instructions** (claude.ai → "Business - Limen" project → edit instructions). Exact text: docs/context/00_PROJECT_INSTRUCTIONS.md in the repo.
-- Then a Claude Code session for the copy update above.
+- Run the database update 20261116000000_joining_follow_up.sql (copy update). Review the code sweep list (docs/COPY_SWEEP_2026-11-16.md).
 - Phone test of stage 3 (Text / Call / Email) with Expo Go.
 - Notifications setup: a Resend account with your domain verified; the secrets RESEND_API_KEY, NOTIFY_FROM and APP_URL; a Supabase Cron job running send-notifications every 5 minutes; a free Expo account linked with `eas init` for push.
 - Make the GitHub repo private, and give the test phone numbers random codes.

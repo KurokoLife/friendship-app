@@ -1400,7 +1400,7 @@ function PostMeetupReflectionPrompt({
         <Text className="text-body text-stone-700 dark:text-stone-300">
           {after === 'shared'
             ? 'Sent.'
-            : `Glad it went well. Would you like to tell ${otherName} how it was for you? Only if you want to. It usually means more to them than people expect.`}
+            : `Glad it went well. Would you like to tell ${otherName} how it was for you? Only if you want to.`}
         </Text>
         {/* 2026-10-18: once per friendship, the same for both people. No
             counts, never who suggested more. */}
@@ -1480,7 +1480,8 @@ function PostMeetupReflectionPrompt({
     return (
       <Card>
         <Text className="text-body text-stone-700 dark:text-stone-300">
-          After meeting someone new, most people think it went less well than the other person does.
+          After meeting someone new, most people think it went less well than the other person does. If
+          you&apos;re wondering how it went for them, you can ask.
         </Text>
         <View className="flex-row flex-wrap gap-2">
           <OptionPill

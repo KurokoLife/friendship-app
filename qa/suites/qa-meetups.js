@@ -155,7 +155,7 @@ async function tool(page, label) {
   check('Second yes: "How did it go?" right away', t.includes('How did it go with Maria S.?'));
   check('Met 1 time shown', t.includes('Met 1 time'));
   await tap(d.page, "I'm not sure yet", { wait: 1500 });
-  check('Not sure: the liking-gap line and equal choices', (await text(d.page)).includes('most people think it went less well than the other person does') && (await text(d.page)).includes('Tell them one thing you enjoyed'));
+  check('Not sure: the liking-gap line and equal choices', (await text(d.page)).includes('most people think it went less well than the other person does') && (await text(d.page)).includes("If you're wondering how it went for them, you can ask.") && (await text(d.page)).includes('Tell them one thing you enjoyed'));
   await tap(d.page, 'Not now');
   await go(m.page, `/thread/${C}`, 3500);
   t = await text(m.page);

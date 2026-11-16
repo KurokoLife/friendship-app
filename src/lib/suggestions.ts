@@ -51,7 +51,13 @@ export async function resolveSuggestion(id: string, outcome: 'reached' | 'not_no
   return data as ResolveResult;
 }
 
-// ---- What the card says (05 wording; lines marked draft wait for the founder)
+// The check-in line (copy update 2026-11-15, 00 Core section 3): names your
+// own act, never promises the other person's reaction. Shown on the
+// "Staying in touch" suggestion and under the Want to reconnect rhythm.
+export const CHECK_IN_WHY = "A check-in is one way to show someone you're thinking of them.";
+
+// ---- What the card says (05 wording, copy update 2026-11-15). An empty why
+// means no line under the main one; an empty source means no link.
 type Line = { line: string; why: string; source: string };
 
 const first = (name: string | undefined) => (name ?? '').trim().split(/\s+/)[0] || 'them';
@@ -64,21 +70,24 @@ export function suggestionLine(s: Suggestion): Line {
       // Limen never rewrites a note, so the person's own words are quoted.
       return {
         line: `You wanted to ask ${n}: “${s.detail ?? ''}”`,
-        why: 'A follow-up question shows you were listening.',
-        source: 'Huang, Yeomans, Brooks, Minson and Gino (2017). "It doesn\'t hurt to ask: Question-asking increases liking." Journal of Personality and Social Psychology.',
+        // Copy update (2026-11-15): points to asking, not to their reaction.
+        why: `Only ${n} knows how it's going. You could ask.`,
+        source: 'Eyal, Steffel and Epley (2018). "Perspective mistaking: Accurately understanding the mind of another requires getting perspective, not taking perspective." Journal of Personality and Social Psychology.',
       };
     case 'support':
       // Draft, same reason: the note's first line, quoted.
       return {
-        line: `You noted this about ${n}: “${s.detail ?? ''}” How's that going, do you think?`,
-        why: 'Being there in a hard stretch keeps friendships going.',
-        source: 'Oswald, Clark and Kelly (2004). "Friendship maintenance: An analysis of individual and dyad behaviors." Journal of Social and Clinical Psychology.',
+        // Copy update (2026-11-15): asking, not guessing; no why line.
+        line: `You noted this about ${n}: “${s.detail ?? ''}” Want to ask how it's going?`,
+        why: '',
+        source: '',
       };
     case 'positivity':
       return {
         line: `Anything ${n} did lately that you'd tell them was good?`,
-        why: 'Kind words land better than we think.',
-        source: 'Zhao and Epley (2021). "Insufficiently complimentary? Underestimating the positive impact of compliments creates a barrier to expressing them." Journal of Personality and Social Psychology.',
+        // Copy update (2026-11-15): no why line (the old one promised their reaction).
+        why: '',
+        source: '',
       };
     case 'openness':
       return {
@@ -96,14 +105,14 @@ export function suggestionLine(s: Suggestion): Line {
     default:
       return {
         line: `You and ${n} haven't been in touch for a while.`,
-        why: 'People enjoy hearing from a friend more than we expect.',
-        source: 'Liu, Rim, Min and Min (2022). "The surprise of reaching out: Appreciated more than we think." Journal of Personality and Social Psychology.',
+        // Copy update (2026-11-15): the check-in line, about your own act.
+        // Not a research claim, so no "Why we say this" link.
+        why: CHECK_IN_WHY,
+        source: '',
       };
   }
 }
 
-// "Why lines for check-ins" (05): shown once on the card.
-export const CHECK_IN_WHY = 'A check-in tells someone they matter to you.';
 
 // ---- Pattern noticing (05 question and choices; each answer's line is a draft)
 export type PatternAnswer = 'busy' | 'what_to_say' | 'awkward' | 'different' | 'other';
@@ -111,23 +120,20 @@ export type PatternAnswer = 'busy' | 'what_to_say' | 'awkward' | 'different' | '
 export const PATTERN_QUESTION = "You've put off a few check-ins lately. What usually gets in the way?";
 
 export const PATTERN_OPTIONS: { key: PatternAnswer; label: string; line: string }[] = [
-  { key: 'busy', label: 'A busy stretch', line: 'Busy stretches pass. Two lines still count as being in touch.' },
-  {
-    key: 'what_to_say',
-    label: 'Not sure what to say',
-    line: 'Small is fine: a question about their week, a photo, or "this made me think of you."',
-  },
+  // Copy update (2026-11-15). "awkward" is one of the five golden rule places.
+  { key: 'busy', label: 'A busy stretch', line: 'Busy stretches happen. Even a short message counts.' },
+  { key: 'what_to_say', label: 'Not sure what to say', line: "A question is enough. Ask how they've been." },
   {
     key: 'awkward',
     label: "Worried it'll feel awkward",
-    line: 'Most people are glad to hear from a friend, even after a while. The awkward part is usually shorter than we expect.',
+    line: 'If a friend got in touch after a while, would it feel awkward to you?',
   },
   {
     key: 'different',
     label: 'The friendship feels different now',
-    line: 'Friendships change shape. On their page you can move someone to another circle or change how often Limen brings them up.',
+    line: 'Only they know how it feels on their side. You could ask.',
   },
-  { key: 'other', label: 'Something else', line: "Thanks. Only you see this, on your profile under You." },
+  { key: 'other', label: 'Something else', line: 'Thanks for noting it.' },
 ];
 
 export async function answerPattern(id: string, answer: PatternAnswer | null): Promise<boolean> {

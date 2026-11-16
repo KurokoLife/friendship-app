@@ -346,3 +346,9 @@ No app code changed. New docs/context/04_LIMEN_WHY.md: Limen's goal, the 8 hard 
 - With the founder: the Core (beliefs, golden rule + ask, the 7-point test, "How it should feel") and a full copy review. All decisions are in docs/context/02_PLAN_AND_STATUS.md, "Copy update" (not built yet).
 - AGENTS.md: the old five-step "AI philosophy" removed (commit 425c75d); pointers updated.
 - docs/context now: 00_CORE, 01_PRODUCT, 02_PLAN_AND_STATUS, 03_HOW_WE_WORK, 00_PROJECT_INSTRUCTIONS. Old 01 to 07 moved to docs/archive/context-2026-11/. CLAUDE.md loads the new set.
+
+## 2026-11-16: Copy update for built screens
+- Built 02's "Copy update", keeping "Limen" on screen (About name line and "without Okage" left out until the name checks pass). Founder answered four open points: check-in line on Staying in touch without a source link; joining follow-ups once in Your circle; one ask line on the "I'm not sure yet" card; publish to the usual branches.
+- Files: philosophy-intro, readiness-commitment, (tabs)/circle, lib/joining, lib/suggestions, lib/circle, suggestion-card, reach-out, universal-text-box, plan-board-card, primary-intervention-card, big-five-assessment, (tabs)/profile, remember/[connectionId], lib/remember.
+- Migration 20261116000000_joining_follow_up.sql (follow_up_seen_at; support notification line). No server functions changed.
+- Tests updated/added: qa-suggest, qa-circle, qa-notes, qa-meetups, qa-onboard, notifysql. Code sweep written to docs/COPY_SWEEP_2026-11-16.md (list only).

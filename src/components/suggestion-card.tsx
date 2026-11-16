@@ -6,7 +6,6 @@ import { Face, InlineLink, Pill } from '@/components/ui';
 import { CIRCLE_LABELS, RHYTHM_LABELS, friendPhotoUrl, nextCheckInLine, type Rhythm } from '@/lib/circle';
 import {
   CAN_USE_CONTACTS,
-  CHECK_IN_WHY,
   PATTERN_OPTIONS,
   PATTERN_QUESTION,
   answerPattern,
@@ -101,7 +100,7 @@ export function SuggestionCard({ suggestion, onDone }: { suggestion: Suggestion;
     if (r.status === 'reached') {
       setPhase({
         kind: 'done',
-        line: `Noted. ${CHECK_IN_WHY} ${nextCheckInLine(name, r.next_day, (suggestion.rhythm ?? 'week') as Rhythm)}`,
+        line: `Noted. ${nextCheckInLine(name, r.next_day, (suggestion.rhythm ?? 'week') as Rhythm)}`,
       });
     } else if (r.status === 'not_now') {
       setPhase({ kind: 'done', line: `Okay. Limen will bring ${firstName} up again another time.` });
@@ -166,10 +165,20 @@ export function SuggestionCard({ suggestion, onDone }: { suggestion: Suggestion;
         <Face name={name} photoUrl={photo} circle={suggestion.circle ?? 'friends'} size={48} />
         <Text className="flex-1 text-body font-semibold text-stone-900 dark:text-stone-50">{line}</Text>
       </Pressable>
-      <Text className="text-caption text-stone-600 dark:text-stone-300">
-        {why} <InlineLink onPress={() => setWhyOpen((v) => !v)}>Why we say this</InlineLink>
-      </Text>
-      {whyOpen && <Text className="text-caption text-stone-500 dark:text-stone-400">{source}</Text>}
+      {/* Copy update (2026-11-15): some suggestions have no why line, and
+          the check-in line has no source link. */}
+      {!!why && (
+        <Text className="text-caption text-stone-600 dark:text-stone-300">
+          {why}
+          {!!source && (
+            <>
+              {' '}
+              <InlineLink onPress={() => setWhyOpen((v) => !v)}>Why we say this</InlineLink>
+            </>
+          )}
+        </Text>
+      )}
+      {whyOpen && !!source && <Text className="text-caption text-stone-500 dark:text-stone-400">{source}</Text>}
 
       {isLimen ? (
         <View className="flex-row flex-wrap gap-2">

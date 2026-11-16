@@ -38,7 +38,7 @@ export function ReachOut({ friend, onChanged }: { friend: OutsideFriend; onChang
     const ok = await markOutsideReached(friend.id);
     setBusy(false);
     setAsked(false);
-    setNote(ok ? `Noted. A check-in tells someone they matter to you.` : "That didn't save. Please try again.");
+    setNote(ok ? 'Noted.' : "That didn't save. Please try again.");
     if (ok) onChanged();
   };
 

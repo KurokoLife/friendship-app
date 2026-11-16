@@ -16,7 +16,9 @@ type Step = 'question' | 'pause-options' | 'paused-confirmation';
 // "Before you start" (2026-10-22 wording): the same agreements, in the warm
 // tone of the rest of joining. "Removed" is real (users.suspended_at), and
 // so is the quiet-chat rule (ghosting_events, is_ghosting_penalized).
-const AGREEMENTS: { title: string; text: string }[] = [
+// Copy update (2026-11-15): one more ground rule, "If you get something
+// wrong, say sorry." (one of the five golden rule places), title only.
+const AGREEMENTS: { title: string; text?: string }[] = [
   {
     title: 'Friendship only',
     text: 'No dating, no romance, and never asking for money. People who do are removed.',
@@ -33,6 +35,7 @@ const AGREEMENTS: { title: string; text: string }[] = [
     title: 'Answer every hello, even with a "no thanks"',
     text: "Take the time you need. If a new chat closes because you never answered, and that happens twice within two months, you'll show up later in suggestions for the next month. Nobody is told. Ending a chat or pausing never counts.",
   },
+  { title: 'If you get something wrong, say sorry.' },
 ];
 
 const PAUSE_OPTIONS: { label: string; days: number }[] = [
@@ -202,7 +205,7 @@ export default function ReadinessCommitmentScreen() {
               {AGREEMENTS.map((a) => (
                 <View key={a.title} className="gap-1">
                   <Text className="text-body font-semibold text-stone-900 dark:text-stone-50">{a.title}</Text>
-                  <Text className="text-body text-stone-600 dark:text-stone-300">{a.text}</Text>
+                  {!!a.text && <Text className="text-body text-stone-600 dark:text-stone-300">{a.text}</Text>}
                 </View>
               ))}
             </View>

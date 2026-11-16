@@ -339,3 +339,28 @@ export async function buildRememberExport(): Promise<string> {
   }
   return JSON.stringify({ exported_at: new Date().toISOString(), people: Object.values(grouped) }, null, 2);
 }
+
+// "Ask next time" on a note written on their profile (copy update
+// 2026-11-15): turns an "I wonder..." into a question for next time. The
+// note moves into the "Next time, ask X about..." list (a note between
+// meetups holding just that question) and leaves the profile notes.
+export async function moveCuriosityToAsk(params: {
+  connectionId: string;
+  userId: string;
+  curiosityNoteId: string;
+  text: string;
+}): Promise<void> {
+  const text = params.text.trim();
+  if (!text) return;
+  const { error } = await supabase.from('remember_entries').insert({
+    connection_id: params.connectionId,
+    user_id: params.userId,
+    meetup_id: null,
+    ask_next: text,
+    raw_text: '',
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+  const { error: delError } = await supabase.from('curiosity_notes').delete().eq('id', params.curiosityNoteId);
+  if (delError) throw delError;
+}

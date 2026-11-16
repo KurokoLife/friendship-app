@@ -159,6 +159,21 @@ const { U, check, tap, text, go, q } = L;
   check("David never sees Aisha's profile note", !t.includes('Lisbon'));
   check("David's page has none of Aisha's notes", t.includes('What I want to remember about Aisha') && !t.includes('guitar') && !t.includes('dog'));
 
+  // Copy update (2026-11-15): "Ask next time" moves a profile note into the
+  // Next time list.
+  await go(a.page, `/remember/${E}`, 3000);
+  await a.page.getByRole('tab', { name: /^Notes/ }).click(); await a.page.waitForTimeout(800);
+  await tap(a.page, 'Ask next time', { wait: 2500 });
+  rows = await q(`select count(*)::int n from remember_entries where connection_id=$1 and user_id=$2 and ask_next='Ask about his trip to Lisbon and Porto' and ask_next_done_at is null and meetup_id is null`, [E, U.aisha]);
+  check('Ask next time: the note becomes a Next time question', rows[0].n === 1, rows[0].n);
+  rows = await q(`select count(*)::int n from curiosity_notes where user_id=$1 and subject_user_id=$2`, [U.aisha, U.david]);
+  check('Ask next time: it leaves the profile notes', rows[0].n === 0, rows[0].n);
+  t = await text(a.page);
+  check('Ask next time: shows in the Next time list', /Next time, ask David about/.test(t) && t.includes('Ask about his trip to Lisbon and Porto') && !t.includes("Written on David's profile"), t.slice(0, 900));
+  await go(d.page, `/remember/${E}`, 3000);
+  check('David never sees the moved question', !(await text(d.page)).includes('Lisbon'));
+  await q(`delete from remember_entries where connection_id=$1 and ask_next='Ask about his trip to Lisbon and Porto'`, [E]);
+
   // Ended chat: notes stay
   await q(`update connections set status='ended' where id=$1`, [E]);
   await go(a.page, `/thread/${E}`, 3500, { expand: false });

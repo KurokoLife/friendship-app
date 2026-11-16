@@ -28,7 +28,7 @@ import {
   type PendingPerson,
   type SelfieStatus,
 } from '@/lib/safety';
-import { fetchJoining, meetOfferNotNow, meetOfferShowing } from '@/lib/joining';
+import { fetchJoining, joiningFollowUps, markJoiningFollowUpSeen, meetOfferNotNow, meetOfferShowing } from '@/lib/joining';
 import { fetchSuggestion, type Suggestion } from '@/lib/suggestions';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { layout, palette } from '@/theme';
@@ -59,6 +59,8 @@ export default function CircleScreen() {
   const [offerProfile, setOfferProfile] = useState(false);
   const [myPhoto, setMyPhoto] = useState<string | null>(null);
   // Stage 3: one suggestion at a time, at the top.
+  // Joining follow-ups (copy update 2026-11-15): once, then never again.
+  const [followUps, setFollowUps] = useState<{ label: string; line: string }[]>([]);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const listTop = useRef(0);
@@ -89,6 +91,7 @@ export default function CircleScreen() {
     ]);
     setSuggestion(next);
     setOfferProfile(meetOfferShowing(joining));
+    setFollowUps(joiningFollowUps(joining));
     const { data: me } = await supabase.from('profiles').select('photo_url').eq('user_id', user.id).maybeSingle();
     setMyPhoto((me as { photo_url: string | null } | null)?.photo_url ?? null);
     setLimen(people);
@@ -166,6 +169,30 @@ export default function CircleScreen() {
                 load();
               }}
             />
+          )}
+
+          {/* Joining follow-ups (copy update 2026-11-15): shown once, from the
+              day after joining, only while no suggestion is showing so there's
+              one card at a time. */}
+          {!suggestion && followUps.length > 0 && (
+            <View
+              accessibilityLabel="From when you joined"
+              className="gap-3 rounded-2xl border border-honey-line bg-honey p-5 dark:border-stone-700 dark:bg-stone-800">
+              {followUps.map((f) => (
+                <View key={f.label} className="gap-1">
+                  <Text className="text-caption text-stone-600 dark:text-stone-300">You picked “{f.label}”</Text>
+                  <Text className="text-body text-stone-800 dark:text-stone-100">{f.line}</Text>
+                </View>
+              ))}
+              <Pill
+                label="Got it"
+                className="self-start"
+                onPress={() => {
+                  setFollowUps([]);
+                  markJoiningFollowUpSeen();
+                }}
+              />
+            </View>
           )}
 
           <CoachMark

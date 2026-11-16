@@ -64,7 +64,7 @@ async function rest(user, path, opts = {}) {
   };
   await expectRhythms('Getting to know', ['Every few days', 'Every week', 'Every two weeks'], "New friendships grow fastest when you're in touch every week or so.");
   await expectRhythms('Friends', ['Every two weeks', 'Every month', 'Every few months'], 'Most people catch up with good friends about once a month.');
-  await expectRhythms('Want to reconnect', ['Every few days', 'Every week', 'Every two weeks', 'Every month', 'Every few months', 'A few times a year', 'No suggestions'], 'A check-in tells someone they matter to you.');
+  await expectRhythms('Want to reconnect', ['Every few days', 'Every week', 'Every two weeks', 'Every month', 'Every few months', 'A few times a year', 'No suggestions'], "A check-in is one way to show someone you're thinking of them.");
   await expectRhythms('Close', ['Every week', 'Every two weeks', 'Every month'], 'Most people are in touch with their closest friends about once a week.');
   const sel = async (label) => p.page.getByRole('radio', { name: label, exact: true }).getAttribute('aria-checked').catch((e) => e.message.slice(0, 120));
   const wk = await sel('Every week');

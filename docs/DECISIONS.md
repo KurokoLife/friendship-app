@@ -279,9 +279,22 @@ Found by a security review on Nov 11, confirmed on the live project. Nothing cha
 - Place search: at most 200 Google lookups a day and 30 a minute per person; over that, OpenStreetMap is used.
 - Open: repo to be made private; random codes for the test phone numbers; test accounts in the real database.
 
-## 18. Core and copy review (decided 2026-11-15, not built)
+## 18. Core and copy review (decided 2026-11-15; copy update built 2026-11-16, section 19)
 
 The founder's Core is docs/context/00_CORE.md: awareness of what we don't always see, the values people already hold, the golden rule (including showing you care and saying sorry; accepting is the other person's choice) and asking when you don't know; the 7-point test; "How it should feel" with approved and rejected lines. Founder rules from the review: don't overdo the golden rule (five places in the whole app); no lines that make people dwell or tell them how to feel; an apology is never a starter; a check-in is a way to show you care (about the person's own act, not the other person's reaction); judge copy by how it feels, not by matching words. Every decided line is in docs/context/02_PLAN_AND_STATUS.md, "Copy update". The old five-step "AI philosophy" in AGENTS.md was removed for good.
+
+## 19. Copy update for built screens (built 2026-11-16)
+
+Built from docs/context/02 "Copy update", "Limen" kept on screen (the About name line and "without Okage" wait for the name checks). Founder choices in this session: the check-in line goes on the Staying in touch suggestion as a plain line with no "Why we say this" link; Positivity and Support have no line under them; the joining follow-ups show once in Your circle; the "I'm not sure yet" card gets only "If you're wondering how it went for them, you can ask." (not also "Or ask how it was for them.", which said the same thing).
+- **Intro screen 2:** the founder's wording ("It's easy to overlook the small things that keep us close." / "We each show we care in our own way...").
+- **Before you start:** new ground rule "If you get something wrong, say sorry." (title only).
+- **Joining follow-ups:** in Your circle, once, from the day after What's hardest was answered, only while no suggestion shows: "Not sure people want to hear from me" → "If a friend got in touch with you, would you mind?"; "I'm usually the one who reaches out" → "If it matters to you, keep reaching out. You could also ask them how they like to keep in touch." Each under "You picked “...”" (draft wording). "Got it" sets `joining_answers.follow_up_seen_at`; never again.
+- **Suggestions:** Staying in touch: "A check-in is one way to show someone you're thinking of them." (no source link). Showing interest: "Only X knows how it's going. You could ask." with Eyal, Steffel and Epley (2018) as the source. Support: "You noted this about X: “...” Want to ask how it's going?", no why line; its notification "Want to ask X how it's going?". Positivity: no why line. After "I reached out": "Noted." (plus the next check-in date on the card). Want to reconnect rhythm line: the new check-in line. Pattern answers as decided.
+- **Celebrating tip:** "When someone tells you good news, ask about it."
+- **Meetups:** "Most people are glad to be asked..." and "It usually means more to them than people expect." removed.
+- **Voice words:** "How you make friends", "Show these to people you chat with?", option "Show them to people I chat with" (the option label follows the heading; not in the plan's text), the screen's intro and the You tab caption say "chat with".
+- **Notes:** "Ask next time" on a note written on their profile (Notes tab of What I want to remember) moves it into the Next time list and off the profile notes (`moveCuriosityToAsk`). Not added on the profile itself, which may have no chat yet.
+- Migration `20261116000000_joining_follow_up.sql`. Code sweep: docs/COPY_SWEEP_2026-11-16.md, a list only, nothing changed from it.
 
 ## Founder to-do list (not code)
 

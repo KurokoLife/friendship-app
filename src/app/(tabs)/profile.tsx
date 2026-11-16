@@ -307,7 +307,7 @@ export default function ProfileScreen() {
                 <Text className="text-caption text-stone-500 dark:text-stone-400">
                   {profile.share_friendship_experience
                     ? 'People you have a chat with see your answers to the last four questions. Tap Edit to change this.'
-                    : 'Only you see these. Tap Edit if you want to share some with people you connect with.'}
+                    : 'Only you see these. Tap Edit if you want to show some to people you chat with.'}
                 </Text>
               )}
               {profile.friendship_experience ? (

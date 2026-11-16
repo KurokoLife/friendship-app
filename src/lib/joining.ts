@@ -78,6 +78,7 @@ export type JoiningAnswers = {
   meet_offer_hidden_at: string | null;
   meet_offer_not_now_count: number;
   meet_offer_back_at: string | null;
+  follow_up_seen_at?: string | null;
 };
 
 export async function fetchJoining(): Promise<JoiningAnswers | null> {
@@ -88,7 +89,7 @@ export async function fetchJoining(): Promise<JoiningAnswers | null> {
   const { data } = await supabase
     .from('joining_answers')
     .select(
-      'hardest, hardest_other, goals, hardest_at, friends_at, goals_at, meet_offer_hidden_at, meet_offer_not_now_count, meet_offer_back_at'
+      'hardest, hardest_other, goals, hardest_at, friends_at, goals_at, meet_offer_hidden_at, meet_offer_not_now_count, meet_offer_back_at, follow_up_seen_at'
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -145,4 +146,31 @@ export async function finishJoiningWithoutProfile(): Promise<boolean> {
   if (!user) return false;
   const { error } = await supabase.from('users').update({ readiness_status: 'ready', paused_until: null }).eq('id', user.id);
   return !error;
+}
+
+// Joining follow-ups (copy update 2026-11-15, docs/context/02). Two answers
+// to What's hardest get one line each, shown once in Your circle from the
+// day after joining. "Not sure people want to hear from me" is one of the
+// five golden rule places. Nothing here is ever shown to anyone else.
+export const JOINING_FOLLOW_UPS: { key: HardestKey; line: string }[] = [
+  { key: 'not_sure_wanted', line: 'If a friend got in touch with you, would you mind?' },
+  {
+    key: 'always_reaching_out',
+    line: 'If it matters to you, keep reaching out. You could also ask them how they like to keep in touch.',
+  },
+];
+
+const FOLLOW_UP_AFTER_MS = 24 * 60 * 60 * 1000;
+
+export function joiningFollowUps(j: JoiningAnswers | null, now: Date = new Date()): { label: string; line: string }[] {
+  if (!j || j.follow_up_seen_at || !j.hardest_at) return [];
+  if (now.getTime() - new Date(j.hardest_at).getTime() < FOLLOW_UP_AFTER_MS) return [];
+  return JOINING_FOLLOW_UPS.filter((f) => j.hardest.includes(f.key)).map((f) => ({
+    label: HARDEST_OPTIONS.find((o) => o.key === f.key)?.label ?? '',
+    line: f.line,
+  }));
+}
+
+export async function markJoiningFollowUpSeen(): Promise<boolean> {
+  return saveJoining({ follow_up_seen_at: new Date().toISOString() });
 }

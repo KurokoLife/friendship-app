@@ -91,4 +91,8 @@ select 'older than 2 days: let go: ' || (true
 update users set suspended_at = now() where id = '10000000-0000-0000-0000-000000000002';
 insert into messages (connection_id, sender_id, content, type) values ('00000000-0000-0000-0000-00000000cc01', '10000000-0000-0000-0000-000000000001', 'x', 'plan_invite');
 select 'suspended: nothing queued: ' || (not exists (select 1 from notification_outbox where user_id = '10000000-0000-0000-0000-000000000002' and done_at is null)) as result;
+
+-- Copy update (2026-11-16): the support suggestion asks, never guesses
+select 'support notification asks: ' || (_suggestion_notify_line('support', 'Maya') = 'Want to ask Maya how it''s going?'
+  and _suggestion_notify_line('support', 'Maya') !~ 'do you think') as result;
 rollback;

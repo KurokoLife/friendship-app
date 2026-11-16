@@ -30,6 +30,7 @@ import {
   openAsksFrom,
   ordinal,
   saveNote,
+  moveCuriosityToAsk,
   setAsked,
   type NoteFields,
   type RememberMeetup,
@@ -618,7 +619,22 @@ export default function RememberNotesScreen() {
                         className="gap-2 rounded-3xl border border-stone-100 bg-white p-5 dark:border-stone-700/60 dark:bg-stone-800">
                         <Text className="text-caption text-stone-500 dark:text-stone-400">{formatDay(pn.created_at.slice(0, 10))}</Text>
                         <Text className="text-body text-stone-800 dark:text-stone-200">{pn.note}</Text>
-                        <View className="flex-row gap-4">
+                        <View className="flex-row flex-wrap gap-3">
+                          {/* Copy update (2026-11-15): one tap turns the note into a
+                              question in the "Next time" list above. */}
+                          <Pressable
+                            className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600"
+                            onPress={async () => {
+                              if (!myId || !connectionId) return;
+                              try {
+                                await moveCuriosityToAsk({ connectionId, userId: myId, curiosityNoteId: pn.id, text: pn.note });
+                              } catch {
+                                setError("Couldn't move that. Please try again.");
+                              }
+                              await load();
+                            }}>
+                            <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Ask next time</Text>
+                          </Pressable>
                           <Pressable className="min-h-11 flex-row items-center justify-center rounded-full border px-4 active:opacity-70 border-outline dark:border-stone-600" onPress={() => setEditingProfileNote({ id: pn.id, text: pn.note })}>
                             <Text className="text-caption font-semibold text-stone-900 dark:text-stone-50">Edit</Text>
                           </Pressable>

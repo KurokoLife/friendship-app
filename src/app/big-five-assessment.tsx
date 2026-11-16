@@ -123,10 +123,10 @@ export default function HowYouConnectScreen() {
           </Pressable>
 
           <View className="gap-3">
-            <Text className="text-display text-stone-900 dark:text-stone-50">How you connect</Text>
+            <Text className="text-display text-stone-900 dark:text-stone-50">How you make friends</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
               A few questions about how friendships tend to go for you. No right answers. They&apos;re never used to
-              pick who you meet, and at the end you choose whether people you connect with can see some of them.
+              pick who you meet, and at the end you choose whether people you chat with can see some of them.
             </Text>
           </View>
 
@@ -150,7 +150,7 @@ export default function HowYouConnectScreen() {
           ))}
 
           <View className="gap-3 rounded-2xl border border-stone-200 bg-white p-5 dark:border-stone-700 dark:bg-stone-800">
-            <Text className="text-title text-stone-900 dark:text-stone-50">Share with people you connect with?</Text>
+            <Text className="text-title text-stone-900 dark:text-stone-50">Show these to people you chat with?</Text>
             <Text className="text-body text-stone-500 dark:text-stone-400">
               Knowing what feels hard for someone helps the other person make it easier. And people usually see
               this kind of sharing more kindly than the person sharing expects.
@@ -160,7 +160,7 @@ export default function HowYouConnectScreen() {
               anyone else, and never your answers about past friendships. You can change this anytime.
             </Text>
             <View className="gap-2">
-              <OptionRow label="Share with people I connect with" selected={share === true} onPress={() => setShare(true)} />
+              <OptionRow label="Show them to people I chat with" selected={share === true} onPress={() => setShare(true)} />
               <OptionRow label="Keep private" selected={share === false} onPress={() => setShare(false)} />
             </View>
           </View>

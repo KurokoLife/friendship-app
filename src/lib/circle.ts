@@ -52,7 +52,8 @@ export const RHYTHM_LINES: Record<Circle, string> = {
   getting_to_know: "New friendships grow fastest when you're in touch every week or so.",
   close: 'Most people are in touch with their closest friends about once a week.',
   friends: 'Most people catch up with good friends about once a month.',
-  reconnect: 'A check-in tells someone they matter to you.',
+  // Copy update (2026-11-15): the check-in line, about your own act.
+  reconnect: "A check-in is one way to show someone you're thinking of them.",
 };
 
 export function rhythmFits(circle: Circle, rhythm: Rhythm): boolean {

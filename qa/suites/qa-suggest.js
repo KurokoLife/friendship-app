@@ -77,9 +77,10 @@ function dayLabel(addDays) {
   let s = await t();
   check('Due (added 8 days ago, every week): the card shows at the top', /You and Momo haven't been in touch for a while\./.test(s), s.slice(0, 400));
   check('Not due yet (every month, added 3 days ago): not suggested', !/Ken haven't/.test(s));
-  check('Why line, plain', /People enjoy hearing from a friend more than we expect\./.test(s));
-  await p.page.getByText('Why we say this', { exact: true }).click(); await p.page.waitForTimeout(500);
-  check('"Why we say this" shows the source', /Liu, Rim, Min and Min \(2022\)/.test(await t()));
+  // Copy update (2026-11-15): the check-in line, about your own act, no source link.
+  check('Check-in line on the staying-in-touch card', /A check-in is one way to show someone you're thinking of them\./.test(s));
+  check('Old reaction lines are gone', !/People enjoy hearing from a friend more than we expect/.test(s) && !/matter to you/.test(s));
+  check('No "Why we say this" link on the check-in line', !/Why we say this/.test(await cardText()));
   check('Web: "Reach out however you usually do." and "I reached out"', /Reach out however you usually do\./.test(s) && /I reached out/.test(s));
   check('Web: no Text / Call / Email and no contact linking', (await p.page.getByRole('button', { name: 'Text', exact: true }).count()) === 0 && (await p.page.getByRole('button', { name: 'Call', exact: true }).count()) === 0 && !/Link to a contact/.test(s));
   check('Not now and Fewer suggestions are buttons', (await p.page.getByRole('button', { name: 'Not now', exact: true }).count()) > 0 && (await p.page.getByRole('button', { name: 'Fewer suggestions for Momo', exact: true }).count()) > 0);
@@ -88,7 +89,7 @@ function dayLabel(addDays) {
   // I reached out: the next date counts from today.
   await p.page.getByRole('button', { name: 'I reached out', exact: true }).click(); await p.page.waitForTimeout(2000);
   s = await t();
-  check('I reached out: noted, with the why and the next date', /Noted\. A check-in tells someone they matter to you\./.test(s) && s.includes(`Limen will bring Momo up again around ${dayLabel(7)}.`), s.slice(0, 500));
+  check('I reached out: just "Noted." and the next date', /Noted\. Limen will bring Momo up again around/.test(s) && s.includes(`Limen will bring Momo up again around ${dayLabel(7)}.`) && !/A check-in/.test(await cardText()), s.slice(0, 500));
   check('I reached out saves the day for the next date', (await q(`select last_reached_at > now() - interval '1 minute' ok from outside_friends where id = $1`, [momo]))[0].ok);
   await p.page.getByLabel('Suggestion', { exact: true }).getByRole('button', { name: 'Got it', exact: true }).click(); await p.page.waitForTimeout(2500);
   check('Got it puts the card away', !(await cardText()), await cardText());
@@ -182,7 +183,19 @@ function dayLabel(addDays) {
   r = await rpc(ME, 'get_circle_suggestion', { p_tz: 'America/Los_Angeles' });
   check('From your own Next time note: the interest line', r.json && r.json.kind === 'interest' && r.json.detail === 'how the new job is going');
   await go(p.page, '/circle', 3500);
-  check('Card quotes your note', (await t()).includes('You wanted to ask Robert: “how the new job is going”') && /A follow-up question shows you were listening\./.test(await t()));
+  check('Card quotes your note', (await t()).includes('You wanted to ask Robert: “how the new job is going”') && /Only Robert knows how it's going\. You could ask\./.test(await t()));
+  await p.page.getByText('Why we say this', { exact: true }).click(); await p.page.waitForTimeout(500);
+  check('"Why we say this" shows the asking source', /Eyal, Steffel and Epley \(2018\)/.test(await t()));
+  // Copy update (2026-11-15): a Going through note asks, never guesses; no why line.
+  await fresh();
+  await q(`update remember_entries set ask_next_done_at = now() where connection_id = $1 and user_id = $2`, [C, ME]);
+  await q(`insert into remember_entries (connection_id, user_id, raw_text, topics) values ($1,$2,'In the middle of a move', array['going_through'])`, [C, ME]);
+  r = await rpc(ME, 'get_circle_suggestion', { p_tz: 'America/Los_Angeles' });
+  check('From a Going through note: the support line', r.json && r.json.kind === 'support', JSON.stringify(r.json));
+  await go(p.page, '/circle', 3500);
+  s = await cardText();
+  check('Support card asks instead of guessing, no why line', s.includes("You noted this about Robert: “In the middle of a move” Want to ask how it's going?") && !/do you think/.test(s) && !/Why we say this/.test(s), s);
+  await q(`delete from remember_entries where connection_id = $1 and user_id = $2`, [C, ME]);
   // Paused, planned or turned off for that chat: never suggested.
   const check3 = async (label, setup, undo) => {
     await fresh();
@@ -209,7 +222,7 @@ function dayLabel(addDays) {
   s = await t();
   check('After 3 Not nows in 4 weeks: one optional question', /You've put off a few check-ins lately\. What usually gets in the way\?/.test(s) && /A busy stretch/.test(s) && /Not sure what to say/.test(s) && /Worried it'll feel awkward/.test(s) && /The friendship feels different now/.test(s) && /Something else/.test(s), s.slice(0, 600));
   await tap(p.page, 'A busy stretch', { wait: 1500 });
-  check('Each answer gets one line', /Busy stretches pass\. Two lines still count as being in touch\./.test(await t()));
+  check('Each answer gets one line', /Busy stretches happen\. Even a short message counts\./.test(await t()));
   check('The answer is saved privately', (await q(`select answer from circle_pattern_answers where user_id = $1`, [ME]))[0]?.answer === 'busy');
   await go(p.page, '/profile', 3000);
   s = await t();
@@ -246,6 +259,28 @@ function dayLabel(addDays) {
   s = await t();
   check('Person page: I reached out saves, and the next date moves', /Noted\./.test(s) && /Limen will bring Ken up again around /.test(s) && (await q(`select last_reached_at > now() - interval '1 minute' ok from outside_friends where id = $1`, [ken]))[0].ok, s.slice(0, 600));
   check('Limen never stores a number or email for a friend', (await q(`select count(*)::int n from information_schema.columns where table_name = 'outside_friends' and column_name ~ 'phone|email'`))[0].n === 0);
+
+  // ---- Joining follow-ups, once (copy update 2026-11-15) ----------------------------
+  await fresh();
+  await q(`insert into circle_suggestion_settings (user_id, frequency) values ($1, 'off') on conflict (user_id) do update set frequency = 'off'`, [ME]);
+  await q(`insert into joining_answers (user_id, hardest, hardest_at) values ($1, array['not_sure_wanted','always_reaching_out'], now() - interval '2 hours')
+           on conflict (user_id) do update set hardest = excluded.hardest, hardest_at = excluded.hardest_at, follow_up_seen_at = null`, [ME]);
+  await go(p.page, '/circle', 3500);
+  check('Joining follow-up: not on the day of joining', !/would you mind\?/.test(await t()));
+  await q(`update joining_answers set hardest_at = now() - interval '2 days' where user_id = $1`, [ME]);
+  await go(p.page, '/circle', 3500);
+  s = await t();
+  check('Joining follow-up: both lines from the day after', /If a friend got in touch with you, would you mind\?/.test(s) && /If it matters to you, keep reaching out\. You could also ask them how they like to keep in touch\./.test(s), s.slice(0, 700));
+  check('Another person reads none of my joining answers', ((await rest(U.maria, `/joining_answers?select=*&user_id=eq.${ME}`)).json || []).length === 0);
+  await p.page.getByLabel('From when you joined', { exact: true }).getByRole('button', { name: 'Got it', exact: true }).click(); await p.page.waitForTimeout(1500);
+  check('Got it saves it as seen', (await q(`select follow_up_seen_at is not null ok from joining_answers where user_id = $1`, [ME]))[0].ok);
+  await go(p.page, '/circle', 3500);
+  check('Joining follow-up: never again after Got it', !/would you mind\?/.test(await t()));
+  await q(`update joining_answers set hardest = array['meeting_new'], follow_up_seen_at = null where user_id = $1`, [ME]);
+  await go(p.page, '/circle', 3500);
+  check('Joining follow-up: only for people who picked those answers', !/would you mind\?/.test(await t()) && !/keep reaching out/.test(await t()));
+  await q(`delete from joining_answers where user_id = $1`, [ME]);
+  await q(`delete from circle_suggestion_settings where user_id = $1`, [ME]);
 
   // ---- Laptop -------------------------------------------------------------------------
   await fresh();

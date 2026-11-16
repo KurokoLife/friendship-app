@@ -2,7 +2,7 @@
 
 # Product: what's built today and how it looks
 
-Updated 2026-11-15. Beliefs and the test for every feature are in **00 Core**; this file only describes what's built, with one short "why" per part. What's decided but not built yet (including the Nov 15 copy update to several lines below) is in **02 Plan and status**. The app still says "Limen" until the name checks pass.
+Updated 2026-11-16 (copy update built). Beliefs and the test for every feature are in **00 Core**; this file only describes what's built, with one short "why" per part. What's decided but not built yet is in **02 Plan and status**. The app still says "Limen" until the name checks pass.
 
 Detail per area is in the repo: docs/DECISIONS.md and the "LIMEN V2 DECISIONS" bullets in AGENTS.md.
 
@@ -24,13 +24,13 @@ Okage helps adults stay close to people: keep up with the friends they have, rec
 
 ## 3. Joining
 
-Built Oct 26 to 27. (Screen 2 of the intro, Before you start and two follow-up lines change in the Nov 15 copy update; see 02.)
-1. Two intro screens: "Most friendships don't end. They drift." / "Busy weeks, moves, screens. It's easy to lose touch without meaning to." (Next), then "Friendships are made of small moments." / "A quick call. A coffee. Stopping by to say hi. Limen helps you make more of them." with the three ways Limen helps (keep up with the friends you have; reconnect with someone you've lost touch with; meet someone new, one person at a time, in person), "Wherever your friendships are right now, you can start here.", "Join Limen" and "Already a member? Sign in".
+Built Oct 26 to 27; copy update Nov 16.
+1. Two intro screens: "Most friendships don't end. They drift." / "Busy weeks, moves, screens. It's easy to lose touch without meaning to." (Next), then "Friendships are made of small moments." / "A quick call. A coffee. Stopping by to say hi. It's easy to overlook the small things that keep us close." / "We each show we care in our own way, and so do the people around us. They hold us up when we need them, and we try to do the same for them." with the three ways Limen helps (keep up with the friends you have; reconnect with someone you've lost touch with; meet someone new, one person at a time, in person), "Wherever your friendships are right now, you can start here.", "Join Limen" and "Already a member? Sign in".
 2. Phone number and code. 3. Basics: name and birthdate (under 18 turned away; the database refuses it too).
-4. "What's hardest about friendship for you right now?" Pick any of ten, plus Something else in your own words. "So Limen knows where to help first. Only you see this." Never used for matching.
+4. "What's hardest about friendship for you right now?" Pick any of ten, plus Something else in your own words. "So Limen knows where to help first. Only you see this." Never used for matching. Two answers get one line each, once, in Your circle from the day after joining: "Not sure people want to hear from me" → "If a friend got in touch with you, would you mind?"; "I'm usually the one who reaches out" → "If it matters to you, keep reaching out. You could also ask them how they like to keep in touch."
 5. "Think about your friends right now." "Not counting family or a partner: who would you call with good news? Who could you ask for a hand?" Names go straight into Your circle with the circle's default rhythm; "Anyone you've lost touch with but would like to hear from?" goes to Want to reconnect. "Most adults name one to four close friends. None is more common than people think." Skippable.
 6. "Here's where Limen can help. Change anything you like." Filled in from What's hardest.
-7. With "Meet someone new": the profile (Start with you with the liking-gap line at the top; What you enjoy; practical bits; who you'd like to meet and ages; How you connect, 6 private questions then Share / Keep private; photo; Before you start, the ground rules; "Here's what people will see" preview). Without it: no profile, a "Meet someone new, too?" card in Your circle (Not now brings it back about 30 days later; the third Not now ends it), and Discover shows an invitation. They aren't shown to anyone until they finish a profile.
+7. With "Meet someone new": the profile (Start with you with the liking-gap line at the top; What you enjoy; practical bits; who you'd like to meet and ages; How you make friends, 6 private questions then "Show these to people you chat with?"; photo; Before you start, the ground rules (including "If you get something wrong, say sorry."); "Here's what people will see" preview). Without it: no profile, a "Meet someone new, too?" card in Your circle (Not now brings it back about 30 days later; the third Not now ends it), and Discover shows an invitation. They aren't shown to anyone until they finish a profile.
 8. Everyone: Keep your account safe (optional recovery), then All set.
 
 Saved as you go; reopening goes to the first unfinished step. Back on every screen after the first. No step counts, no "Required" labels.
@@ -58,7 +58,7 @@ Saved as you go; reopening goes to the first unfinished step. Back on every scre
   - Friends: every two weeks / every month / every few months. "Most people catch up with good friends about once a month."
   - Want to reconnect: any, including no suggestions.
 - Person page (friends outside Limen): face, name, circle, how often, "Limen will bring Momo up again around Nov 8." (or "...again soon." / "Limen won't bring Momo up on its own."), note, Edit.
-- Suggestions (built Oct 28): one at a time on a honey card at the top, for friends outside Limen and Limen people whose chat both wrote in. Due when the next check-in date comes (last time in touch + rhythm). A plain line ("You and Maya haven't been in touch for a while.") with a why line and a "Why we say this" source. I reached out / Not now (back in about a week) / Fewer suggestions. How often in Settings (a couple of times a week, once a week, every two weeks, none). After 3 Not nows in 4 weeks, one optional "What usually gets in the way?" question; answers shown back privately on You. On the phone app: Text / Call / Email from a linked contact (only which contact is stored). On a computer: "Reach out however you usually do" and "I reached out". The why lines and pattern answers change in the Nov 15 copy update (see 02).
+- Suggestions (built Oct 28): one at a time on a honey card at the top, for friends outside Limen and Limen people whose chat both wrote in. Due when the next check-in date comes (last time in touch + rhythm). A plain line ("You and Maya haven't been in touch for a while.") with, for some kinds, one short line under it: Staying in touch "A check-in is one way to show someone you're thinking of them."; Showing interest "Only Tom knows how it's going. You could ask." (with a "Why we say this" source); Support asks ("Want to ask how it's going?") with no line under it; Positivity has none. I reached out / Not now (back in about a week) / Fewer suggestions. How often in Settings (a couple of times a week, once a week, every two weeks, none). After 3 Not nows in 4 weeks, one optional "What usually gets in the way?" question; answers shown back privately on You. On the phone app: Text / Call / Email from a linked contact (only which contact is stored). On a computer: "Reach out however you usually do" and "I reached out".
 
 *Why:* this is where Okage lives most: noticing the people who are already there. No dates on the list, because a list of "last talked" dates turns into a guilt list.
 
@@ -98,7 +98,7 @@ Saved as you go; reopening goes to the first unfinished step. Back on every scre
 ## 9. Planning a meetup
 
 (Stage 5 will replace most of this; see 02.)
-- "Let's plan something" is one person's private draft: pick ideas (3 suggested plus your own), mark rough times over the next 2 weeks, add an optional note in your own words, then "Send invite". The invite is one chat message. Before a first meetup the sheet shows "Most people are glad to be asked..." (to be removed, see 02).
+- "Let's plan something" is one person's private draft: pick ideas (3 suggested plus your own), mark rough times over the next 2 weeks, add an optional note in your own words, then "Send invite". The invite is one chat message.
 - The other person replies or taps "Pick a time that works". A time the sender offered sets the plan right away.
 - Ideas (`plan-ideas` function, hand-written ideas as a fallback): never romantic, adult, risky or drinking-focused; public before the first meetup; within the stricter of the two people's budget, length and travel, never saying whose.
 - Once agreed: "Add it to your calendar?" (Google / Apple or Outlook / Not now), again whenever the plan changes.
@@ -112,7 +112,7 @@ Saved as you go; reopening goes to the first unfinished step. Back on every scre
 - Day before: "Still on?". Morning of: a private "How are you feeling?" ("Most people feel a bit nervous before meeting someone new. Having one question ready can help." plus your own Next time notes).
 - After: "Did you meet?" asks both. One yes plus a week with no answer counts; a no from either doesn't.
 - "Met up already? Add it" for meetups made outside the app; counts on the other person's yes, or after a week.
-- After a good meetup: "Would you like to tell X how it was for you? Only if you want to." (Tell X / Plan another meetup / Remind me later / Not now). Today it adds "It usually means more to them than people expect." (to be removed, see 02).
+- After a good meetup: "Would you like to tell X how it was for you? Only if you want to." (Tell X / Plan another meetup / Remind me later / Not now). "I'm not sure yet" shows the liking-gap line plus "If you're wondering how it went for them, you can ask."
 
 *Why:* meetups are the real measure of a friendship, and graduation depends on them.
 
@@ -120,6 +120,7 @@ Saved as you go; reopening goes to the first unfinished step. Back on every scre
 
 - No AI, no tab. A private page per person with two tabs, Meetups and Notes, and a "Next time, ask X about..." list at the top.
 - Three optional questions per meetup: "What did you learn about X?", "What did you enjoy?", "Next time, I'd love to ask X...".
+- Notes written on their profile show in Notes; "Ask next time" moves one into the Next time list.
 - "Write something down": one open box, optional topics (Family, Work, Things they love, Going through, Ideas for us).
 - Notes come back after a meetup counts and in the planning card. Notes stay after a chat ends and can be deleted anytime. Export in Settings.
 

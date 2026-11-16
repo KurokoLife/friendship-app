@@ -35,8 +35,14 @@ export default function PhilosophyIntroScreen() {
         ) : (
           <View className="gap-6">
             <Text className="text-display text-stone-900 dark:text-stone-50">Friendships are made of small moments.</Text>
+            {/* Copy update (2026-11-15), the founder's own wording. */}
             <Text className="text-body text-stone-600 dark:text-stone-300">
-              A quick call. A coffee. Stopping by to say hi. Limen helps you make more of them.
+              A quick call. A coffee. Stopping by to say hi. It&apos;s easy to overlook the small things that keep us
+              close.
+            </Text>
+            <Text className="text-body text-stone-600 dark:text-stone-300">
+              We each show we care in our own way, and so do the people around us. They hold us up when we need them,
+              and we try to do the same for them.
             </Text>
             <View className="gap-3">
               {SCREEN_TWO_POINTS.map((p) => (
