@@ -167,7 +167,7 @@ function dayLabel(addDays) {
   await go(p.page, '/circle', 3500);
   s = await t();
   check('A Limen chat quiet for over a week (Getting to know, every week) is suggested', /You and Robert haven't been in touch for a while\./.test(s), s.slice(0, 400));
-  check('A chat where only one person wrote is never suggested', !/David/.test(s.slice(0, 400)));
+  check('A chat where only one person wrote is never suggested', !/David/.test(await cardText()) && /Robert/.test(await cardText()), await cardText());
   check('Limen person: "Open chat" and "I reached out", no "Reach out however"', /Open chat/.test(s) && !/Reach out however you usually do/.test(s.slice(0, 600)));
   await p.page.getByRole('button', { name: 'Open chat', exact: true }).click(); await p.page.waitForTimeout(2500);
   check('Open chat opens their chat', p.page.url().includes(`/thread/${C}`), p.page.url());
